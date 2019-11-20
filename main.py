@@ -23,7 +23,7 @@ def main():
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36',
         'CONCURRENT_REQUESTS': 1,
         'ITEM_PIPELINES': item_pipelines,
-        'DEPTH_LIMIT': 1,
+        'DEPTH_LIMIT': 2,
         'FEED_URI': feed_uri,
         'FEED_EXPORT_FIELDS': ["meta"],
         'CLOSESPIDER_ITEMCOUNT': 2
