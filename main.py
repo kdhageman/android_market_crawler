@@ -3,6 +3,7 @@ import os
 from scrapy.crawler import CrawlerProcess
 
 from spider.fdroid import FDroidSpider
+from spider.slideme import SlideMeSpider
 from spider.tencent import TencentSpider
 
 
@@ -22,7 +23,7 @@ def main():
         'FEED_EXPORT_FIELDS': ["meta"],
     })
 
-    process.crawl(TencentSpider)
+    process.crawl(SlideMeSpider)
     process.start()  # the script will block here until the crawling is finished
 
 
