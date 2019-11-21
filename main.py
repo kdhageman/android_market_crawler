@@ -3,6 +3,7 @@ import os
 from scrapy.crawler import CrawlerProcess
 
 from spider.fdroid import FDroidSpider
+from spider.mi import MiSpider
 from spider.slideme import SlideMeSpider
 from spider.tencent import TencentSpider
 
@@ -21,9 +22,10 @@ def main():
         'DEPTH_LIMIT': 2,
         'FEED_URI': feed_uri,
         'FEED_EXPORT_FIELDS': ["meta"],
+        'CLOSESPIDER_ITEMCOUNT': 2
     })
 
-    process.crawl(SlideMeSpider)
+    process.crawl(MiSpider)
     process.start()  # the script will block here until the crawling is finished
 
 
