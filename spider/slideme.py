@@ -10,7 +10,8 @@ class SlideMeSpider(scrapy.Spider):
         next_page = response.css("li.pager-next").css("a::attr(href)").get()
         if next_page:
             full_url = response.urljoin(next_page)
-            yield scrapy.Request(full_url, callback=self.parse) # TODO: is pagination sufficient or should we follow similar apps too ?
+            yield scrapy.Request(full_url,
+                                 callback=self.parse)  # TODO: is pagination sufficient or should we follow similar apps too ?
 
         # find links to other apps
         app_links = response.css("#content").css("div.node.node-mobileapp").css("h2").css("a::attr(href)").getall()
@@ -21,10 +22,17 @@ class SlideMeSpider(scrapy.Spider):
     def parse_pkg_page(self, response):
         meta = {}
 
-        meta["app_name"] = response.css("h1.title::text").get().strip()
-        meta["app_description"] = "\n".join(response.css("#content").css("p::text").getall()) # TODO: exclude review
+        title = response.css("h1.title")
+
+        meta["app_name"] = title.css("::text").get().strip()
+        meta["version"] = title.css("span.version::text").get()
+        meta["app_description"] = "\n".join(response.xpath(
+            "//div[@id='content']/div[contains(@class, 'node-mobileapp')]/div[contains(@class, 'content')]/p//text()").getall())
         meta["developer"] = response.css("div.submitted").css("a::text").get().strip()
-        meta["privacy_policy"] = "\n".join(response.css("fieldset.fieldgroup.group-license").css("p::text").getall()) # TODO: more sophisticated way of parsing the text
+        meta["terms"] = "\n".join(response.xpath(
+            "//fieldset[contains(@class, 'group-license')]/div[contains(@class, 'field-field-terms')]//text()").getall())
+        meta["privacy_policy"] = "\n".join(response.xpath(
+            "//fieldset[contains(@class, 'group-license')]/div[contains(@class, 'field-field-privacy-policy')]//text()").getall())
 
         res = dict(
             meta=meta,
