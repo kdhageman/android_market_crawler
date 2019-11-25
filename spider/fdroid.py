@@ -23,9 +23,9 @@ class FDroidSpider(scrapy.Spider):
         # links to packages
         for link in response.css("a.package-header::attr(href)").getall():
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            yield scrapy.Request(next_page, callback=self.parge_pkg_page)  # add URL to set of URLs to crawl
+            yield scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
 
-    def parge_pkg_page(self, response):
+    def parse_pkg_page(self, response):
         """
         Crawls the page of a single app
         :param response:
