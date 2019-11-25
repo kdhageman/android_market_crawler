@@ -8,6 +8,7 @@ from spider.huawei import HuaweiSpider
 from spider.mi import MiSpider
 from spider.slideme import SlideMeSpider
 from spider.tencent import TencentSpider
+from spider.threesixty import ThreeSixtySpider
 
 
 def main():
@@ -27,7 +28,7 @@ def main():
         'CLOSESPIDER_ITEMCOUNT': 2
     })
 
-    process.crawl(ApkMonkSpider)
+    process.crawl(ThreeSixtySpider)
     process.start()  # the script will block here until the crawling is finished
 
 
