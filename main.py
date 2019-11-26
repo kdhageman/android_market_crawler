@@ -44,7 +44,20 @@ def main():
         APK_OUTDIR=outdir
     ))
 
-    process.crawl(SlideMeSpider)
+    spiders = [
+        ApkMirrorSpider,
+        ApkMonkSpider,
+        BaiduSpider,
+        FDroidSpider,
+        HuaweiSpider,
+        MiSpider,
+        SlideMeSpider,
+        TencentSpider,
+        ThreeSixtySpider
+    ]
+
+    for spider in spiders:
+        process.crawl(spider)
     process.start()  # the script will block here until the crawling is finished
 
 
