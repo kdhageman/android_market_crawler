@@ -14,7 +14,7 @@ class ApkMonkSpider(scrapy.Spider):
 
     def parse(self, response):
         """
-        Crawls the pages with the paginated list of apps
+        Crawls the homepage for apps
         :param response:
         :return:
         """

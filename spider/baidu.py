@@ -11,7 +11,7 @@ class BaiduSpider(scrapy.Spider):
 
     def parse(self, response):
         """
-        Crawls the pages with the paginated list of apps
+        Crawls the homepage for apps
         Example URL: http://as.baidu.com/
 
         Args:

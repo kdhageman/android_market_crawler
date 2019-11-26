@@ -31,26 +31,21 @@ class FDroidSpider(scrapy.Spider):
         :param response:
         :return:
         """
-        app_name = response.css("h3.package-name::text").get().strip()
-        app_summary = response.css("div.package-summary::text").get().strip()
-        app_description = "\n".join(response.css("div.package-description::text").getall()).strip()
+        meta = dict()
+        meta['app_name'] = response.css("h3.package-name::text").get().strip()
+        meta['app_summary'] = response.css("div.package-summary::text").get().strip()
+        meta['app_description'] = "\n".join(response.css("div.package-description::text").getall()).strip()
 
-        pkg_name = "undefined"
         m = re.search(pkg_pattern, response.url)
         if m:
-            pkg_name = m.group(1)
+            meta['pkg_name'] = m.group(1)
 
         res = dict(
-            meta=dict(
-                pkg_name=pkg_name,
-                app_name=app_name,
-                app_summary=app_summary,
-                app_description=app_description
-            ),
-            download_urls=[],
+            meta=meta,
+            download_urls=[]
         )
 
-        for dl_link in response.css("p.package-version-download").css("b").css("a::attr(href)").getall():
+        for dl_link in response.css("p.package-version-download b a::attr(href)").getall():
             res["download_urls"].append(dl_link)
 
         return res

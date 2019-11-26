@@ -1,5 +1,7 @@
+import argparse
 import os
 
+import yaml
 from scrapy.crawler import CrawlerProcess
 
 from spider.apkmonk import ApkMonkSpider
@@ -14,8 +16,16 @@ from spider.threesixty import ThreeSixtySpider
 
 
 def main():
+    # parse CLI arguments
+    parser = argparse.ArgumentParser(description='Android APK market crawler')
+    parser.add_argument("--config", default="config/config.template.yml", help="Path to YAML configuration file")
+    args = parser.parse_args()
+
+    with open(args.config) as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+
     item_pipelines = {
-        # 'spider.pipeline.DownloadApksPipeline': 100
+        'spider.pipeline.DownloadApksPipeline': 100
     }
 
     feed_uri = f"file://{os.path.join(os.getcwd(), 'meta.csv')}"
@@ -27,7 +37,9 @@ def main():
         'DEPTH_LIMIT': 2,
         'FEED_URI': feed_uri,
         'FEED_EXPORT_FIELDS': ["meta"],
-        'CLOSESPIDER_ITEMCOUNT': 2
+        'CLOSESPIDER_ITEMCOUNT': 2,
+        # custom settings
+        'APK_OUTDIR': conf['outdir']
     })
 
     process.crawl(BaiduSpider)

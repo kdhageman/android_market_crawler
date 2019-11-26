@@ -15,18 +15,11 @@ class TencentSpider(scrapy.Spider):
                 css("a::attr(href)"). \
                 re("../myapp/detail.htm\?apkName=.*"):
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            yield scrapy.Request(next_page, callback=self.parge_pkg_page)  # add URL to set of URLs to crawl
+            yield scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
 
-    def parge_pkg_page(self, response):
+    def parse_pkg_page(self, response):
         # find meta data
-        meta = dict(
-            pkg_name="",
-            app_name="",
-            app_description="",
-            version="",
-            publish_time="",
-            developer_name=""
-        )
+        meta = dict()
 
         divs = response.css("div.det-othinfo-container").css("div.det-othinfo-data")
 

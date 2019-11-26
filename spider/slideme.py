@@ -28,7 +28,7 @@ class SlideMeSpider(scrapy.Spider):
         meta["version"] = title.css("span.version::text").get()
         meta["app_description"] = "\n".join(response.xpath(
             "//div[@id='content']/div[contains(@class, 'node-mobileapp')]/div[contains(@class, 'content')]/p//text()").getall())
-        meta["developer"] = response.css("div.submitted").css("a::text").get().strip()
+        meta["developer_name"] = response.css("div.submitted").css("a::text").get().strip()
         meta["terms"] = "\n".join(response.xpath(
             "//fieldset[contains(@class, 'group-license')]/div[contains(@class, 'field-field-terms')]//text()").getall())
         meta["privacy_policy"] = "\n".join(response.xpath(
