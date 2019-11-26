@@ -11,8 +11,9 @@ class FDroidSpider(scrapy.Spider):
     def parse(self, response):
         """
         Crawls the pages with the paginated list of apps
-        :param response:
-        :return:
+
+        Args:
+            response: scrapy.Response
         """
         # follow pagination
         a_to_next = response.css("li.nav.next").css("a")
@@ -28,24 +29,34 @@ class FDroidSpider(scrapy.Spider):
     def parse_pkg_page(self, response):
         """
         Crawls the page of a single app
-        :param response:
-        :return:
+
+        Args:
+            response: scrapy.Response
         """
         meta = dict()
         meta['app_name'] = response.css("h3.package-name::text").get().strip()
         meta['app_summary'] = response.css("div.package-summary::text").get().strip()
-        meta['app_description'] = "\n".join(response.css("div.package-description::text").getall()).strip()
+        meta['app_description'] = "\n".join(response.css("div.package-description::text").getall())
 
         m = re.search(pkg_pattern, response.url)
         if m:
             meta['pkg_name'] = m.group(1)
 
+        versions = dict()
+
+        package_versions = response.css("li.package-version")
+        for pv in package_versions:
+            version = pv.css("div.package-version-header a::attr(name)").get()
+            added_on = pv.css("div.package-version-header::text")[3].re(".*Added on (.*)")
+            dl_link = pv.css("p.package-version-download b a::attr(href)").get()
+
+            versions[version] = dict(
+                date=added_on[0] if added_on else '',
+                dl_link=dl_link
+            )
         res = dict(
             meta=meta,
-            download_urls=[]
+            versions=versions
         )
-
-        for dl_link in response.css("p.package-version-download b a::attr(href)").getall():
-            res["download_urls"].append(dl_link)
 
         return res
