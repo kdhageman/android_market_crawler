@@ -3,6 +3,7 @@ import re
 import scrapy
 
 dl_pattern = "zhytools.downloadApp\((.*)\);"
+id_pattern = "https://appstore\.huawei\.com/app/(.*)"
 
 
 class HuaweiSpider(scrapy.Spider):
@@ -10,6 +11,13 @@ class HuaweiSpider(scrapy.Spider):
     start_urls = ['https://appstore.huawei.com/']
 
     def parse(self, response):
+        """
+        Parses the front page
+        Example URL: https://appstore.huawei.com/
+
+        Args:
+           response: scrapy.Response
+        """
         # find links to packages
         pkg_links = []
 
@@ -26,6 +34,13 @@ class HuaweiSpider(scrapy.Spider):
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
 
     def parse_pkg_page(self, response):
+        """
+        Parses the page of a package
+        Example URL:
+
+        Args:
+            response: scrapy.Response
+        """
         # meta data
         meta = dict()
 
@@ -34,6 +49,10 @@ class HuaweiSpider(scrapy.Spider):
 
         more_info = app_info[1].css("li.ul-li-detail > span::text").getall()
         meta["developer_name"] = more_info[2]
+
+        m = re.search(id_pattern, response.url)
+        if m:
+            meta['id'] = m.group(1)
 
         app_description = "\n".join(response.css("#app_strdesc::text").getall()) + "\n"
         app_description += "\n".join(response.css("#app_desc::text").getall())

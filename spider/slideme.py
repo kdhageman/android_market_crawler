@@ -1,5 +1,8 @@
+import re
+
 import scrapy
 
+id_pattern = "http://slideme\.org/application/(.*)"
 
 class SlideMeSpider(scrapy.Spider):
     name = "slideme_spider"
@@ -47,6 +50,9 @@ class SlideMeSpider(scrapy.Spider):
             "//fieldset[contains(@class, 'group-license')]/div[contains(@class, 'field-field-terms')]//text()").getall())
         meta["privacy_policy"] = "\n".join(response.xpath(
             "//fieldset[contains(@class, 'group-license')]/div[contains(@class, 'field-field-privacy-policy')]//text()").getall())
+        m = re.search(id_pattern, response.url)
+        if m:
+            meta['id'] = m.group(1)
 
         # versions
         versions = dict()
