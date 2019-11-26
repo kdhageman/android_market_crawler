@@ -12,8 +12,11 @@ class ThreeSixtySpider(scrapy.Spider):
 
     def parse(self, response):
         """
-        Crawls the pages with the paginated list of apps
-        :param response:
+        Crawls the homepage for apps
+        Example URL: http://zhushou.360.cn
+
+        Args:
+            response: scrapy.Response
         :return:
         """
         # TODO: use JSON API for discovering apps
@@ -28,8 +31,10 @@ class ThreeSixtySpider(scrapy.Spider):
     def parse_pkg_page(self, response):
         """
         Crawls the page of a single app
-        :param response:
-        :return:
+        Example URL: http://zhushou.360.cn/detail/index/soft_id/3947500
+
+        Args:
+            response: scrapy.Response
         """
         # meta data
         meta = dict()
@@ -44,21 +49,27 @@ class ThreeSixtySpider(scrapy.Spider):
 
         info_table = response.css("div.base-info > table")
         meta['developer_name'] = info_table.css("tr")[0].css("td::text")[0].get()
-        meta['updated'] = info_table.css("tr")[0].css("td::text")[1].get()
-        meta['version'] = info_table.css("tr")[1].css("td::text")[0].get()
         meta['language'] = info_table.css("tr")[2].css("td::text")[0].get()
         meta['app_description'] = "\n".join(response.css("div.breif::text").getall()).strip() # TODO: remove 'update content'
 
-        res = dict(
-            meta=meta,
-            download_urls=[],
-        )
+
         # TODO: links to other packages
 
         # find download link
+        versions = dict()
+        date = info_table.css("tr")[0].css("td::text")[1].get()
+        version = info_table.css("tr")[1].css("td::text")[0].get()
         dl_ref = response.css("a.js-downLog::attr(href)").get()
-        if dl_ref:
-            dl_link = urllib.parse.parse_qs(dl_ref)['url'][0]
-            res['download_urls'].append(dl_link)
+        dl_link = urllib.parse.parse_qs(dl_ref)['url'][0]
+
+        versions[version] = dict(
+            date=date,
+            dl_link=dl_link
+        )
+
+        res = dict(
+            meta=meta,
+            versions=versions
+        )
 
         return res

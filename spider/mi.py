@@ -10,9 +10,11 @@ class MiSpider(scrapy.Spider):
 
     def parse(self, response):
         """
-        Crawls the pages with the paginated list of apps
-        :param response:
-        :return:
+        Crawls the homepage for apps
+        Example URL: http://app.mi.com/
+
+        Args:
+            response: scrapy.Response
         """
         # links to package pages
 
@@ -36,8 +38,12 @@ class MiSpider(scrapy.Spider):
     def parse_pkg_page(self, response):
         """
         Crawls the page of a single app
-        :param response:
-        :return:
+        Example URL: http://app.mi.com/details?id=com.tencent.tmgp.jx3m
+
+        details preventDefault
+
+        Args:
+            response: scrapy.Response
         """
         meta = dict()
 
@@ -51,9 +57,16 @@ class MiSpider(scrapy.Spider):
         app_text = response.css("div.app-text")
         meta["app_description"] = "\n".join(app_text.css("p")[0].css("::text").getall())
 
-        res = dict(
-            meta=meta,
-            download_urls=[]
+        # find download link
+        versions=dict()
+        details = response.css("div.details ul.cf li:not(.weight-font)::text").getall()
+        version, date = details[1:3]
+        dl_link = response.css("a.download::attr(href)").get()
+        full_url = response.urljoin(dl_link)
+
+        versions[version] = dict(
+            date=date,
+            dl_link=full_url
         )
 
         # links to package pages
@@ -61,10 +74,9 @@ class MiSpider(scrapy.Spider):
             full_url = response.urljoin(link)
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
 
-        # find download link
-        dl_link = response.css("a.download::attr(href)").get()
-        if dl_link:
-            full_url = response.urljoin(dl_link)
-            res['download_urls'].append(full_url)
+        res = dict(
+            meta=meta,
+            versions=versions
+        )
 
         return res
