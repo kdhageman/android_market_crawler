@@ -72,29 +72,29 @@ class ApkMirrorSpider(scrapy.Spider):
         meta['app_description'] = "\n".join(response.css("#description.tab-pane div.notes *::text").getall()).strip()
 
         appspecs = response.css("#file div.appspec-row div.appspec-value")
-        meta["version"] = appspecs[0].css("::text").getall()[0]
         m = appspecs[0].css("::text")[2].re("Package: (.*)")
-        if m:
-            meta["pkg_name"] = m[0]
+        meta["pkg_name"] = m[0] if m else None
+
+        m = appspecs[-1].css("::text").re(" by (.*)")
+        meta['uploader'] = m[0] if m else None
+
+        # find download link
+        versions = dict()
+        date = appspecs[-1].css("span::text").get()
         m = appspecs[0].css("::text")[0].re("Version: (.*)")
-        if m:
-            meta["version"] = m[0]
-        meta["uploaded"] = appspecs[-1].css("span::text").get()
-        uploader = appspecs[-1].css("::text").re(" by (.*)")
-        if uploader:
-            meta['uploader'] = uploader
+        version = m[0] if m else "undefined"
+        dl = response.css("a.downloadButton::attr(href)").get()
+        full_url = response.urljoin(dl)
+
+        versions[version] = dict(
+            date=date,
+            dl_link=full_url
+        )
 
         res = dict(
             meta=meta,
-            download_urls=[]
+            versions=versions
         )
-
-        # find download link
-        dl = response.css("a.downloadButton::attr(href)").get()
-
-        if dl:
-            full_url = response.urljoin(dl)
-            res["download_urls"].append(full_url)
 
         return res
 
