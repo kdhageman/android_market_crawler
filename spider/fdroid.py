@@ -54,6 +54,7 @@ class FDroidSpider(scrapy.Spider):
                 date=added_on[0] if added_on else '',
                 dl_link=dl_link
             )
+
         res = dict(
             meta=meta,
             versions=versions

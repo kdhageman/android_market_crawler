@@ -3,6 +3,7 @@ import re
 import scrapy
 
 version_pattern = '版本: (.*)'
+id_pattern = "http://as\.baidu\.com/(.*?)/(.*)\.html"
 
 
 class BaiduSpider(scrapy.Spider):
@@ -34,19 +35,23 @@ class BaiduSpider(scrapy.Spider):
         meta['app_name'] = yui3.css("div.intro-top h1.app-name > span::text").get()
         meta['app_description'] = "\n".join(yui3.css("div.section-container.introduction div.brief-long p::text").getall())
 
+        m = re.search(id_pattern, response.url)
+        if m:
+            meta["id"] = f"{m.group(1)}-{m.group(2)}"
+
+        versions = dict()
         m = re.search(version_pattern, yui3.css("span.version::text").get())
         if m:
-            meta["version"] = m.group(1)
+            version = m.group(1)
+            dl_link = yui3.css("a.apk::attr(href)").get()
+            versions[version] = dict(
+                dl_link=dl_link
+            )
 
         res = dict(
             meta=meta,
-            download_urls=[]
+            versions=versions
         )
-
-        # find download link
-        dl_link = yui3.css("a.apk::attr(href)").get()
-        if dl_link:
-            res['download_urls'].append(dl_link)
 
         # apps you might like
         for pkg_link in response.css("div.sec-favourite div.app-bda.app-box::attr(href)").getall():
