@@ -4,6 +4,7 @@ from scrapy.crawler import CrawlerProcess
 
 from spider.apkmonk import ApkMonkSpider
 from spider.apkmirror import ApkMirrorSpider
+from spider.baidu import BaiduSpider
 from spider.fdroid import FDroidSpider
 from spider.huawei import HuaweiSpider
 from spider.mi import MiSpider
@@ -29,7 +30,7 @@ def main():
         'CLOSESPIDER_ITEMCOUNT': 2
     })
 
-    process.crawl(ApkMirrorSpider)
+    process.crawl(BaiduSpider)
     process.start()  # the script will block here until the crawling is finished
 
 
