@@ -10,6 +10,13 @@ class TencentSpider(scrapy.Spider):
     start_urls = ['https://android.myapp.com/']
 
     def parse(self, response):
+        """
+        Parses the front page for packages
+        Example URL: https://android.myapp.com/
+
+        Args:
+            response: scrapy.Response
+        """
         # find links to other apps
         for link in response. \
                 css("a::attr(href)"). \
@@ -18,18 +25,19 @@ class TencentSpider(scrapy.Spider):
             yield scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
 
     def parse_pkg_page(self, response):
+        """
+        Parses the page of a single package
+        Example URL: https://android.myapp.com/myapp/detail.htm?apkName=ctrip.android.view
+
+        Args:
+            response: scrapy.Response
+        """
         # find meta data
         meta = dict()
 
-        divs = response.css("div.det-othinfo-container").css("div.det-othinfo-data")
+        divs = response.css("div.det-othinfo-container div.det-othinfo-data")
 
-        if len(divs) == 4:
-            meta['version'] = divs[0].css("::text").get()
-            meta['publish_time'] = divs[1].attrib['data-apkpublishtime']
-            meta['developer_name'] = divs[2].css("::text").get()
-        else:
-            print("failed to find part of metadata")
-
+        meta['developer_name'] = divs[2].css("::text").get()
         meta['app_name'] = response.css("div.det-name-int::text").get()
         meta['app_description'] = response.css("div.det-app-data-info::text").get()
 
@@ -37,13 +45,20 @@ class TencentSpider(scrapy.Spider):
         if m:
             meta['pkg_name'] = m.group(1)
 
-        res = dict(
-            meta=meta,
-            download_urls=[]
+        # find download button(s)
+        versions = dict()
+        version = divs[0].css("::text").get()
+        dl_link = response.css("a::attr(data-apkurl)").get()
+        date = divs[1].attrib['data-apkpublishtime'] # as unix timestamp
+
+        versions[version] = dict(
+            date=date,
+            dl_link=dl_link
         )
 
-        # find download button(s)
-        for dl_link in response.css("a::attr(data-apkurl)").getall():
-            res["download_urls"].append(dl_link)
+        res = dict(
+            meta=meta,
+            versions=versions
+        )
 
         return res
