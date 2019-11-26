@@ -1,8 +1,20 @@
 import os
 import re
+import time
 
 import requests
 
+class AddMetaPipeline:
+    def process_item(self, item, spider):
+        """
+        Adds a timestamp/market name to the meta data in the item
+        """
+        res = item
+        res['meta']['timestamp'] = int(time.time())
+        market = market_from_spider(spider)
+        res['meta']['market'] = market
+
+        return res
 
 class DownloadApksPipeline:
     """
@@ -28,15 +40,11 @@ class DownloadApksPipeline:
             spider: spider that crawled the market
         """
         meta = item['meta']
-        version = meta['version']
         identifier = get_identifier(meta)
-        market = spider.name
-        m = re.search("(.*)_spider", market)
-        if m:
-            market = m.group(1)
+        market = market_from_spider(spider)
 
-        for url in item.get("download_urls", []):
-            r = requests.get(url, allow_redirects=True)
+        for version, values in item['versions'].items():
+            r = requests.get(values['dl_link'], allow_redirects=True)
             if r.status_code == 200:
                 apk = r.content
 
@@ -65,3 +73,10 @@ def get_identifier(meta):
         return meta['id']
     else:
         raise Exception('cannot find identifier for app')
+
+def market_from_spider(spider):
+    market = spider.name
+    m = re.search("(.*)_spider", market)
+    if m:
+        market = m.group(1)
+    return market

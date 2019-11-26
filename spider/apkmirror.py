@@ -2,6 +2,7 @@ import scrapy
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
+# TODO: deal with ordered requests (https://stackoverflow.com/a/16177544/12096194)
 
 class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
