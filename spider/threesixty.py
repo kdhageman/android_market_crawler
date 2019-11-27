@@ -3,6 +3,8 @@ import urllib
 
 import scrapy
 
+from spider.item import Meta
+
 download_count_pattern = "下载：(.*)"
 id_pattern = "http://zhushou\.360\.cn/detail/index/soft_id/(\d+)"
 
@@ -67,9 +69,9 @@ class ThreeSixtySpider(scrapy.Spider):
             dl_link=dl_link
         )
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
 
-        return res
+        yield res

@@ -1,6 +1,8 @@
 import scrapy
 import re
 
+from spider.item import Meta
+
 pkg_pattern = "http://app\.mi\.com/details\?id=(.*)"
 
 
@@ -74,9 +76,9 @@ class MiSpider(scrapy.Spider):
             full_url = response.urljoin(link)
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
 
-        return res
+        yield res

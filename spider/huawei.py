@@ -2,6 +2,8 @@ import re
 
 import scrapy
 
+from spider.item import Meta
+
 dl_pattern = "zhytools.downloadApp\((.*)\);"
 id_pattern = "https://appstore\.huawei\.com/app/(.*)"
 
@@ -71,7 +73,7 @@ class HuaweiSpider(scrapy.Spider):
             dl_link=dl_link
         )
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
@@ -81,4 +83,4 @@ class HuaweiSpider(scrapy.Spider):
             full_url = response.urljoin(pkg_link)
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
 
-        return res
+        yield res

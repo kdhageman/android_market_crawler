@@ -4,17 +4,62 @@ import time
 
 import requests
 
+from spider.item import PackageName, Meta
+
+
+class PackageNamePipeline:
+    def __init__(self, outfile):
+        self.outfile = outfile
+        self.f = None
+        self.seen = None
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            outfile=crawler.settings.get('PKG_NAME_OUTFILE')
+        )
+
+    def open_spider(self, spider):
+        # fill set of seen packages
+        self.seen = set()
+        if os.path.exists(self.outfile):
+            with open(self.outfile, 'r') as f:
+                for l in f.readlines():
+                    self.seen.add(l.strip())
+
+        # open file for further appending
+        self.f = open(self.outfile, 'a+')
+
+    def process_item(self, item, spider):
+        if not isinstance(item, PackageName):
+            return item
+
+        pkg_name = item['name']
+        if not pkg_name in self.seen:
+            self.f.write(f"{pkg_name }\n")
+            self.seen.add(pkg_name)
+
+        return item
+
+    def close_spider(self, spider):
+        self.f.close()
+
+
 class AddMetaPipeline:
     def process_item(self, item, spider):
         """
         Adds a timestamp/market name to the meta data in the item
         """
+        if not isinstance(item, Meta):
+            return item
+
         res = item
         res['meta']['timestamp'] = int(time.time())
         market = market_from_spider(spider)
         res['meta']['market'] = market
 
         return res
+
 
 class DownloadApksPipeline:
     """
@@ -39,6 +84,9 @@ class DownloadApksPipeline:
             item: dict of download URLs and store meta data
             spider: spider that crawled the market
         """
+        if not isinstance(item, Meta):
+            return item
+
         meta = item['meta']
         identifier = get_identifier(meta)
         market = market_from_spider(spider)
@@ -73,6 +121,7 @@ def get_identifier(meta):
         return meta['id']
     else:
         raise Exception('cannot find identifier for app')
+
 
 def market_from_spider(spider):
     market = spider.name

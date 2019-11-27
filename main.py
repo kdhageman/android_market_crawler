@@ -8,6 +8,7 @@ from spider.apkmonk import ApkMonkSpider
 from spider.apkmirror import ApkMirrorSpider
 from spider.baidu import BaiduSpider
 from spider.fdroid import FDroidSpider
+from spider.gplay import GooglePlaySpider
 from spider.huawei import HuaweiSpider
 from spider.mi import MiSpider
 from spider.slideme import SlideMeSpider
@@ -26,11 +27,13 @@ def main():
 
     item_pipelines = {
         'spider.pipeline.AddMetaPipeline': 100,
-        'spider.pipeline.DownloadApksPipeline': 200
+        'spider.pipeline.DownloadApksPipeline': 200,
+        'spider.pipeline.PackageNamePipeline': 300
     }
 
-    feed_uri = f"file://{os.path.join(os.getcwd(), 'meta.csv')}"
-    outdir = conf['outdir']
+    feed_uri = f"file://{os.path.join(os.getcwd(), conf.get('meta_outfile', 'meta.csv'))}"
+    outdir = conf.get('outdir', "/tmp/crawl")
+    pkg_outfile = conf.get('pkg_outfile', "./packages.csv")
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -68,12 +71,13 @@ def main():
         USER_AGENTS=user_agents,
         CONCURRENT_REQUESTS=1,
         ITEM_PIPELINES=item_pipelines,
-        DEPTH_LIMIT=1,
+        DEPTH_LIMIT=2,
         FEED_URI=feed_uri,
         FEED_EXPORT_FIELDS=["meta"],
         CLOSESPIDER_ITEMCOUNT=2,
         # custom settings
-        APK_OUTDIR=outdir
+        APK_OUTDIR=outdir,
+        PKG_NAME_OUTFILE=pkg_outfile
     ))
 
     spiders = [
@@ -85,7 +89,8 @@ def main():
         MiSpider,
         SlideMeSpider,
         TencentSpider,
-        ThreeSixtySpider
+        ThreeSixtySpider,
+        GooglePlaySpider
     ]
 
     for spider in spiders:

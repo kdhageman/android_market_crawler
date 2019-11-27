@@ -2,6 +2,8 @@ import re
 
 import scrapy
 
+from spider.item import Meta
+
 id_pattern = "http://slideme\.org/application/(.*)"
 
 class SlideMeSpider(scrapy.Spider):
@@ -65,9 +67,9 @@ class SlideMeSpider(scrapy.Spider):
             dl_link=full_url
         )
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
 
-        return res
+        yield res
