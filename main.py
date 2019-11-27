@@ -80,6 +80,8 @@ def main(cnf):
         CONCURRENT_REQUESTS=concurrent_requests,
         DEPTH_LIMIT=depth_limit,
         CLOSESPIDER_ITEMCOUNT=item_count,
+        AUTOTHROTTLE_ENABLED=True,
+        AUTOTHROTTLE_START_DELAY=1,
         # custom settings
         APK_OUTDIR=outdir,
         APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
