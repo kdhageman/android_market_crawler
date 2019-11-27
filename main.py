@@ -40,6 +40,7 @@ def main(cnf):
     log_level = cnf.get("log_level", "INFO")
     if log_level not in LOG_LEVELS:
         log_level = "INFO" # default to INFO log level
+    jobdir = cnf.get("jobdir", "./jobdir")
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -82,6 +83,7 @@ def main(cnf):
         CLOSESPIDER_ITEMCOUNT=item_count,
         AUTOTHROTTLE_ENABLED=True,
         AUTOTHROTTLE_START_DELAY=1,
+        JOBDIR=jobdir,
         # custom settings
         APK_OUTDIR=outdir,
         APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
