@@ -1,5 +1,7 @@
 import scrapy
 
+from spider.item import Meta
+
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
 # TODO: deal with ordered requests (https://stackoverflow.com/a/16177544/12096194)
@@ -92,12 +94,12 @@ class ApkMirrorSpider(scrapy.Spider):
             dl_link=full_url
         )
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
 
-        return res
+        yield res
 
     def parse_versions_page(self, response):
         """

@@ -2,6 +2,8 @@ import re
 
 import scrapy
 
+from spider.item import Meta
+
 version_pattern = '版本: (.*)'
 id_pattern = "http://as\.baidu\.com/(.*?)/(.*)\.html"
 
@@ -48,7 +50,7 @@ class BaiduSpider(scrapy.Spider):
                 dl_link=dl_link
             )
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
@@ -58,4 +60,4 @@ class BaiduSpider(scrapy.Spider):
             full_url = response.urljoin(pkg_link )
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
 
-        return res
+        yield res

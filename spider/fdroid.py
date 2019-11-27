@@ -1,6 +1,8 @@
 import scrapy
 import re
 
+from spider.item import Meta
+
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
 
@@ -55,9 +57,9 @@ class FDroidSpider(scrapy.Spider):
                 dl_link=dl_link
             )
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
 
-        return res
+        yield res

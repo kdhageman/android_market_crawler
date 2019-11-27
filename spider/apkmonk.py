@@ -4,6 +4,7 @@ import re
 import requests
 import scrapy
 
+from spider.item import Meta
 from spider.util import version_name
 
 url_pattern = "/download-app/(.*)/(.*)/"
@@ -71,9 +72,9 @@ class ApkMonkSpider(scrapy.Spider):
                     dl_link=dl_url
                 )
 
-        res = dict(
+        res = Meta(
             meta=meta,
             versions=versions
         )
 
-        return res
+        yield res
