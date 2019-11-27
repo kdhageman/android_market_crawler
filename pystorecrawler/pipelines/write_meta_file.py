@@ -38,7 +38,7 @@ class WriteMetaFilePipeline:
 
         os.makedirs(os.path.dirname(fpath), exist_ok=True) # ensure directories exist
 
-        with open(fpath, "w") as f:
+        with open(fpath, "a+") as f:
             jsonstr = json.dumps(dict(item))
             f.write(jsonstr)
 

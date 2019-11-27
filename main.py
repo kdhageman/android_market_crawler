@@ -67,23 +67,21 @@ def main(cnf):
         CLOSESPIDER_ITEMCOUNT=1,
         # custom settings
         APK_OUTDIR=outdir,
-        # APK_DOWNLOAD_TIMEOUT=50 * 1000,  # 1 minute timeout (in milliseconds)
-        APK_DOWNLOAD_TIMEOUT=0,
+        APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
         PKG_NAME_OUTFILE=pkg_outfile
     ))
 
     spiders = [
-        # ApkMirrorSpider,
-        # ApkMonkSpider,
-        # BaiduSpider,
-        # BaiduSpider
-        # FDroidSpider,
+        ApkMirrorSpider,
+        ApkMonkSpider,
+        BaiduSpider,
+        FDroidSpider,
         HuaweiSpider,
-        # MiSpider,
-        # SlideMeSpider,
-        # TencentSpider,
-        # ThreeSixtySpider,
-        # GooglePlaySpider
+        MiSpider,
+        SlideMeSpider,
+        TencentSpider,
+        ThreeSixtySpider,
+        GooglePlaySpider
     ]
 
     for spider in spiders:
