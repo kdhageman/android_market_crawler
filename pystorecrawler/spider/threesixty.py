@@ -3,7 +3,7 @@ import urllib
 
 import scrapy
 
-from spider.item import Meta
+from pystorecrawler.item import Meta
 
 download_count_pattern = "下载：(.*)"
 id_pattern = "http://zhushou\.360\.cn/detail/index/soft_id/(\d+)"

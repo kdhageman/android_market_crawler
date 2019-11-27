@@ -1,6 +1,6 @@
 import scrapy
 
-from spider.item import Meta
+from pystorecrawler.item import Meta
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 

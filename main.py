@@ -1,39 +1,29 @@
 import argparse
 import os
-
 import yaml
 from scrapy.crawler import CrawlerProcess
+from pystorecrawler.spider.apkmirror import ApkMirrorSpider
+from pystorecrawler.spider.apkmonk import ApkMonkSpider
+from pystorecrawler.spider.baidu import BaiduSpider
+from pystorecrawler.spider.fdroid import FDroidSpider
+from pystorecrawler.spider.gplay import GooglePlaySpider
+from pystorecrawler.spider.huawei import HuaweiSpider
+from pystorecrawler.spider.mi import MiSpider
+from pystorecrawler.spider.slideme import SlideMeSpider
+from pystorecrawler.spider.tencent import TencentSpider
+from pystorecrawler.spider.threesixty import ThreeSixtySpider
 
-from spider.apkmonk import ApkMonkSpider
-from spider.apkmirror import ApkMirrorSpider
-from spider.baidu import BaiduSpider
-from spider.fdroid import FDroidSpider
-from spider.gplay import GooglePlaySpider
-from spider.huawei import HuaweiSpider
-from spider.mi import MiSpider
-from spider.slideme import SlideMeSpider
-from spider.tencent import TencentSpider
-from spider.threesixty import ThreeSixtySpider
 
-
-def main():
-    # parse CLI arguments
-    parser = argparse.ArgumentParser(description='Android APK market crawler')
-    parser.add_argument("--config", default="config/config.template.yml", help="Path to YAML configuration file")
-    args = parser.parse_args()
-
-    with open(args.config) as f:
-        conf = yaml.load(f, Loader=yaml.FullLoader)
-
+def main(cnf):
     item_pipelines = {
-        'spider.pipeline.AddMetaPipeline': 100,
-        'spider.pipeline.DownloadApksPipeline': 200,
-        'spider.pipeline.PackageNamePipeline': 300
+        'pystorecrawler.pipelines.add_meta.AddMetaPipeline': 100,
+        'pystorecrawler.pipelines.download_apks.DownloadApksPipeline': 200,
+        'pystorecrawler.pipelines.package_name.PackageNamePipeline': 300
     }
 
-    feed_uri = f"file://{os.path.join(os.getcwd(), conf.get('meta_outfile', 'meta.csv'))}"
-    outdir = conf.get('outdir', "/tmp/crawl")
-    pkg_outfile = conf.get('pkg_outfile', "./packages.csv")
+    feed_uri = f"file://{os.path.join(os.getcwd(), cnf.get('meta_outfile', 'meta.csv'))}"
+    outdir = cnf.get('outdir', "/tmp/crawl")
+    pkg_outfile = cnf.get('pkg_outfile', "./packages.csv")
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -71,10 +61,10 @@ def main():
         USER_AGENTS=user_agents,
         CONCURRENT_REQUESTS=1,
         ITEM_PIPELINES=item_pipelines,
-        DEPTH_LIMIT=2,
+        # DEPTH_LIMIT=2,
         FEED_URI=feed_uri,
         FEED_EXPORT_FIELDS=["meta"],
-        CLOSESPIDER_ITEMCOUNT=2,
+        CLOSESPIDER_ITEMCOUNT=1000,
         # custom settings
         APK_OUTDIR=outdir,
         PKG_NAME_OUTFILE=pkg_outfile
@@ -99,4 +89,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # parse CLI arguments
+    parser = argparse.ArgumentParser(description='Android APK market crawler')
+    parser.add_argument("--config", default="config/config.template.yml", help="Path to YAML configuration file")
+    args = parser.parse_args()
+
+    with open(args.config) as f:
+        cnf = yaml.load(f, Loader=yaml.FullLoader)
+
+    main(cnf)

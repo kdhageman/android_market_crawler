@@ -2,7 +2,7 @@ import re
 
 import scrapy
 
-from spider.item import Meta
+from pystorecrawler.item import Meta
 
 dl_pattern = "zhytools.downloadApp\((.*)\);"
 id_pattern = "https://appstore\.huawei\.com/app/(.*)"

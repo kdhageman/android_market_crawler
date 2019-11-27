@@ -3,18 +3,12 @@ import os
 import shutil
 import tempfile
 import unittest
-import scrapy
+
 from pytest_httpserver import HTTPServer
 
-from spider.item import PackageName
-from spider.pipeline import DownloadApksPipeline, PackageNamePipeline
-
-
-class TestSpider(scrapy.Spider):
-    def parse(self, response):
-        pass
-
-    name = "test_spider"
+from pystorecrawler.item import Meta
+from pystorecrawler.pipelines.download_apks import DownloadApksPipeline
+from pystorecrawler.pipelines.util import TestSpider
 
 
 class TestDownloadPipeline(unittest.TestCase):
@@ -44,7 +38,7 @@ class TestDownloadPipeline(unittest.TestCase):
                 }
             }
 
-            item = dict(
+            item = Meta(
                 meta=meta,
                 versions=versions
             )
@@ -64,33 +58,6 @@ class TestDownloadPipeline(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
-
-
-class TestPackageNamePipeline(unittest.TestCase):
-    def setUp(self):
-        self.tmpfile = tempfile.mktemp()
-        self.spider = TestSpider()
-        self.p = PackageNamePipeline(self.tmpfile)
-
-    def test_process_item(self):
-        # process item
-        item = PackageName(
-            name="com.example.test"
-        )
-
-        for j in range(2): # run twice to ensure it loads existing packages correctly
-            self.p.open_spider(self.spider)
-            for i in range(2): # run twice to prevent duplicate packages
-                self.p.process_item(item, self.spider)
-            self.p.close_spider(self.spider)
-
-        # test for a single line in the file under test
-        with open(self.tmpfile, 'r') as f:
-            lines = f.readlines()
-            self.assertEqual(1, len(lines))
-
-    def tearDown(self):
-        os.remove(self.tmpfile)
 
 
 if __name__ == '__main__':

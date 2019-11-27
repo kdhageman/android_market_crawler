@@ -4,8 +4,8 @@ import re
 import requests
 import scrapy
 
-from spider.item import Meta
-from spider.util import version_name
+from pystorecrawler.item import Meta
+from pystorecrawler.spider.util import version_name
 
 url_pattern = "/download-app/(.*)/(.*)/"
 dl_url_tmpl = "https://www.apkmonk.com/down_file/?pkg=%s&key=%s"

@@ -2,7 +2,7 @@ import re
 
 import scrapy
 
-from spider.item import Meta
+from pystorecrawler.item import Meta
 
 id_pattern = "http://slideme\.org/application/(.*)"
 

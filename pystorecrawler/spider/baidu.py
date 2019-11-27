@@ -2,7 +2,7 @@ import re
 
 import scrapy
 
-from spider.item import Meta
+from pystorecrawler.item import Meta
 
 version_pattern = '版本: (.*)'
 id_pattern = "http://as\.baidu\.com/(.*?)/(.*)\.html"

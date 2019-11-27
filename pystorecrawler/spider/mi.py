@@ -1,7 +1,7 @@
 import scrapy
 import re
 
-from spider.item import Meta
+from pystorecrawler.item import Meta
 
 pkg_pattern = "http://app\.mi\.com/details\?id=(.*)"
 

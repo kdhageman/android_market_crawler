@@ -2,7 +2,7 @@ import re
 
 import scrapy
 
-from spider.item import Meta
+from pystorecrawler.item import Meta
 
 pkg_pattern = "https://android\.myapp\.com/myapp/detail\.htm\?apkName=(.*)"
 
