@@ -53,8 +53,8 @@ class FDroidSpider(scrapy.Spider):
             dl_link = pv.css("p.package-version-download b a::attr(href)").get()
 
             versions[version] = dict(
-                date=added_on[0] if added_on else '',
-                dl_link=dl_link
+                timestamp=added_on[0] if added_on else '',
+                download_url=dl_link
             )
 
         res = Meta(

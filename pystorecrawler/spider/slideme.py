@@ -63,8 +63,8 @@ class SlideMeSpider(scrapy.Spider):
         dl_link = response.css("#content div.download-button a::attr(href)").get()
         full_url = response.urljoin(dl_link)
         versions[version] = dict(
-            date=date,
-            dl_link=full_url
+            timestamp=date,
+            download_url=full_url
         )
 
         res = Meta(

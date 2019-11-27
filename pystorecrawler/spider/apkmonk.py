@@ -62,15 +62,15 @@ class ApkMonkSpider(scrapy.Spider):
                     'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
                 }
 
-                r = requests.get(full_url, headers=headers)
-                dl_url = json.loads(r.content)['url']
-
                 version = version_name(version, versions)
 
                 versions[version] = dict(
-                    date=date,
-                    dl_link=dl_url
+                    timestamp=date,
                 )
+
+                r = requests.get(full_url, headers=headers)
+                if r.status_code == 200:
+                    versions[version]['download_url'] = json.loads(r.content)['url']
 
         res = Meta(
             meta=meta,

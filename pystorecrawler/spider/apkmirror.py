@@ -90,8 +90,8 @@ class ApkMirrorSpider(scrapy.Spider):
         full_url = response.urljoin(dl)
 
         versions[version] = dict(
-            date=date,
-            dl_link=full_url
+            timestamp=date,
+            download_url=full_url
         )
 
         res = Meta(

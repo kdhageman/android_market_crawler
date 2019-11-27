@@ -47,7 +47,8 @@ class BaiduSpider(scrapy.Spider):
             version = m.group(1)
             dl_link = yui3.css("a.apk::attr(href)").get()
             versions[version] = dict(
-                dl_link=dl_link
+                # TODO: timestamp?
+                download_url=dl_link
             )
 
         res = Meta(

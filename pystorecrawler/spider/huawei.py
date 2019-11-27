@@ -68,8 +68,8 @@ class HuaweiSpider(scrapy.Spider):
         date = more_info[1]
         version = more_info[3]
         versions[version] = dict(
-            date=date,
-            dl_link=dl_link
+            timestamp=date,
+            download_url=dl_link
         )
 
         res = Meta(

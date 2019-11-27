@@ -1,5 +1,7 @@
 import argparse
 import os
+
+import eventlet
 import yaml
 from scrapy.crawler import CrawlerProcess
 from pystorecrawler.spider.apkmirror import ApkMirrorSpider
@@ -16,12 +18,12 @@ from pystorecrawler.spider.threesixty import ThreeSixtySpider
 
 def main(cnf):
     item_pipelines = {
-        'pystorecrawler.pipelines.add_meta.AddMetaPipeline': 100,
+        'pystorecrawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
         'pystorecrawler.pipelines.download_apks.DownloadApksPipeline': 200,
-        'pystorecrawler.pipelines.package_name.PackageNamePipeline': 300
+        'pystorecrawler.pipelines.package_name.PackageNamePipeline': 300,
+        'pystorecrawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
 
-    feed_uri = f"file://{os.path.join(os.getcwd(), cnf.get('meta_outfile', 'meta.csv'))}"
     outdir = cnf.get('outdir', "/tmp/crawl")
     pkg_outfile = cnf.get('pkg_outfile', "./packages.csv")
 
@@ -61,26 +63,27 @@ def main(cnf):
         USER_AGENTS=user_agents,
         CONCURRENT_REQUESTS=1,
         ITEM_PIPELINES=item_pipelines,
-        # DEPTH_LIMIT=2,
-        FEED_URI=feed_uri,
-        FEED_EXPORT_FIELDS=["meta"],
-        CLOSESPIDER_ITEMCOUNT=1000,
+        DEPTH_LIMIT=2,
+        CLOSESPIDER_ITEMCOUNT=1,
         # custom settings
         APK_OUTDIR=outdir,
+        # APK_DOWNLOAD_TIMEOUT=50 * 1000,  # 1 minute timeout (in milliseconds)
+        APK_DOWNLOAD_TIMEOUT=0,
         PKG_NAME_OUTFILE=pkg_outfile
     ))
 
     spiders = [
-        ApkMirrorSpider,
-        ApkMonkSpider,
-        BaiduSpider,
-        FDroidSpider,
+        # ApkMirrorSpider,
+        # ApkMonkSpider,
+        # BaiduSpider,
+        # BaiduSpider
+        # FDroidSpider,
         HuaweiSpider,
-        MiSpider,
-        SlideMeSpider,
-        TencentSpider,
-        ThreeSixtySpider,
-        GooglePlaySpider
+        # MiSpider,
+        # SlideMeSpider,
+        # TencentSpider,
+        # ThreeSixtySpider,
+        # GooglePlaySpider
     ]
 
     for spider in spiders:
@@ -89,6 +92,8 @@ def main(cnf):
 
 
 if __name__ == "__main__":
+    eventlet.monkey_patch(socket=True)
+
     # parse CLI arguments
     parser = argparse.ArgumentParser(description='Android APK market crawler')
     parser.add_argument("--config", default="config/config.template.yml", help="Path to YAML configuration file")

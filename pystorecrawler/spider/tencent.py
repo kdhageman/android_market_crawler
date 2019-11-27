@@ -54,8 +54,8 @@ class TencentSpider(scrapy.Spider):
         date = divs[1].attrib['data-apkpublishtime'] # as unix timestamp
 
         versions[version] = dict(
-            date=date,
-            dl_link=dl_link
+            timestamp=date,
+            download_url=dl_link
         )
 
         res = Meta(

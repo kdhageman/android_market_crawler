@@ -67,8 +67,8 @@ class MiSpider(scrapy.Spider):
         full_url = response.urljoin(dl_link)
 
         versions[version] = dict(
-            date=date,
-            dl_link=full_url
+            timestamp=date,
+            download_url=full_url
         )
 
         # links to package pages
