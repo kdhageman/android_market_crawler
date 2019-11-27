@@ -1,3 +1,2 @@
 outdir: /tmp/crawl
 pkg_outfile: ./packages.csv
-meta_outfile: ./meta.csv
