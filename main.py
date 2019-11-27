@@ -16,6 +16,14 @@ from pystorecrawler.spider.tencent import TencentSpider
 from pystorecrawler.spider.threesixty import ThreeSixtySpider
 
 
+LOG_LEVELS = [
+    "CRITICAL",
+    "ERROR",
+    "WARNING",
+    "INFO",
+    "DEBUG"
+]
+
 def main(cnf):
     item_pipelines = {
         'pystorecrawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
@@ -29,6 +37,9 @@ def main(cnf):
     depth_limit = cnf.get('depth_limit', 2)
     item_count = cnf.get('item_count', 10)
     concurrent_requests = cnf.get('concurrent_requests', 1)
+    log_level = cnf.get("log_level", "INFO")
+    if log_level not in LOG_LEVELS:
+        log_level = "INFO" # default to INFO log level
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -62,6 +73,7 @@ def main(cnf):
     ]
 
     process = CrawlerProcess(dict(
+        LOG_LEVEL=log_level,
         DOWNLOADER_MIDDLEWARES=downloader_middlewares,
         USER_AGENTS=user_agents,
         ITEM_PIPELINES=item_pipelines,

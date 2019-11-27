@@ -3,3 +3,4 @@ pkg_outfile: ./packages.csv
 concurrent_requests: 1
 depth_limit: 2
 item_count: 10
+log_level: DEBUG
