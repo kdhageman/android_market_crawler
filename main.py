@@ -26,6 +26,9 @@ def main(cnf):
 
     outdir = cnf.get('outdir', "/tmp/crawl")
     pkg_outfile = cnf.get('pkg_outfile', "./packages.csv")
+    depth_limit = cnf.get('depth_limit', 2)
+    item_count = cnf.get('item_count', 10)
+    concurrent_requests = cnf.get('concurrent_requests', 1)
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -61,10 +64,10 @@ def main(cnf):
     process = CrawlerProcess(dict(
         DOWNLOADER_MIDDLEWARES=downloader_middlewares,
         USER_AGENTS=user_agents,
-        CONCURRENT_REQUESTS=1,
         ITEM_PIPELINES=item_pipelines,
-        DEPTH_LIMIT=2,
-        CLOSESPIDER_ITEMCOUNT=1,
+        CONCURRENT_REQUESTS=concurrent_requests,
+        DEPTH_LIMIT=depth_limit,
+        CLOSESPIDER_ITEMCOUNT=item_count,
         # custom settings
         APK_OUTDIR=outdir,
         APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
