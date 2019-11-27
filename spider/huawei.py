@@ -63,9 +63,8 @@ class HuaweiSpider(scrapy.Spider):
         # download link
         versions=dict()
 
-        onclick = response.css("a.mkapp-btn::attr(onclick)").get()
-        m = re.search(dl_pattern, onclick)
-        dl_link = m.group(1).split(",")[5]  # the download link is the 6-th parameter of the js function
+        jsparams = response.css("a.mkapp-btn::attr(onclick)").re(dl_pattern)
+        dl_link = jsparams[0].split(",")[5].strip(" '")  # the download link is the 6-th parameter of the js function
         date = more_info[1]
         version = more_info[3]
         versions[version] = dict(
