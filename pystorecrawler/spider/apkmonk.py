@@ -1,9 +1,6 @@
 import json
-import re
 
-import requests
 import scrapy
-from inline_requests import inline_requests
 
 from pystorecrawler.item import Meta
 from pystorecrawler.spider.util import version_name
