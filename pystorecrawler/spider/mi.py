@@ -42,8 +42,6 @@ class MiSpider(scrapy.Spider):
         Crawls the page of a single app
         Example URL: http://app.mi.com/details?id=com.tencent.tmgp.jx3m
 
-        details preventDefault
-
         Args:
             response: scrapy.Response
         """
@@ -58,6 +56,14 @@ class MiSpider(scrapy.Spider):
         meta["developer_name"] = intro_titles.css("p::text").get()
         app_text = response.css("div.app-text")
         meta["app_description"] = "\n".join(app_text.css("p")[0].css("::text").getall())
+        user_rating_css_class = response.css("div.star1-empty > div::attr(class)").re("star1-hover (.*)")[0]
+        user_rating = get_rating_from_css_class(user_rating_css_class)
+        meta["user_rating"] = user_rating
+
+        category = response.css("div.intro-titles p.special-font.action::text").get()
+        meta['categories'] = [category]
+
+        meta['icon_url'] = response.css("img.yellow-flower::attr(src)").get()
 
         # find download link
         versions=dict()
@@ -82,3 +88,25 @@ class MiSpider(scrapy.Spider):
         )
 
         yield res
+
+def get_rating_from_css_class(css_class):
+    """
+    Parses the CSS class that contains the rating.
+    If the class is empty, the rating is 0, otherwise, it follows the following naming convention:
+        star1-{rating between 1 and 10}
+
+    Args: str
+        css_class: name of CSS class
+
+    Returns: int
+        rating between 0 and 100
+    """
+    if not css_class:
+        return 0
+
+    m = re.search("star1-(.*)", css_class)
+    if m:
+        rating = m.group(1)
+        rating = min(int(rating) * 10, 100) # normalize,
+        return rating
+    return "invalid"
