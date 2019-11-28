@@ -51,7 +51,8 @@ class ThreeSixtySpider(scrapy.Spider):
 
         info_table = response.css("div.base-info > table")
         meta['developer_name'] = info_table.css("tr")[0].css("td::text")[0].get()
-        meta['language'] = info_table.css("tr")[2].css("td::text")[0].get()
+        language = info_table.css("tr")[2].css("td::text")[0].get()
+        meta['languages'] = [language]
         meta['app_description'] = "\n".join(response.css("div.breif::text").getall()).strip() # TODO: remove 'update content'
 
         user_rating = response.css("span.js-votepanel::text").get()

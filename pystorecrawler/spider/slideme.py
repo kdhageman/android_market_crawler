@@ -3,6 +3,7 @@ import re
 import scrapy
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spider.util import normalize_rating
 
 id_pattern = "http://slideme\.org/application/(.*)"
 
@@ -55,6 +56,21 @@ class SlideMeSpider(scrapy.Spider):
         m = re.search(id_pattern, response.url)
         if m:
             meta['id'] = m.group(1)
+
+        meta['downloads'] =  response.css("li.downloads::text").get()
+        rating = response.css("div.averages-wrapper div.average::text").get()
+        meta['user_rating'] = normalize_rating(rating, 5)
+        meta['content_rating'] = response.css("div.fieldgroup.group-application div.content div.field-item.odd")[0].css("::text")[-1].get().strip()
+
+        default_language = response.css("div.fieldgroup.group-application div.content div.field-item.odd")[1].css("::text")[-1].get().strip()
+        supported_languages = response.css("div.fieldgroup.group-application div.content div.field-item.odd")[2].css("::text")[-1].get().strip().split(", ")
+        languages = sorted(supported_languages + [default_language])
+        meta['languages'] = languages
+
+        category = "/".join(response.css("li.category a::text").getall())
+        meta['categories'] = [category]
+
+        meta['icon_url'] = response.css("h1.title img::attr(src)").get()
 
         # versions
         versions = dict()

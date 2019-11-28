@@ -17,3 +17,27 @@ def version_name(orig, versions):
     while version in versions:
         version = f"{version}-{c}"
     return version
+
+def normalize_rating(rating, maxval):
+    """
+    Normalizes a (string) rating between 0 and a max value to a float between 0 and 100
+    Returns -1 if rating cannot be determined
+
+    Args:
+        rating : str
+            between 0 and maxval
+
+    Returns: float
+        between 0 and 100
+    """
+    if not rating:
+        return -1
+
+    try:
+        floatval = float(rating)
+        mult_factor = 100/maxval
+        return float(floatval) * mult_factor
+    except ValueError:
+        # rating is not a float value
+        return -1
+

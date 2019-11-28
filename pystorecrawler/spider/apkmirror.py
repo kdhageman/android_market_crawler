@@ -1,6 +1,7 @@
 import scrapy
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spider.util import normalize_rating
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
@@ -85,7 +86,7 @@ class ApkMirrorSpider(scrapy.Spider):
         meta['downloads'] = appspecs[0].css("::text")[-1].re("(.*) downloads")[0]
 
         user_rating = response.xpath("//div[@itemprop = 'aggregateRating']/span[1]/span[1]//@title").re("(.*) / 5.0")[0]
-        meta['user_rating'] = normalize_rating(user_rating)
+        meta['user_rating'] = normalize_rating(user_rating, 5)
 
         category = response.css("a.play-category::text").get()
         meta['categories'] = [category]
@@ -131,15 +132,3 @@ class ApkMirrorSpider(scrapy.Spider):
         if next_page_link:
             full_link = response.urljoin(next_page_link)
             yield scrapy.Request(full_link, callback=self.parse_versions_page)
-
-def normalize_rating(rating):
-    """
-    Normalizes a (string) rating between 0 and 5 to a float between 0 and 100
-    Args:
-        rating : str
-            between 0 and 5
-
-    Returns: float
-        between 0 and 100
-    """
-    return float(rating) * 20
