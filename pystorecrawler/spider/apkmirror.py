@@ -40,15 +40,15 @@ class ApkMirrorSpider(scrapy.Spider):
             response:
         """
         # download a single variant
-        list_widgets = response.css("#content div.listWidget,#primary div.listWidget")
-        variant_link = list_widgets[0].css("div.table a::attr(href)").get()  # get the first variants link, we don't care about the various variants
+        variant_link = response.css("div.table.variants-table a::attr(href)").get() # get the first variants link, we don't care about the various variants
         if variant_link:
             full_link = response.urljoin(variant_link)
             # give higher priority to package download pages
             yield scrapy.Request(full_link, callback=self.parse_download_page, priority=1)
 
-        # find all version links, list with 'All Versions ' or 'All Releases ' header
         list_of_other_versions = response.xpath("//div[@class='listWidget' and .//div[@class='widgetHeader' and (contains(text(), 'All Releases ') or contains(text(), 'All versions '))]]")
+
+        # find all version links, list with 'All Versions ' or 'All Releases ' header
         for version_link in list_of_other_versions.xpath(".//div[@class='appRow']//a[@class='fontBlack']//@href").getall():
             full_link = response.urljoin(version_link)
             yield scrapy.Request(full_link, callback=self.parse_versions_page)
@@ -77,16 +77,22 @@ class ApkMirrorSpider(scrapy.Spider):
         meta['app_description'] = "\n".join(response.css("#description.tab-pane div.notes *::text").getall()).strip()
 
         appspecs = response.css("#file div.appspec-row div.appspec-value")
-        m = appspecs[0].css("::text")[2].re("Package: (.*)")
-        meta["pkg_name"] = m[0] if m else None
+        m = appspecs.css("::text").re("Package: (.*)")
+        if m:
+            meta["pkg_name"] = m[0]
 
-        m = appspecs[-1].css("::text").re(" by (.*)")
-        meta['uploader'] = m[0] if m else None
+        m = appspecs.css("::text").re(" by (.*)")
+        if m:
+            meta['uploader'] = m[0]
 
-        meta['downloads'] = appspecs[0].css("::text")[-1].re("(.*) downloads")[0]
+        m = appspecs.css("::text").re("(.*) downloads?")
+        if m:
+            meta['downloads'] = m[0]
 
-        user_rating = response.xpath("//div[@itemprop = 'aggregateRating']/span[1]/span[1]//@title").re("(.*) / 5.0")[0]
-        meta['user_rating'] = normalize_rating(user_rating, 5)
+        m = response.xpath("//div[@itemprop = 'aggregateRating']/span[1]/span[1]//@title").re("(.*) / 5.0")
+        if m:
+            user_rating = m[0]
+            meta['user_rating'] = normalize_rating(user_rating, 5)
 
         category = response.css("a.play-category::text").get()
         meta['categories'] = [category]
