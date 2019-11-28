@@ -15,7 +15,6 @@ from pystorecrawler.spider.slideme import SlideMeSpider
 from pystorecrawler.spider.tencent import TencentSpider
 from pystorecrawler.spider.threesixty import ThreeSixtySpider
 
-
 LOG_LEVELS = [
     "CRITICAL",
     "ERROR",
@@ -24,23 +23,35 @@ LOG_LEVELS = [
     "DEBUG"
 ]
 
-def main(cnf):
+
+def get_settings(config):
+    """
+    Return a dictionary used as settings for Scrapy crawling
+    Args:
+        config: dict
+            Configuration dictionary read from YAML file
+
+    Returns: dict
+        Scrapy settings
+    """
+
+    outdir = config.get('outdir', "/tmp/crawl")
+    pkg_outfile = config.get('pkg_outfile', "./packages.csv")
+    depth_limit = config.get('depth_limit', 2)
+    item_count = config.get('item_count', 10)
+    concurrent_requests = config.get('concurrent_requests', 1)
+    log_level = config.get("log_level", "INFO")
+    if log_level not in LOG_LEVELS:
+        log_level = "INFO"  # default to INFO log level
+    jobdir = config.get("jobdir", "./jobdir")
+    resume = config.get("resume", "True") in ["1", "true", "True"]
+
     item_pipelines = {
         'pystorecrawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
         'pystorecrawler.pipelines.download_apks.DownloadApksPipeline': 200,
         'pystorecrawler.pipelines.package_name.PackageNamePipeline': 300,
         'pystorecrawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
-
-    outdir = cnf.get('outdir', "/tmp/crawl")
-    pkg_outfile = cnf.get('pkg_outfile', "./packages.csv")
-    depth_limit = cnf.get('depth_limit', 2)
-    item_count = cnf.get('item_count', 10)
-    concurrent_requests = cnf.get('concurrent_requests', 1)
-    log_level = cnf.get("log_level", "INFO")
-    if log_level not in LOG_LEVELS:
-        log_level = "INFO" # default to INFO log level
-    jobdir = cnf.get("jobdir", "./jobdir")
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -66,6 +77,7 @@ def main(cnf):
         ('Mozilla/5.0 (X11; Linux x86_64) '
          'AppleWebKit/537.36 (KHTML, like Gecko) '
          'Chrome/62.0.3202.89 '
+         'Chrome/62.0.3202.89 '
          'Safari/537.36'),  # chrome
         ('Mozilla/5.0 (X11; Linux x86_64) '
          'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -73,7 +85,7 @@ def main(cnf):
          'Safari/537.36'),  # chrome
     ]
 
-    process = CrawlerProcess(dict(
+    settings = dict(
         LOG_LEVEL=log_level,
         DOWNLOADER_MIDDLEWARES=downloader_middlewares,
         USER_AGENTS=user_agents,
@@ -83,12 +95,21 @@ def main(cnf):
         CLOSESPIDER_ITEMCOUNT=item_count,
         AUTOTHROTTLE_ENABLED=True,
         AUTOTHROTTLE_START_DELAY=1,
-        JOBDIR=jobdir,
         # custom settings
         APK_OUTDIR=outdir,
         APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
         PKG_NAME_OUTFILE=pkg_outfile
-    ))
+    )
+
+    if resume:
+        settings['JOBDIR'] = jobdir
+
+    return settings
+
+
+def main(config):
+    settings = get_settings(config)
+    process = CrawlerProcess(settings)
 
     spiders = [
         ApkMirrorSpider,
