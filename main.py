@@ -28,17 +28,6 @@ class YamlException(Exception):
         msg = f"Invalid YAML file: missing '{required_field}'"
         super().__init__(msg)
 
-def as_bool(val):
-    """
-    Returns if string is boolean true or not
-
-    Args:
-        val: str
-
-    Returns: bool
-    """
-    return val in ["1", "true", "True"]
-
 def get_settings(config):
     """
     Return a dictionary used as settings for Scrapy crawling
@@ -69,15 +58,15 @@ def get_settings(config):
     if not resumation:
         raise YamlException("scrapy/resumation")
 
-    resumation_enabled = as_bool(resumation.get("enabled", "true"))
+    resumation_enabled = resumation.get("enabled", True)
     jobdir = resumation.get("jobdir", "./jobdir")
 
     downloads = config.get("downloads", None)
     if not downloads:
         raise YamlException("downloads")
 
-    apk_enabled = as_bool(downloads.get("apk", "true"))
-    icon_enabled = as_bool(downloads.get("icon", "true"))
+    apk_enabled = downloads.get("apk", True)
+    icon_enabled = downloads.get("icon", True)
 
     item_pipelines = {
         'pystorecrawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
@@ -89,8 +78,7 @@ def get_settings(config):
         item_pipelines['pystorecrawler.pipelines.download_apks.DownloadApksPipeline'] = 200
 
     if icon_enabled:
-        # TODO implement DownloadIconPipeline
-        pass
+        item_pipelines['pystorecrawler.pipelines.download_icon.DownloadIconPipeline'] = 210
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -135,7 +123,7 @@ def get_settings(config):
         AUTOTHROTTLE_ENABLED=True,
         AUTOTHROTTLE_START_DELAY=1,
         # custom settings
-        APK_OUTDIR=rootdir,
+        CRAWL_ROOTDIR=rootdir,
         APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
         PKG_NAME_OUTFILE=pkg_outfile
     )

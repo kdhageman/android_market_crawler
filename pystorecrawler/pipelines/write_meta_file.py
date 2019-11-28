@@ -15,7 +15,7 @@ class WriteMetaFilePipeline:
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
-            outdir=crawler.settings.get('APK_OUTDIR')
+            outdir=crawler.settings.get('CRAWL_ROOTDIR')
         )
 
     def __init__(self, outdir):
