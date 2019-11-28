@@ -1,9 +1,9 @@
 import argparse
-import os
 
 import eventlet
 import yaml
 from scrapy.crawler import CrawlerProcess
+
 from pystorecrawler.spider.apkmirror import ApkMirrorSpider
 from pystorecrawler.spider.apkmonk import ApkMonkSpider
 from pystorecrawler.spider.baidu import BaiduSpider
@@ -139,17 +139,16 @@ def main(config):
     process = CrawlerProcess(settings)
 
     spiders = [
-        # ApkMirrorSpider,
-        # ApkMonkSpider,
+        ApkMirrorSpider,
         ApkMonkSpider,
-        # BaiduSpider,
-        # FDroidSpider,
-        # HuaweiSpider,
-        # MiSpider,
-        # SlideMeSpider,
-        # TencentSpider,
-        # ThreeSixtySpider,
-        # GooglePlaySpider
+        BaiduSpider,
+        FDroidSpider,
+        HuaweiSpider,
+        MiSpider,
+        SlideMeSpider,
+        TencentSpider,
+        ThreeSixtySpider,
+        GooglePlaySpider
     ]
 
     for spider in spiders:
