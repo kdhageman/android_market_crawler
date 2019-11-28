@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import unittest
 
@@ -9,9 +10,9 @@ from pystorecrawler.pipelines.util import TestSpider
 
 class TestPackageNamePipeline(unittest.TestCase):
     def setUp(self):
-        self.tmpfile = tempfile.mktemp()
+        self.tmpdir = tempfile.mkdtemp()
         self.spider = TestSpider()
-        self.p = PackageNamePipeline(self.tmpfile)
+        self.p = PackageNamePipeline(self.tmpdir)
 
     def test_process_item(self):
         # process item
@@ -26,12 +27,15 @@ class TestPackageNamePipeline(unittest.TestCase):
             self.p.close_spider(self.spider)
 
         # test for a single line in the file under test
-        with open(self.tmpfile, 'r') as f:
+        fname = "test-packages.csv"
+        fpath = os.path.join(self.tmpdir, fname)
+
+        with open(fpath, 'r') as f:
             lines = f.readlines()
             self.assertEqual(1, len(lines))
 
     def tearDown(self):
-        os.remove(self.tmpfile)
+        shutil.rmtree(self.tmpdir)
 
 
 if __name__ == '__main__':

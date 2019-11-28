@@ -43,7 +43,6 @@ def get_settings(config):
         raise YamlException("output")
 
     rootdir = output.get("rootdir", "/tmp/crawl")
-    pkg_outfile = output.get("pkg_outfile", "./packages.csv")
 
     scrapy = config.get("scrapy", None)
     if not scrapy:
@@ -125,7 +124,6 @@ def get_settings(config):
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
-        PKG_NAME_OUTFILE=pkg_outfile
     )
 
     if resumation_enabled:
@@ -139,15 +137,15 @@ def main(config):
     process = CrawlerProcess(settings)
 
     spiders = [
-        ApkMirrorSpider,
-        ApkMonkSpider,
-        BaiduSpider,
-        FDroidSpider,
-        HuaweiSpider,
-        MiSpider,
-        SlideMeSpider,
-        TencentSpider,
-        ThreeSixtySpider,
+        # ApkMirrorSpider,
+        # ApkMonkSpider,
+        # BaiduSpider,
+        # FDroidSpider,
+        # HuaweiSpider,
+        # MiSpider,
+        # SlideMeSpider,
+        # TencentSpider,
+        # ThreeSixtySpider,
         GooglePlaySpider
     ]
 

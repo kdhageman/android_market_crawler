@@ -1,6 +1,5 @@
 output:
   rootdir: /tmp/crawl # root directory of APK storage
-  pkg_outfile: ./packages.csv # file in which discovered packages are stored
 scrapy:
   concurrent_requests: 1
   depth_limit: 2
