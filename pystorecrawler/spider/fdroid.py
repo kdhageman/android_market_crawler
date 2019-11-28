@@ -37,7 +37,9 @@ class FDroidSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
-        meta = dict()
+        meta = dict(
+            url=response.url
+        )
         meta['app_name'] = response.css("h3.package-name::text").get().strip()
         meta['app_summary'] = response.css("div.package-summary::text").get().strip()
         meta['app_description'] = "\n".join(response.css("div.package-description::text").getall())

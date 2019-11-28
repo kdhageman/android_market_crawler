@@ -39,7 +39,9 @@ class ThreeSixtySpider(scrapy.Spider):
             response: scrapy.Response
         """
         # meta data
-        meta = dict()
+        meta = dict(
+            url=response.url
+        )
         meta['app_name'] = response.css("#app-name > span::attr(title)").get()
         m = re.search(id_pattern, response.url)
         if m:

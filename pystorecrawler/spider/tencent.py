@@ -35,7 +35,9 @@ class TencentSpider(scrapy.Spider):
             response: scrapy.Response
         """
         # find meta data
-        meta = dict()
+        meta = dict(
+            url=response.url
+        )
 
         divs = response.css("div.det-othinfo-container div.det-othinfo-data")
 

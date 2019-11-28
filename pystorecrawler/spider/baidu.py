@@ -32,7 +32,9 @@ class BaiduSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
-        meta = dict()
+        meta = dict(
+            url=response.url
+        )
         yui3 = response.css("div.yui3-u")
         meta['app_name'] = yui3.css("div.intro-top h1.app-name > span::text").get()
         meta['app_description'] = "\n".join(yui3.css("div.section-container.introduction div.brief-long p::text").getall())

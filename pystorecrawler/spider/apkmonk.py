@@ -3,6 +3,7 @@ import re
 
 import requests
 import scrapy
+from inline_requests import inline_requests
 
 from pystorecrawler.item import Meta
 from pystorecrawler.spider.util import version_name
@@ -38,7 +39,9 @@ class ApkMonkSpider(scrapy.Spider):
             response: scrapy.Response
         """
         # meta data
-        meta = dict()
+        meta = dict(
+            url=response.url
+        )
         meta['app_name'] = response.css("h1::text").get()
         trows = response.css("div.box")[1].css("table tr")
         meta['developer_name'] = trows[3].css("td > span::text").get()
@@ -51,35 +54,47 @@ class ApkMonkSpider(scrapy.Spider):
         meta['icon_url'] = response.xpath("//img[@class = 'hide-on-med-and-down']//@data-src").get()
 
         # all versions
-        versions = dict()
+        versions = []
         version_rows = response.xpath("//div[@class='box' and .//div[@class = 'box-title']/text()='All Versions']//tr")
+
+        remaining = []
         for r in version_rows:
             version, date = r.css("td ::text").getall()
-            dl_link = r.css("td a::attr(href)").get()
+            dl_link_parts = r.css("td a::attr(href)").re(url_pattern)
 
-            m = re.search(url_pattern, dl_link)
-            if m:
-                pkg = m.group(1)
-                key = m.group(2)
-                full_url = dl_url_tmpl % (pkg, key)
-
-                headers = {
-                    'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
-                }
-
+            if dl_link_parts and len(dl_link_parts) == 2:
+                full_url = dl_url_tmpl % tuple(dl_link_parts)
                 version = version_name(version, versions)
+                versions.append(version)
+                remaining.append((full_url, version, date))
 
-                versions[version] = dict(
-                    timestamp=date,
-                )
-
-                r = requests.get(full_url, headers=headers)
-                if r.status_code == 200:
-                    versions[version]['download_url'] = json.loads(r.content)['url']
-
-        res = Meta(
+        next = remaining.pop()
+        data = dict(
+            cur=next,
+            remaining=remaining,
             meta=meta,
-            versions=versions
+            versions={}
         )
 
-        yield res
+        return scrapy.Request(next[0], callback=self.parse_download_link_page, meta=data)
+
+
+    def parse_download_link_page(self, response):
+        dl_url = json.loads(response.body)['url']
+        data = response.meta
+
+        _, version, date = data['cur']
+        data['versions'][version] = dict(
+            timestamp=date,
+            download_url=dl_url
+        )
+
+        if len(data['remaining']) == 0:
+            # this is the last download link to be returned
+            return Meta(meta=data['meta'], versions=data['versions'])
+
+        next = data['remaining'].pop()
+        data['cur'] = next
+
+        return scrapy.Request(next[0], callback=self.parse_download_link_page, meta=data)
+

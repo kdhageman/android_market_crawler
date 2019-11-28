@@ -41,8 +41,9 @@ class SlideMeSpider(scrapy.Spider):
             response: scrapy.Response
         """
         # meta data
-        meta = dict()
-
+        meta = dict(
+            url=response.url
+        )
         title = response.css("h1.title")
 
         meta["app_name"] = title.css("::text").get().strip()

@@ -44,7 +44,9 @@ class HuaweiSpider(scrapy.Spider):
             response: scrapy.Response
         """
         # meta data
-        meta = dict()
+        meta = dict(
+            url=response.url
+        )
 
         app_info = response.css("ul.app-info-ul")
         meta["app_name"] = app_info[0].css("span.title::text").get()

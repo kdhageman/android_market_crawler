@@ -45,7 +45,9 @@ class MiSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
-        meta = dict()
+        meta = dict(
+            url=response.url
+        )
 
         m = re.search(pkg_pattern, response.url)
         if m:

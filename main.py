@@ -139,16 +139,17 @@ def main(config):
     process = CrawlerProcess(settings)
 
     spiders = [
-        ApkMirrorSpider,
+        # ApkMirrorSpider,
+        # ApkMonkSpider,
         ApkMonkSpider,
-        BaiduSpider,
-        FDroidSpider,
-        HuaweiSpider,
-        MiSpider,
-        SlideMeSpider,
-        TencentSpider,
-        ThreeSixtySpider,
-        GooglePlaySpider
+        # BaiduSpider,
+        # FDroidSpider,
+        # HuaweiSpider,
+        # MiSpider,
+        # SlideMeSpider,
+        # TencentSpider,
+        # ThreeSixtySpider,
+        # GooglePlaySpider
     ]
 
     for spider in spiders:

@@ -1,7 +1,7 @@
 def version_name(orig, versions):
     """
     Finds a unique version name for the given version.
-    Example: "1.0.0" -> "1.0.0-2", "1.0.0" -> "1.0.0-3"
+    Example: "1.0.0" -> "1.0.0 (2)", "1.0.0" -> "1.0.0 (3)"
 
     Args:
         orig: str
@@ -13,9 +13,10 @@ def version_name(orig, versions):
 
     """
     version = orig
-    c = 1
+    c = 2
     while version in versions:
-        version = f"{version}-{c}"
+        version = f"{orig} ({c})"
+        c +=1
     return version
 
 def normalize_rating(rating, maxval):
