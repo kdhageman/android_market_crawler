@@ -23,6 +23,21 @@ LOG_LEVELS = [
     "DEBUG"
 ]
 
+class YamlException(Exception):
+    def __init__(self, required_field):
+        msg = f"Invalid YAML file: missing '{required_field}'"
+        super().__init__(msg)
+
+def as_bool(val):
+    """
+    Returns if string is boolean true or not
+
+    Args:
+        val: str
+
+    Returns: bool
+    """
+    return val in ["1", "true", "True"]
 
 def get_settings(config):
     """
@@ -34,24 +49,48 @@ def get_settings(config):
     Returns: dict
         Scrapy settings
     """
+    output = config.get("output", None)
+    if not output:
+        raise YamlException("output")
 
-    outdir = config.get('outdir', "/tmp/crawl")
-    pkg_outfile = config.get('pkg_outfile', "./packages.csv")
-    depth_limit = config.get('depth_limit', 2)
-    item_count = config.get('item_count', 10)
-    concurrent_requests = config.get('concurrent_requests', 1)
-    log_level = config.get("log_level", "INFO")
-    if log_level not in LOG_LEVELS:
-        log_level = "INFO"  # default to INFO log level
-    jobdir = config.get("jobdir", "./jobdir")
-    resume = config.get("resume", "True") in ["1", "true", "True"]
+    rootdir = output.get("rootdir", "/tmp/crawl")
+    pkg_outfile = output.get("pkg_outfile", "./packages.csv")
+
+    scrapy = config.get("scrapy", None)
+    if not scrapy:
+        raise YamlException("scrapy")
+
+    concurrent_requests = scrapy.get('concurrent_requests', 1)
+    depth_limit = scrapy.get('depth_limit', 2)
+    item_count = scrapy.get('item_count', 10)
+    log_level = scrapy.get("log_level", "INFO")
+
+    resumation = scrapy.get("resumation", None)
+    if not resumation:
+        raise YamlException("scrapy/resumation")
+
+    resumation_enabled = as_bool(resumation.get("enabled", "true"))
+    jobdir = resumation.get("jobdir", "./jobdir")
+
+    downloads = config.get("downloads", None)
+    if not downloads:
+        raise YamlException("downloads")
+
+    apk_enabled = as_bool(downloads.get("apk", "true"))
+    icon_enabled = as_bool(downloads.get("icon", "true"))
 
     item_pipelines = {
         'pystorecrawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
-        'pystorecrawler.pipelines.download_apks.DownloadApksPipeline': 200,
         'pystorecrawler.pipelines.package_name.PackageNamePipeline': 300,
         'pystorecrawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
+
+    if apk_enabled:
+        item_pipelines['pystorecrawler.pipelines.download_apks.DownloadApksPipeline'] = 200
+
+    if icon_enabled:
+        # TODO implement DownloadIconPipeline
+        pass
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
@@ -96,12 +135,12 @@ def get_settings(config):
         AUTOTHROTTLE_ENABLED=True,
         AUTOTHROTTLE_START_DELAY=1,
         # custom settings
-        APK_OUTDIR=outdir,
+        APK_OUTDIR=rootdir,
         APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
         PKG_NAME_OUTFILE=pkg_outfile
     )
 
-    if resume:
+    if resumation_enabled:
         settings['JOBDIR'] = jobdir
 
     return settings
