@@ -54,6 +54,11 @@ class ThreeSixtySpider(scrapy.Spider):
         meta['language'] = info_table.css("tr")[2].css("td::text")[0].get()
         meta['app_description'] = "\n".join(response.css("div.breif::text").getall()).strip() # TODO: remove 'update content'
 
+        user_rating = response.css("span.js-votepanel::text").get()
+        user_rating = float(user_rating) * 10 # normalize
+        meta['user_rating'] = user_rating
+        meta['categories'] = response.css("div.app-tags a::text").getall()
+        meta['icon_url'] = response.css("#app-info-panel img::attr(src)").get()
 
         # TODO: links to other packages
 
