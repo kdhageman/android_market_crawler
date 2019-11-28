@@ -1,6 +1,7 @@
 import scrapy
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spider.util import normalize_rating
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
@@ -43,7 +44,8 @@ class ApkMirrorSpider(scrapy.Spider):
         variant_link = list_widgets[0].css("div.table a::attr(href)").get()  # get the first variants link, we don't care about the various variants
         if variant_link:
             full_link = response.urljoin(variant_link)
-            yield scrapy.Request(full_link, callback=self.parse_download_page)
+            # give higher priority to package download pages
+            yield scrapy.Request(full_link, callback=self.parse_download_page, priority=1)
 
         # find all version links, list with 'All Versions ' or 'All Releases ' header
         list_of_other_versions = response.xpath("//div[@class='listWidget' and .//div[@class='widgetHeader' and (contains(text(), 'All Releases ') or contains(text(), 'All versions '))]]")
@@ -80,6 +82,17 @@ class ApkMirrorSpider(scrapy.Spider):
 
         m = appspecs[-1].css("::text").re(" by (.*)")
         meta['uploader'] = m[0] if m else None
+
+        meta['downloads'] = appspecs[0].css("::text")[-1].re("(.*) downloads")[0]
+
+        user_rating = response.xpath("//div[@itemprop = 'aggregateRating']/span[1]/span[1]//@title").re("(.*) / 5.0")[0]
+        meta['user_rating'] = normalize_rating(user_rating, 5)
+
+        category = response.css("a.play-category::text").get()
+        meta['categories'] = [category]
+
+        icon_url_rel = response.css("div.siteTitleBar img::attr(src)").get()
+        meta['icon_url'] = response.urljoin(icon_url_rel)
 
         # find download link
         versions = dict()

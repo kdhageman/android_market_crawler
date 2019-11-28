@@ -41,6 +41,15 @@ class BaiduSpider(scrapy.Spider):
         if m:
             meta["id"] = f"{m.group(1)}-{m.group(2)}"
 
+        meta['downloads'] = response.css("span.download-num::text").re("下载次数: (.*)")[0]
+
+        categories = []
+        categories.append(response.css("div.app-nav div.nav span a::text").getall()[-1])
+        meta['categories'] = categories
+
+        meta['icon_url'] = response.css("div.app-pic img::attr(src)").get()
+        meta['user_rating'] = response.css("span.star-percent::attr(style)").re("width:(.*)%")[0]
+
         versions = dict()
         m = re.search(version_pattern, yui3.css("span.version::text").get())
         if m:

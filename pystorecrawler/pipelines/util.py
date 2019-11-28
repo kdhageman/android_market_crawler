@@ -3,7 +3,6 @@ import re
 
 import scrapy
 
-import pystorecrawler
 from pystorecrawler.item import Meta
 
 
@@ -43,7 +42,7 @@ def market_from_spider(spider):
 
 def meta_directory(item, spider):
     """
-    Returns the relative directory in which to store APKs and meta.json
+    Returns the relative directory in which to store APKs, icon files, meta.json, etc.
 
     Args:
         spider: scrapy.Spider

@@ -13,6 +13,7 @@ class FDroidSpider(scrapy.Spider):
     def parse(self, response):
         """
         Crawls the pages with the paginated list of apps
+        Example URL: https://f-droid.org/en/packages/
 
         Args:
             response: scrapy.Response
@@ -31,6 +32,7 @@ class FDroidSpider(scrapy.Spider):
     def parse_pkg_page(self, response):
         """
         Crawls the page of a single app
+        Example URL: https://f-droid.org/en/packages/com.oF2pks.kalturadeviceinfos/
 
         Args:
             response: scrapy.Response
@@ -39,6 +41,7 @@ class FDroidSpider(scrapy.Spider):
         meta['app_name'] = response.css("h3.package-name::text").get().strip()
         meta['app_summary'] = response.css("div.package-summary::text").get().strip()
         meta['app_description'] = "\n".join(response.css("div.package-description::text").getall())
+        meta['icon_url'] = response.css("img.package-icon::attr(src)").get()
 
         m = re.search(pkg_pattern, response.url)
         if m:

@@ -40,10 +40,15 @@ class ApkMonkSpider(scrapy.Spider):
         # meta data
         meta = dict()
         meta['app_name'] = response.css("h1::text").get()
-        trows = response.css("div.box")[1].css("table * tr")
+        trows = response.css("div.box")[1].css("table tr")
         meta['developer_name'] = trows[3].css("td > span::text").get()
         meta['pkg_name'] = trows[7].css("td::text").getall()[1]
         meta['app_description'] = "\n".join(response.xpath("//div[@class='box' and .//div[@class='box-title']/text()='About this app']//p[@id='descr']//text()").getall())
+
+        category = " ".join([i.strip() for i in trows[4].css("td")[1].css("::text").getall()])
+        meta['categories'] = [category]
+        meta['content_rating'] = trows[5].css("td")[1].css("::text").get()
+        meta['icon_url'] = response.xpath("//img[@class = 'hide-on-med-and-down']//@data-src").get()
 
         # all versions
         versions = dict()

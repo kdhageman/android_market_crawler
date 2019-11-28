@@ -47,6 +47,13 @@ class TencentSpider(scrapy.Spider):
         if m:
             meta['pkg_name'] = m.group(1)
 
+        meta['user_rating'] = response.css("div.com-blue-star-num::text").re("(.*)分")[0]
+        meta['downloads'] = response.css("div.det-insnum-line div.det-ins-num::text").get()
+
+        category = response.css("#J_DetCate::text").get()
+        meta['categories'] = [category]
+        meta['icon_url'] = response.css("div.det-icon img::attr(src)").get()
+
         # find download button(s)
         versions = dict()
         version = divs[0].css("::text").get()

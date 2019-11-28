@@ -38,7 +38,7 @@ class HuaweiSpider(scrapy.Spider):
     def parse_pkg_page(self, response):
         """
         Parses the page of a package
-        Example URL:
+        Example URL: https://appstore.huawei.com/app/C31346
 
         Args:
             response: scrapy.Response
@@ -60,8 +60,14 @@ class HuaweiSpider(scrapy.Spider):
         app_description += "\n".join(response.css("#app_desc::text").getall())
         meta["app_description"] = app_description
 
+        meta['downloads'] = response.css("ul.app-info-ul")[0].css("span.grey.sub::text").re("下载：(.*)")[0]
+        user_rating = response.css("ul.app-info-ul")[0].css("p")[1].css("span::attr(class)").re("score_(.*)")[0]
+        user_rating = int(user_rating) * 10 # normalize between 0 and 100
+        meta['user_rating'] = user_rating
+        meta['icon_url'] = response.css("img.app-ico::attr(src)").get()
+
         # download link
-        versions=dict()
+        versions = dict()
 
         jsparams = response.css("a.mkapp-btn::attr(onclick)").re(dl_pattern)
         dl_link = jsparams[0].split(",")[5].strip(" '")  # the download link is the 6-th parameter of the js function

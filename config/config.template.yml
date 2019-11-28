@@ -1,7 +1,14 @@
-outdir: /tmp/crawl
-pkg_outfile: ./packages.csv
-concurrent_requests: 1
-depth_limit: 2
-item_count: 10
-log_level: DEBUG
-jobdir: ./jobdir
+output:
+  rootdir: /tmp/crawl # root directory of APK storage
+  pkg_outfile: ./packages.csv # file in which discovered packages are stored
+scrapy:
+  concurrent_requests: 1
+  depth_limit: 2
+  item_count: 10
+  log_level: INFO
+  resumation:
+    enabled: true
+    jobdir: ./jobdir
+downloads: # can be used to enable (=true) or disable (=false) downloads of various files
+  apk: true
+  icon: true
