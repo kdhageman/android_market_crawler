@@ -3,12 +3,6 @@ import os
 from pystorecrawler.item import Meta
 from pystorecrawler.pipelines.util import meta_directory, get
 
-content_type_to_ext = {
-    "image/png": "png",
-    "image/jpeg": "jpeg"
-}
-
-
 class DownloadIconPipeline:
     """
     Downloads and stores the icon of an app store
@@ -43,13 +37,9 @@ class DownloadIconPipeline:
         if not r:
             spider.logger.warning(f"request timeout for '{url}")
         elif r.status_code == 200:
-            content_type = r.headers.get("Content-Type", None)
-            ext = content_type_to_ext[content_type]
-
             meta_dir = meta_directory(item, spider)
 
-            fname = f"icon.{ext}"
-            fpath = os.path.join(self.outdir, meta_dir, fname)
+            fpath = os.path.join(self.outdir, meta_dir, "icon.ico")
 
             with open(fpath, 'wb') as f:
                 f.write(r.content)
