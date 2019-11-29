@@ -41,6 +41,8 @@ class DownloadIconPipeline:
 
             fpath = os.path.join(self.outdir, meta_dir, "icon.ico")
 
+            os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
+
             with open(fpath, 'wb') as f:
                 f.write(r.content)
 
