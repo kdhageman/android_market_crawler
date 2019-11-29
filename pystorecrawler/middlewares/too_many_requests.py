@@ -35,13 +35,13 @@ class IncDec429RetryMiddleware(RetryMiddleware):
 
     def process_response(self, request, response, spider):
         if response.status == 429:
-            retry_after = response.headers.get("Retry-After", None)
+            retry_after = int(response.headers.get("Retry-After", 0))
             if retry_after:
                 if retry_after > MAX_RETRY_AFTER: # do not wait longer than 10 minutes to back off
                     self.cur_backoff = MAX_RETRY_AFTER
                     log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds (reduce Retry-After header from {retry_after})"
                 else:
-                    self.cur_backoff = int(retry_after)
+                    self.cur_backoff = retry_after
                     log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds (respecting Retry-After header)"
             else:
                 self.cur_backoff += self.inc
@@ -98,13 +98,13 @@ class Base429RetryMiddleware(RetryMiddleware):
 
     def process_response(self, request, response, spider):
         if response.status == 429:
-            retry_after = response.headers.get("Retry-After", None)
+            retry_after = int(response.headers.get("Retry-After", 0))
             if retry_after:
                 if retry_after > MAX_RETRY_AFTER:
                     backoff = MAX_RETRY_AFTER
                     log_msg = f"hit rate limit, waiting for {backoff} seconds (reduce Retry-After header from {retry_after})"
                 else:
-                    backoff = int(retry_after)
+                    backoff = retry_after
                     log_msg = f"hit rate limit, waiting for {backoff} seconds (respecting Retry-After header)"
             else:
                 backoff = self.default_backoff
