@@ -6,8 +6,10 @@ scrapy:
   item_count: 10
   log_level: INFO
   ratelimit:
-    inc: 10
-    dec: 5
+#    inc: 10
+#    dec: 5
+    base: 0.05
+    default: 30
   resumation:
     enabled: true
     jobdir: ./jobdir

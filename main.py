@@ -61,6 +61,8 @@ def get_settings(config):
 
     ratelimit_inc = ratelimit.get("inc", 10)
     ratelimit_dec = ratelimit.get("dec", 5)
+    ratelimit_base = ratelimit.get("base", 0.05)
+    ratelimit_default = ratelimit.get("default", 30)
 
     resumation = scrapy.get("resumation", None)
     if not resumation:
@@ -137,7 +139,9 @@ def get_settings(config):
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=10 * 60 * 1000,  # 10 minute timeout (in milliseconds)
         RATELIMIT_INC_TIME=ratelimit_inc,
-        RATELIMIT_DEC_TIME=ratelimit_dec
+        RATELIMIT_DEC_TIME=ratelimit_dec,
+        RATELIMIT_BASE_INC=ratelimit_base,
+        RATELIMIT_DEFAULT_BACKOFF=ratelimit_default
     )
 
     if resumation_enabled:
