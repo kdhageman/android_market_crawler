@@ -35,11 +35,16 @@ class IncDec429RetryMiddleware(RetryMiddleware):
         if response.status == 429:
             retry_after = response.headers.get("Retry-After", None)
             if retry_after:
-                self.cur_backoff  = int(retry_after)
-                spider.logger.warning(f"hit rate limit, waiting for {self.cur_backoff} seconds (respecting Retry-After header)")
+                if retry_after > 600: # do not wait longer than 10 minutes to back off
+                    self.cur_backoff = 600
+                    log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds (reduce Retry-After header from {retry_after} to {600})"
+                else:
+                    self.cur_backoff = int(retry_after)
+                    log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds (respecting Retry-After header)"
             else:
                 self.cur_backoff += self.inc
-                spider.logger.warning(f"hit rate limit, waiting for {self.cur_backoff} seconds")
+                log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds"
+            spider.logger.warning(log_msg)
             self.pause(self.cur_backoff)
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response
