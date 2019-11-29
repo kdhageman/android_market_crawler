@@ -3,6 +3,8 @@ from scrapy.utils.response import response_status_message
 
 import time
 
+MAX_RETRY_AFTER = 600
+
 # inspired by https://stackoverflow.com/questions/43630434/how-to-handle-a-429-too-many-requests-response-in-scrapy
 class IncDec429RetryMiddleware(RetryMiddleware):
     """
@@ -35,9 +37,9 @@ class IncDec429RetryMiddleware(RetryMiddleware):
         if response.status == 429:
             retry_after = response.headers.get("Retry-After", None)
             if retry_after:
-                if retry_after > 600: # do not wait longer than 10 minutes to back off
-                    self.cur_backoff = 600
-                    log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds (reduce Retry-After header from {retry_after} to {600})"
+                if retry_after > MAX_RETRY_AFTER: # do not wait longer than 10 minutes to back off
+                    self.cur_backoff = MAX_RETRY_AFTER
+                    log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds (reduce Retry-After header from {retry_after})"
                 else:
                     self.cur_backoff = int(retry_after)
                     log_msg = f"hit rate limit, waiting for {self.cur_backoff} seconds (respecting Retry-After header)"
@@ -98,13 +100,18 @@ class Base429RetryMiddleware(RetryMiddleware):
         if response.status == 429:
             retry_after = response.headers.get("Retry-After", None)
             if retry_after:
-                backoff = int(retry_after)
-                spider.logger.warning(f"hit rate limit, waiting for {backoff} seconds (respecting Retry-After header)")
+                if retry_after > MAX_RETRY_AFTER:
+                    backoff = MAX_RETRY_AFTER
+                    log_msg = f"hit rate limit, waiting for {backoff} seconds (reduce Retry-After header from {retry_after})"
+                else:
+                    backoff = int(retry_after)
+                    log_msg = f"hit rate limit, waiting for {backoff} seconds (respecting Retry-After header)"
             else:
                 backoff = self.default_backoff
-                spider.logger.warning(f"hit rate limit, waiting for {backoff} seconds")
+                log_msg = f"hit rate limit, waiting for {backoff} seconds"
             self.base_backoff += self.base_inc
-            spider.logger.debug(f"increased base backoff to {self.base_backoff} seconds")
+            spider.logger.warning(log_msg)
+            spider.logger.warning(f"increased base backoff to {self.base_backoff} seconds")
 
             self.pause(backoff)
             reason = response_status_message(response.status)
