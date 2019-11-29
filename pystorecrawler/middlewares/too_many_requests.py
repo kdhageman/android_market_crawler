@@ -45,7 +45,7 @@ class IncDec429RetryMiddleware(RetryMiddleware):
             return self._retry(request, reason, spider) or response
         self.cur_backoff = max(0, self.cur_backoff - self.dec)
         if self.cur_backoff:
-            spider.logger.debug(f"slowly reducing backoff, {self.cur_backoff} seconds")
+            spider.logger.warning(f"slowly reducing backoff, {self.cur_backoff} seconds")
         self.pause(self.cur_backoff)
         return response
 
