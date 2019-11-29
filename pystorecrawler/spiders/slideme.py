@@ -3,7 +3,7 @@ import re
 import scrapy
 
 from pystorecrawler.item import Meta
-from pystorecrawler.spider.util import normalize_rating
+from pystorecrawler.spiders.util import normalize_rating
 
 id_pattern = "http://slideme\.org/application/(.*)"
 

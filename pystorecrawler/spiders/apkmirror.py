@@ -1,13 +1,11 @@
 import scrapy
 
 from pystorecrawler.item import Meta
-from pystorecrawler.spider.util import normalize_rating
+from pystorecrawler.spiders.util import normalize_rating
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
 # TODO: deal with ordered requests (https://stackoverflow.com/a/16177544/12096194, https://stackoverflow.com/questions/54138758/scrapy-python-getting-items-from-yield-requests/54140461)
-#
-
 class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
     start_urls = ['https://www.apkmirror.com/']
