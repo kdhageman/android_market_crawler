@@ -204,7 +204,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Android APK market crawler')
     parser.add_argument("--config", help="Path to YAML configuration file", default="config/config.template.yml")
     parser.add_argument("--spider", help="Spider to run", required=True)
-    parser.add_argument("--logdir", help="Directory in which to store the log files", default=".")
+    parser.add_argument("--logdir", help="Directory in which to store the log files", default="logs")
     args = parser.parse_args()
 
     with open(args.config) as f:
