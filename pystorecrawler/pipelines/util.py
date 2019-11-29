@@ -1,7 +1,9 @@
 import os
 import re
 
+import requests
 import scrapy
+from eventlet import Timeout
 
 from pystorecrawler.item import Meta
 
@@ -71,3 +73,23 @@ class TestSpider(scrapy.Spider):
 
     def parse(self, response):
         pass
+
+def get(url, timeout):
+    """
+    Performs an HTTP GET request for the given URL, and ensures that the entire requests does not exceed the timeout value (in ms)
+    If the timeout is zero, request does not terminate on the usual timeout; however, internally it uses the requests timeout to terminate on bad connections
+
+    Args:
+        url: url to request
+        timeout: timeout for entire request
+
+    Returns:
+        None if timeout, requests response otherwise
+    """
+    if timeout == 0:
+        return requests.get(url, allow_redirects=True, timeout=60)
+
+    r = None
+    with Timeout(timeout, False):  # ensure that APK downloading does not exceed timeout duration; TODO: is this preferred behaviour?
+        r = requests.get(url, allow_redirects=True, timeout=60)
+    return r

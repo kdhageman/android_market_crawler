@@ -4,16 +4,16 @@ import eventlet
 import yaml
 from scrapy.crawler import CrawlerProcess
 
-from pystorecrawler.spider.apkmirror import ApkMirrorSpider
-from pystorecrawler.spider.apkmonk import ApkMonkSpider
-from pystorecrawler.spider.baidu import BaiduSpider
-from pystorecrawler.spider.fdroid import FDroidSpider
-from pystorecrawler.spider.gplay import GooglePlaySpider
-from pystorecrawler.spider.huawei import HuaweiSpider
-from pystorecrawler.spider.mi import MiSpider
-from pystorecrawler.spider.slideme import SlideMeSpider
-from pystorecrawler.spider.tencent import TencentSpider
-from pystorecrawler.spider.threesixty import ThreeSixtySpider
+from pystorecrawler.spiders.apkmirror import ApkMirrorSpider
+from pystorecrawler.spiders.apkmonk import ApkMonkSpider
+from pystorecrawler.spiders.baidu import BaiduSpider
+from pystorecrawler.spiders.fdroid import FDroidSpider
+from pystorecrawler.spiders.gplay import GooglePlaySpider
+from pystorecrawler.spiders.huawei import HuaweiSpider
+from pystorecrawler.spiders.mi import MiSpider
+from pystorecrawler.spiders.slideme import SlideMeSpider
+from pystorecrawler.spiders.tencent import TencentSpider
+from pystorecrawler.spiders.threesixty import ThreeSixtySpider
 
 LOG_LEVELS = [
     "CRITICAL",
@@ -23,10 +23,12 @@ LOG_LEVELS = [
     "DEBUG"
 ]
 
+
 class YamlException(Exception):
     def __init__(self, required_field):
         msg = f"Invalid YAML file: missing '{required_field}'"
         super().__init__(msg)
+
 
 def get_settings(config):
     """
@@ -52,6 +54,13 @@ def get_settings(config):
     depth_limit = scrapy.get('depth_limit', 2)
     item_count = scrapy.get('item_count', 10)
     log_level = scrapy.get("log_level", "INFO")
+
+    ratelimit = scrapy.get("ratelimit", None)
+    if not ratelimit:
+        raise YamlException("scrapy/ratelimit")
+
+    ratelimit_inc = ratelimit.get("inc", 10)
+    ratelimit_dec = ratelimit.get("dec", 5)
 
     resumation = scrapy.get("resumation", None)
     if not resumation:
@@ -81,7 +90,10 @@ def get_settings(config):
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
+        'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
+        # 'pystorecrawler.middlewares.too_many_requests.IncDec429RetryMiddleware': 543,
+        'pystorecrawler.middlewares.too_many_requests.Base429RetryMiddleware': 543,
     }
 
     user_agents = [
@@ -123,7 +135,9 @@ def get_settings(config):
         AUTOTHROTTLE_START_DELAY=1,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
-        APK_DOWNLOAD_TIMEOUT=5 * 60 * 1000,  # 5 minute timeout (in milliseconds)
+        DOWNLOAD_TIMEOUT=10 * 60 * 1000,  # 10 minute timeout (in milliseconds)
+        RATELIMIT_INC_TIME=ratelimit_inc,
+        RATELIMIT_DEC_TIME=ratelimit_dec
     )
 
     if resumation_enabled:
@@ -137,15 +151,15 @@ def main(config):
     process = CrawlerProcess(settings)
 
     spiders = [
-        # ApkMirrorSpider,
-        # ApkMonkSpider,
-        # BaiduSpider,
-        # FDroidSpider,
-        # HuaweiSpider,
-        # MiSpider,
-        # SlideMeSpider,
-        # TencentSpider,
-        # ThreeSixtySpider,
+        ApkMirrorSpider,
+        ApkMonkSpider,
+        BaiduSpider,
+        FDroidSpider,
+        HuaweiSpider,
+        MiSpider,
+        SlideMeSpider,
+        TencentSpider,
+        ThreeSixtySpider,
         GooglePlaySpider
     ]
 

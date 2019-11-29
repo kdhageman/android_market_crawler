@@ -3,7 +3,7 @@ import json
 import scrapy
 
 from pystorecrawler.item import Meta
-from pystorecrawler.spider.util import version_name
+from pystorecrawler.spiders.util import version_name
 
 url_pattern = "/download-app/(.*)/(.*)/"
 dl_url_tmpl = "https://www.apkmonk.com/down_file/?pkg=%s&key=%s"

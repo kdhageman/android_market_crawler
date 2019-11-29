@@ -1,9 +1,7 @@
 import os
 
-import requests
-
 from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import meta_directory
+from pystorecrawler.pipelines.util import meta_directory, get
 
 content_type_to_ext = {
     "image/png": "png",
@@ -15,13 +13,15 @@ class DownloadIconPipeline:
     """
     Downloads and stores the icon of an app store
     """
-    def __init__(self, outdir):
+    def __init__(self, outdir, timeout):
         self.outdir = outdir
+        self.timout = timeout
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
-            outdir=crawler.settings.get("CRAWL_ROOTDIR")
+            outdir=crawler.settings.get("CRAWL_ROOTDIR"),
+            timeout=crawler.settings.get("DOWNLOAD_TIMEOUT")
         )
 
     def process_item(self, item, spider):
@@ -39,8 +39,10 @@ class DownloadIconPipeline:
         res = item
 
         url = item['meta']['icon_url']
-        r = requests.get(url)
-        if r.status_code == 200:
+        r = get(url, self.timout)
+        if not r:
+            spider.logger.warning(f"request timeout for '{url}")
+        elif r.status_code == 200:
             content_type = r.headers.get("Content-Type", None)
             ext = content_type_to_ext[content_type]
 
