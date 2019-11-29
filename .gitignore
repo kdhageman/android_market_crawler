@@ -1,4 +1,5 @@
 jobdir/
+logs/
 packages.csv
 config/*.yml
 !config/config.template.yml
