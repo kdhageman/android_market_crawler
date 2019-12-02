@@ -18,7 +18,7 @@ class PackageNamePipeline:
 
     def open_spider(self, spider):
         market = market_from_spider(spider)
-        fname = f"{market}-packages.csv"
+        fname = f"{market}-packages.txt"
         fpath = os.path.join(self.outdir, fname)
 
         # fill set of seen packages
