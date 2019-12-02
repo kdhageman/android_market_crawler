@@ -3,14 +3,21 @@ import re
 import scrapy
 
 from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import normalize_rating
+from pystorecrawler.spiders.util import normalize_rating, PackageListSpider
 
 pkg_pattern = "https://android\.myapp\.com/myapp/detail\.htm\?apkName=(.*)"
 
 
-class TencentSpider(scrapy.Spider):
+class TencentSpider(PackageListSpider):
     name = "tencent_spider"
-    start_urls = ['https://android.myapp.com/']
+
+    def start_requests(self):
+        for req in super().start_requests():
+            yield req
+        yield scrapy.Request('https://android.myapp.com/', self.parse)
+
+    def url_by_package(self, pkg):
+        return f"https://android.myapp.com/myapp/detail.htm?apkName={pkg}"
 
     def parse(self, response):
         """

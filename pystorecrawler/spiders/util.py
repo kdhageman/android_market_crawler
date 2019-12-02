@@ -1,3 +1,32 @@
+import scrapy
+
+
+class PackageListSpider(scrapy.Spider):
+    """
+    A superclass that reads
+    """
+    def start_requests(self):
+        pkg_files = self.settings.get("PACKAGE_FILES", [])
+        for pkg_file in pkg_files:
+
+            with open(pkg_file) as f:
+                line = f.readline()
+                while line:
+                    url = self.url_by_package(line.strip())
+                    yield scrapy.Request(url, priority=50, callback=self.parse_pkg_page)
+                    line = f.readline()
+        return True
+
+    def parse(self, response):
+        raise NotImplementedError()
+
+    def url_by_package(self, pkg):
+        raise NotImplementedError()
+
+    def parse_pkg_page(self, response):
+        raise NotImplementedError()
+
+
 def version_name(orig, versions):
     """
     Finds a unique version name for the given version.

@@ -1,5 +1,8 @@
 output:
   rootdir: /tmp/crawl # root directory of APK storage
+input:
+  package_files:
+  - androzoo.txt
 scrapy:
   concurrent_requests: 1
   depth_limit: 2

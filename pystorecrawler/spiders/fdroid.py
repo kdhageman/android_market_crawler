@@ -2,13 +2,21 @@ import scrapy
 import re
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spiders.util import PackageListSpider
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
 
-class FDroidSpider(scrapy.Spider):
+class FDroidSpider(PackageListSpider):
     name = "fdroid_spider"
-    start_urls = ['https://f-droid.org/en/packages/']
+
+    def start_requests(self):
+        for req in super().start_requests():
+            yield req
+        yield scrapy.Request('https://f-droid.org/en/packages/', self.parse)
+
+    def url_by_package(self, pkg):
+        return f"https://f-droid.org/en/packages/{pkg}/"
 
     def parse(self, response):
         """

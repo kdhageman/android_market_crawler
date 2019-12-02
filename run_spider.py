@@ -78,6 +78,12 @@ def get_settings(config, spidername, logdir):
 
     rootdir = output.get("rootdir", "/tmp/crawl")
 
+    input = config.get("input", None)
+    if not input:
+        raise YamlException("input")
+
+    package_files = input.get("package_files", [])
+
     scrapy = config.get("scrapy", None)
     if not scrapy:
         raise YamlException("scrapy")
@@ -180,7 +186,8 @@ def get_settings(config, spidername, logdir):
         RATELIMIT_INC_TIME=ratelimit_inc,
         RATELIMIT_DEC_TIME=ratelimit_dec,
         RATELIMIT_BASE_INC=ratelimit_base,
-        RATELIMIT_DEFAULT_BACKOFF=ratelimit_default
+        RATELIMIT_DEFAULT_BACKOFF=ratelimit_default,
+        PACKAGE_FILES=package_files
     )
 
     if resumation_enabled:

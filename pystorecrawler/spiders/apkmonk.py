@@ -3,16 +3,22 @@ import json
 import scrapy
 
 from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import version_name
+from pystorecrawler.spiders.util import version_name, PackageListSpider
 
 url_pattern = "/download-app/(.*)/(.*)/"
 dl_url_tmpl = "https://www.apkmonk.com/down_file/?pkg=%s&key=%s"
 
 
-class ApkMonkSpider(scrapy.Spider):
+class ApkMonkSpider(PackageListSpider):
     name = "apkmonk_spider"
-    start_urls = ['https://www.apkmonk.com/categories/']
 
+    def start_requests(self):
+        for req in super().start_requests():
+            yield req
+        yield scrapy.Request('https://www.apkmonk.com/categories/', self.parse)
+
+    def url_by_package(self, pkg):
+        return f"https://www.apkmonk.com/app/{pkg}/"
 
     def parse(self, response):
         """

@@ -4,17 +4,25 @@ import numpy as np
 import scrapy
 
 from pystorecrawler.item import PackageName
+from pystorecrawler.spiders.util import PackageListSpider
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
 
 
-class GooglePlaySpider(scrapy.Spider):
+class GooglePlaySpider(PackageListSpider):
     """
     This Spider returns spider.tem.PackageName instead of meta data and versions
     """
 
     name = "googleplay_spider"
-    start_urls = ['https://play.google.com/store/apps']
+
+    def start_requests(self):
+        for req in super().start_requests():
+            yield req
+        yield scrapy.Request('https://play.google.com/store/apps', self.parse)
+
+    def url_by_package(self, pkg):
+        return f"https://play.google.com/store/apps/details?id={pkg}"
 
     def parse(self, response):
         """

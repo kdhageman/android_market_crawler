@@ -1,3 +1,4 @@
+*.txt
 jobdir/
 logs/
 packages.csv

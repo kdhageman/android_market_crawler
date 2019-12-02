@@ -2,14 +2,21 @@ import scrapy
 import re
 
 from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import normalize_rating
+from pystorecrawler.spiders.util import normalize_rating, PackageListSpider
 
 pkg_pattern = "http://app\.mi\.com/details\?id=(.*)"
 
 
-class MiSpider(scrapy.Spider):
+class MiSpider(PackageListSpider):
     name = "mi_spider"
-    start_urls = ['http://app.mi.com/']
+
+    def start_requests(self):
+        for req in super().start_requests():
+            yield req
+        yield scrapy.Request('http://app.mi.com/', self.parse)
+
+    def url_by_package(self, pkg):
+        return f"http://app.mi.com/details?id={pkg}"
 
     def parse(self, response):
         """
