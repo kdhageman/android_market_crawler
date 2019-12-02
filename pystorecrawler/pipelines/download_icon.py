@@ -1,6 +1,8 @@
 import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
+
+from pystorecrawler.item import Meta
 from pystorecrawler.pipelines.util import get_directory, sha256
 
 
@@ -24,6 +26,9 @@ class DownloadIconPipeline(FilesPipeline):
         return os.path.join(dir, "icon.ico")
 
     def get_media_requests(self, item, info):
+        if not isinstance(item, Meta):
+            return
+
         icon_url = item['meta'].get('icon_url', None)
         if icon_url:
             yield scrapy.Request(icon_url, meta={'meta': item['meta']}, priority=100)

@@ -2,6 +2,8 @@ import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
+from pystorecrawler.item import Meta
+
 try:
     from cStringIO import StringIO as BytesIO
 except ImportError:
@@ -34,13 +36,17 @@ class DownloadApksPipeline(FilesPipeline):
         return os.path.join(dir, fname)
 
     def get_media_requests(self, item, info):
+        if not isinstance(item, Meta):
+            return
+
         for version, values in item['versions'].items():
             download_url = values.get('download_url', None)
             if download_url:
                 yield scrapy.Request(download_url, meta={'meta': item['meta'], 'version': version}, priority=100)
 
     def item_completed(self, results, item, info):
-        versions_list = list(item['versions'].items())
+        versions = item.get("versions", {})
+        versions_list = list(versions.items())
 
         for i in range(len(results)):
             success, resultdata = results[i]
