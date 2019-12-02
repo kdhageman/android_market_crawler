@@ -1,7 +1,9 @@
 import os
 
+from urllib3.exceptions import HTTPError
+
 from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import meta_directory, get, HTTPError
+from pystorecrawler.pipelines.util import meta_directory, get
 
 
 class DownloadApksPipeline:
