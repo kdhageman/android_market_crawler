@@ -1,3 +1,5 @@
+import json
+import random
 import re
 import urllib
 
@@ -5,6 +7,9 @@ import scrapy
 
 from pystorecrawler.item import Meta
 from pystorecrawler.spiders.util import normalize_rating
+
+related_tmpl = "http://openbox.mobilem.360.cn/detail/rank?soft_id=%s&cid=%s&start=0&num=100" # an open API for retrieving JSON data about apps
+pkg_tmpl = "http://zhushou.360.cn/detail/index/soft_id/%s"
 
 download_count_pattern = "下载：(.*)"
 id_pattern = "http://zhushou\.360\.cn/detail/index/soft_id/(\d+)"
@@ -22,11 +27,6 @@ class ThreeSixtySpider(scrapy.Spider):
             response: scrapy.Response
         :return:
         """
-        # TODO: use JSON API for discovering apps
-        # http://openbox.mobilem.360.cn/Guessyoulike/detail?softId=95487&start=0&count=30
-        # http://openbox.mobilem.360.cn/detail/rank?soft_id=77208&cid=0&start=0&num=1000
-
-        # TODO: more apps?
         for pkg_page in response.css("div.ctcon.ctconw * a.sicon::attr(href)").getall():
             full_url = response.urljoin(pkg_page)
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
@@ -63,8 +63,6 @@ class ThreeSixtySpider(scrapy.Spider):
         meta['categories'] = response.css("div.app-tags a::text").getall()
         meta['icon_url'] = response.css("#app-info-panel img::attr(src)").get()
 
-        # TODO: links to other packages
-
         # find download link
         versions = dict()
         date = info_table.css("tr")[0].css("td::text")[1].get()
@@ -83,3 +81,16 @@ class ThreeSixtySpider(scrapy.Spider):
         )
 
         yield res
+
+        # try to find a set of related apps by performing request against API
+        if meta['id']:
+            for cid in range(21): # anecdotal evidence that cids up to 20 are allowed
+                related_url = related_tmpl % (meta['id'], cid)
+                yield scrapy.Request(related_url, callback=self.parse_related)
+
+    def parse_related(self, response):
+        data = json.loads(response.body)
+        if data:
+            for appdata in data:
+                full_url = pkg_tmpl % appdata['soft_id']
+                yield scrapy.Request(full_url, callback=self.parse_pkg_page)

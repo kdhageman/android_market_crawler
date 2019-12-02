@@ -80,17 +80,17 @@ class MiSpider(scrapy.Spider):
             download_url=full_url
         )
 
-        # links to package pages
-        for link in response.css("div.second-imgbox").css("h5").css("a::attr(href)").getall():
-            full_url = response.urljoin(link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
-
         res = Meta(
             meta=meta,
             versions=versions
         )
 
         yield res
+
+        # links to package pages
+        for link in response.css("div.second-imgbox").css("h5").css("a::attr(href)").getall():
+            full_url = response.urljoin(link)
+            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
 
 def get_rating_from_css_class(css_class):
     """

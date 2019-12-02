@@ -20,15 +20,16 @@ class DownloadApksPipeline(FilesPipeline):
         super().__init__(self.outdir, settings=settings)
 
     @classmethod
-    def from_crawler(cls, crawler):
+    def from_settings(cls, settings):
         return cls(
-            crawler.settings,
+            settings=settings
         )
 
     def file_path(self, request, response=None, info=None):
         item = request.meta
         dir = get_directory(item['meta'], info.spider)
         version = item['version']
+        version = version.replace(" ", "_")
         fname = f"{version}.apk"
         return os.path.join(dir, fname)
 
@@ -36,7 +37,7 @@ class DownloadApksPipeline(FilesPipeline):
         for version, values in item['versions'].items():
             download_url = values.get('download_url', None)
             if download_url:
-                yield scrapy.Request(download_url, meta={'meta': item['meta'], 'version': version})
+                yield scrapy.Request(download_url, meta={'meta': item['meta'], 'version': version}, priority=100)
 
     def item_completed(self, results, item, info):
         versions_list = list(item['versions'].items())
@@ -49,7 +50,6 @@ class DownloadApksPipeline(FilesPipeline):
                 values['file_path'] = path
                 values['file_md5'] = resultdata['checksum']
 
-                # TODO: can we improve this by reading HTTP response data rather than reading from file?
                 with open(path, 'rb') as f:
                     values['file_sha256'] = sha256(f)
 

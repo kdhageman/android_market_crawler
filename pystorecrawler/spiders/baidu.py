@@ -69,9 +69,9 @@ class BaiduSpider(scrapy.Spider):
             versions=versions
         )
 
+        yield res
+
         # apps you might like
         for pkg_link in response.css("div.sec-favourite div.app-bda.app-box::attr(href)").getall():
             full_url = response.urljoin(pkg_link )
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
-
-        yield res

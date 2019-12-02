@@ -176,6 +176,7 @@ def get_settings(config, spidername, logdir):
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=10 * 60 * 1000,  # 10 minute timeout (in milliseconds)
+        DOWNLOAD_MAXSIZE=0,
         RATELIMIT_INC_TIME=ratelimit_inc,
         RATELIMIT_DEC_TIME=ratelimit_dec,
         RATELIMIT_BASE_INC=ratelimit_base,

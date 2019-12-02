@@ -13,9 +13,9 @@ class DownloadIconPipeline(FilesPipeline):
         super().__init__(self.outdir, settings=settings)
 
     @classmethod
-    def from_crawler(cls, crawler):
+    def from_settings(cls, settings):
         return cls(
-            crawler.settings
+            settings=settings
         )
 
     def file_path(self, request, response=None, info=None):
@@ -26,7 +26,7 @@ class DownloadIconPipeline(FilesPipeline):
     def get_media_requests(self, item, info):
         icon_url = item['meta'].get('icon_url', None)
         if icon_url:
-            yield scrapy.Request(icon_url, meta={'meta': item['meta']})
+            yield scrapy.Request(icon_url, meta={'meta': item['meta']}, priority=100)
 
     def item_completed(self, results, item, info):
         if results:
@@ -35,6 +35,7 @@ class DownloadIconPipeline(FilesPipeline):
                 path = os.path.join(self.outdir, resultdata['path'])
                 item['meta']['icon_path'] = path
                 item['meta']['icon_md5'] = resultdata['checksum']
+
                 with open(path, 'rb') as f:
                     item['meta']['icon_sha256'] = sha256(f)
         return item

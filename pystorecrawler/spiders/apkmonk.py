@@ -11,7 +11,8 @@ dl_url_tmpl = "https://www.apkmonk.com/down_file/?pkg=%s&key=%s"
 
 class ApkMonkSpider(scrapy.Spider):
     name = "apkmonk_spider"
-    start_urls = ['https://www.apkmonk.com/']
+    start_urls = ['https://www.apkmonk.com/categories/']
+
 
     def parse(self, response):
         """
@@ -21,10 +22,23 @@ class ApkMonkSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
-        # trending and top picks
-        for pkg_link in response.css("div.col.l8.m8.s12 * div.section.side-padding-8 * a::attr(href)").getall():
-            full_url = response.urljoin(pkg_link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+        # visit all individual category pages
+        for category_url in response.css("a.waves-effect::attr(href)").getall():
+            if category_url:
+                yield response.follow(category_url, callback=self.parse_category)
+
+    def parse_category(self, response):
+        """
+        Crawls a paginated category page
+        """
+        # go to package pages
+        for pkg in response.css("a::attr(href)").re("/app(?:/id)?/(.+)/"):
+            pkg_url = f"/app/id/{pkg}/"
+            yield response.follow(pkg_url, callback=self.parse_pkg_page, priority=20)
+
+        # pagination
+        for category_url in response.css("div.selection a::attr(href)").getall():
+            yield response.follow(category_url, callback=self.parse_category)
 
     def parse_pkg_page(self, response):
         """
@@ -52,7 +66,7 @@ class ApkMonkSpider(scrapy.Spider):
 
         # all versions
         versions = []
-        version_rows = response.xpath("//div[@class='box' and .//div[@class = 'box-title']/text()='All Versions']//tr")
+        version_rows = response.xpath("//div[@class='box' and .//div[@class = 'box-title' and (contains(./text(),'Semua Versi') or contains(./text(),'All Versions'))]]//tr")
 
         remaining = []
         for r in version_rows:
@@ -65,15 +79,16 @@ class ApkMonkSpider(scrapy.Spider):
                 versions.append(version)
                 remaining.append((full_url, version, date))
 
-        next = remaining.pop()
-        data = dict(
-            cur=next,
-            remaining=remaining,
-            meta=meta,
-            versions={}
-        )
+        if remaining:
+            next_version = remaining.pop()
+            data = dict(
+                cur=next_version,
+                remaining=remaining,
+                meta=meta,
+                versions={}
+            )
 
-        return scrapy.Request(next[0], callback=self.parse_download_link_page, meta=data)
+            return scrapy.Request(next_version[0], callback=self.parse_download_link_page, meta=data, priority=30)
 
 
     def parse_download_link_page(self, response):
@@ -90,8 +105,8 @@ class ApkMonkSpider(scrapy.Spider):
             # this is the last download link to be returned
             return Meta(meta=data['meta'], versions=data['versions'])
 
-        next = data['remaining'].pop()
-        data['cur'] = next
+        next_version = data['remaining'].pop()
+        data['cur'] = next_version
 
-        return scrapy.Request(next[0], callback=self.parse_download_link_page, meta=data)
+        return scrapy.Request(next_version[0], callback=self.parse_download_link_page, meta=data, priority=50)
 
