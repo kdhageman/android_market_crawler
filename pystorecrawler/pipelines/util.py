@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 
@@ -82,8 +83,7 @@ def get(url, timeout):
         url: url to request
         timeout: timeout for entire request
 
-    Returns:
-        None if timeout, requests response otherwise
+    Returns: requests.Response
     """
     if timeout == 0:
         return requests.get(url, allow_redirects=True, timeout=60)
@@ -97,3 +97,15 @@ def get(url, timeout):
 
     return r
 
+def sha256(data):
+    """
+    Returns the lowercase hex representation of the SHA 256 digest of the data
+    Args:
+        data: bytes
+
+    Returns: str
+        Hex representation of SHA 256 digest of data
+    """
+    h = hashlib.sha256()
+    h.update(data)
+    return h.hexdigest()

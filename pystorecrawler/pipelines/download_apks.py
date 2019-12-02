@@ -3,7 +3,7 @@ import os
 from urllib3.exceptions import HTTPError
 
 from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import meta_directory, get
+from pystorecrawler.pipelines.util import meta_directory, get, sha256
 
 
 class DownloadApksPipeline:
@@ -55,6 +55,8 @@ class DownloadApksPipeline:
                             f.write(apk)
 
                         # add file path to original item
+                        digest = sha256(apk)
+                        values['file_sha256'] = digest
                         values['file_path'] = fpath
                         res['versions'][version] = values
                     else:

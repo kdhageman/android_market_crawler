@@ -3,7 +3,8 @@ import os
 from urllib3.exceptions import HTTPError
 
 from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import meta_directory, get
+from pystorecrawler.pipelines.util import meta_directory, get, sha256
+
 
 class DownloadIconPipeline:
     """
@@ -38,6 +39,7 @@ class DownloadIconPipeline:
         try:
             r = get(url, self.timout)
             if r.status_code == 200:
+                icon = r.content
                 meta_dir = meta_directory(item, spider)
 
                 fpath = os.path.join(self.outdir, meta_dir, "icon.ico")
@@ -45,8 +47,10 @@ class DownloadIconPipeline:
                 os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
                 with open(fpath, 'wb') as f:
-                    f.write(r.content)
+                    f.write(icon)
 
+                digest = sha256(icon)
+                res['meta']['icon_sha256'] = digest
                 res['meta']['icon_path'] = fpath
             else:
                 spider.logger.warning(f"got non-200 HTTP response for '{url}': {r.status_code}")
