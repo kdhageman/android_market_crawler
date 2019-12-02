@@ -1,5 +1,7 @@
 import os
 
+from urllib3.exceptions import HTTPError
+
 from pystorecrawler.item import Meta
 from pystorecrawler.pipelines.util import meta_directory, get
 
@@ -33,20 +35,24 @@ class DownloadIconPipeline:
         res = item
 
         url = item['meta']['icon_url']
-        r = get(url, self.timout)
-        if not r:
-            spider.logger.warning(f"request timeout for '{url}")
-        elif r.status_code == 200:
-            meta_dir = meta_directory(item, spider)
+        try:
+            r = get(url, self.timout)
+            if r.status_code == 200:
+                meta_dir = meta_directory(item, spider)
 
-            fpath = os.path.join(self.outdir, meta_dir, "icon.ico")
+                fpath = os.path.join(self.outdir, meta_dir, "icon.ico")
 
-            os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
+                os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
-            with open(fpath, 'wb') as f:
-                f.write(r.content)
+                with open(fpath, 'wb') as f:
+                    f.write(r.content)
 
-            res['meta']['icon_path'] = fpath
-
+                res['meta']['icon_path'] = fpath
+            else:
+                spider.logger.warning(f"got non-200 HTTP response for '{url}': {r.status_code}")
+        except HTTPError as e:
+            spider.logger.warning(f"error during HTTP request: {e}")
+        except TimeoutError as e:
+            spider.logger.warning(f"{e}")
         return res
 

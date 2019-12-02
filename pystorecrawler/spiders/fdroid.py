@@ -43,7 +43,8 @@ class FDroidSpider(scrapy.Spider):
         meta['app_name'] = response.css("h3.package-name::text").get().strip()
         meta['app_summary'] = response.css("div.package-summary::text").get().strip()
         meta['app_description'] = "\n".join(response.css("div.package-description::text").getall())
-        meta['icon_url'] = response.css("img.package-icon::attr(src)").get()
+        icon_url = response.css("img.package-icon::attr(src)").get()
+        meta['icon_url'] = response.urljoin(icon_url)
 
         m = re.search(pkg_pattern, response.url)
         if m:

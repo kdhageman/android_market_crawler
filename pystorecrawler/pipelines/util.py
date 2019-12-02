@@ -7,7 +7,6 @@ from eventlet import Timeout
 
 from pystorecrawler.item import Meta
 
-
 def get_identifier(meta):
     """
     Returns the identifier of a package given its meta information.
@@ -92,4 +91,9 @@ def get(url, timeout):
     r = None
     with Timeout(timeout, False):  # ensure that APK downloading does not exceed timeout duration; TODO: is this preferred behaviour?
         r = requests.get(url, allow_redirects=True, timeout=60)
+
+    if not r:
+        raise TimeoutError(f"request timeout for '{url}'")
+
     return r
+

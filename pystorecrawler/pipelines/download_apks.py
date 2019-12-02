@@ -1,7 +1,7 @@
 import os
 
 from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import meta_directory, get
+from pystorecrawler.pipelines.util import meta_directory, get, HTTPError
 
 
 class DownloadApksPipeline:
@@ -39,21 +39,26 @@ class DownloadApksPipeline:
         for version, values in item['versions'].items():
             download_url = values.get('download_url', None)
             if download_url:  # in case the download url is empty, ignore the version
-                r = get(values['download_url'], self.timeout)
-                if not r:
-                    spider.logger.warning(f"request timeout for '{values['download_url']}")
-                elif r.status_code == 200:
-                    apk = r.content
+                try:
+                    r = get(download_url, self.timeout)
+                    if r.status_code == 200:
+                        apk = r.content
 
-                    fname = f"{version}.apk"
-                    fpath = os.path.join(self.outdir, meta_dir, fname)
+                        fname = f"{version}.apk"
+                        fpath = os.path.join(self.outdir, meta_dir, fname)
 
-                    os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
+                        os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
-                    with open(fpath, 'wb') as f:
-                        f.write(apk)
+                        with open(fpath, 'wb') as f:
+                            f.write(apk)
 
-                    # add file path to original item
-                    values['file_path'] = fpath
-                    res['versions'][version] = values
+                        # add file path to original item
+                        values['file_path'] = fpath
+                        res['versions'][version] = values
+                    else:
+                        spider.logger.warning(f"got non-200 HTTP response for '{download_url}': {r.status_code}")
+                except HTTPError as e:
+                    spider.logger.warning(f"error during HTTP request: {e}")
+                except TimeoutError as e:
+                    spider.logger.warning(f"{e}")
         return res
