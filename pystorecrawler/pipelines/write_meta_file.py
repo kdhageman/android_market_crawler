@@ -2,7 +2,7 @@ import json
 import os
 
 from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import meta_directory
+from pystorecrawler.pipelines.util import get_directory
 
 FNAME = "meta.json"
 
@@ -33,7 +33,7 @@ class WriteMetaFilePipeline:
         if not isinstance(item, Meta):
             return item
 
-        meta_dir = meta_directory(item, spider)
+        meta_dir = get_directory(item['meta'], spider)
         fpath = os.path.join(self.outdir, meta_dir, FNAME)
 
         os.makedirs(os.path.dirname(fpath), exist_ok=True) # ensure directories exist

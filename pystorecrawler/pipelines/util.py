@@ -42,7 +42,7 @@ def market_from_spider(spider):
     return market
 
 
-def meta_directory(item, spider):
+def get_directory(meta, spider):
     """
     Returns the relative directory in which to store APKs, icon files, meta.json, etc.
 
@@ -55,10 +55,6 @@ def meta_directory(item, spider):
     Returns:
         str: relative directory in which to store APKs and meta.json
     """
-    if not isinstance(item, Meta):
-        raise Exception("invalid item type")
-
-    meta = item['meta']
     identifier = get_identifier(meta)
     market = market_from_spider(spider)
 
@@ -97,15 +93,16 @@ def get(url, timeout):
 
     return r
 
-def sha256(data):
+def sha256(f):
     """
     Returns the lowercase hex representation of the SHA 256 digest of the data
     Args:
-        data: bytes
+        f: file
 
     Returns: str
         Hex representation of SHA 256 digest of data
     """
-    h = hashlib.sha256()
-    h.update(data)
-    return h.hexdigest()
+    m = hashlib.sha256()
+    for byte_block in iter(lambda: f.read(4096), b""):
+        m.update(byte_block)
+    return m.hexdigest()
