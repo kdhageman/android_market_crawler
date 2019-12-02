@@ -4,6 +4,7 @@ import urllib
 import scrapy
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spiders.util import normalize_rating
 
 download_count_pattern = "下载：(.*)"
 id_pattern = "http://zhushou\.360\.cn/detail/index/soft_id/(\d+)"
@@ -58,8 +59,7 @@ class ThreeSixtySpider(scrapy.Spider):
         meta['app_description'] = "\n".join(response.css("div.breif::text").getall()).strip() # TODO: remove 'update content'
 
         user_rating = response.css("span.js-votepanel::text").get()
-        user_rating = float(user_rating) * 10 # normalize
-        meta['user_rating'] = user_rating
+        meta['user_rating'] = normalize_rating(user_rating, 10)
         meta['categories'] = response.css("div.app-tags a::text").getall()
         meta['icon_url'] = response.css("#app-info-panel img::attr(src)").get()
 

@@ -3,6 +3,7 @@ import re
 import scrapy
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spiders.util import normalize_rating
 
 dl_pattern = "zhytools.downloadApp\((.*)\);"
 id_pattern = "https://appstore\.huawei\.com/app/(.*)"
@@ -64,8 +65,7 @@ class HuaweiSpider(scrapy.Spider):
 
         meta['downloads'] = response.css("ul.app-info-ul")[0].css("span.grey.sub::text").re("下载：(.*)")[0]
         user_rating = response.css("ul.app-info-ul")[0].css("p")[1].css("span::attr(class)").re("score_(.*)")[0]
-        user_rating = int(user_rating) * 10 # normalize between 0 and 100
-        meta['user_rating'] = user_rating
+        meta['user_rating'] = normalize_rating(user_rating, 10)
         meta['icon_url'] = response.css("img.app-ico::attr(src)").get()
 
         # download link

@@ -2,6 +2,7 @@ import scrapy
 import re
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spiders.util import normalize_rating
 
 pkg_pattern = "http://app\.mi\.com/details\?id=(.*)"
 
@@ -109,6 +110,7 @@ def get_rating_from_css_class(css_class):
     m = re.search("star1-(.*)", css_class)
     if m:
         rating = m.group(1)
-        rating = min(int(rating) * 10, 100) # normalize,
+        rating = normalize_rating(rating, 10)
+        rating = min(rating, 100)
         return rating
     return "invalid"

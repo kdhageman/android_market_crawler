@@ -3,6 +3,7 @@ import re
 import scrapy
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spiders.util import normalize_rating
 
 version_pattern = '版本: (.*)'
 id_pattern = "http://as\.baidu\.com/(.*?)/(.*)\.html"
@@ -50,7 +51,8 @@ class BaiduSpider(scrapy.Spider):
         meta['categories'] = categories
 
         meta['icon_url'] = response.css("div.app-pic img::attr(src)").get()
-        meta['user_rating'] = response.css("span.star-percent::attr(style)").re("width:(.*)%")[0]
+        user_rating = response.css("span.star-percent::attr(style)").re("width:(.*)%")[0]
+        meta['user_rating'] = normalize_rating(user_rating, 100)
 
         versions = dict()
         m = re.search(version_pattern, yui3.css("span.version::text").get())

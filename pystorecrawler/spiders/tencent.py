@@ -3,6 +3,7 @@ import re
 import scrapy
 
 from pystorecrawler.item import Meta
+from pystorecrawler.spiders.util import normalize_rating
 
 pkg_pattern = "https://android\.myapp\.com/myapp/detail\.htm\?apkName=(.*)"
 
@@ -49,7 +50,8 @@ class TencentSpider(scrapy.Spider):
         if m:
             meta['pkg_name'] = m.group(1)
 
-        meta['user_rating'] = response.css("div.com-blue-star-num::text").re("(.*)分")[0]
+        user_rating = response.css("div.com-blue-star-num::text").re("(.*)分")[0]
+        meta['user_rating'] = normalize_rating(user_rating, 5)
         meta['downloads'] = response.css("div.det-insnum-line div.det-ins-num::text").get()
 
         category = response.css("#J_DetCate::text").get()
