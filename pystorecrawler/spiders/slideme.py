@@ -1,7 +1,7 @@
 import re
 
 import scrapy
-
+import numpy as np
 from pystorecrawler.item import Meta
 from pystorecrawler.spiders.util import normalize_rating
 
@@ -20,17 +20,13 @@ class SlideMeSpider(scrapy.Spider):
             response: scrapy.Response
         """
         # pagination
-        next_page = response.css("li.pager-next").css("a::attr(href)").get()
+        next_page = response.css("li.pager-next a::attr(href)").get()
         if next_page:
-            full_url = response.urljoin(next_page)
-            yield scrapy.Request(full_url,
-                                 callback=self.parse)  # TODO: is pagination sufficient or should we follow similar apps too ?
+            yield response.follow(next_page, callback=self.parse)
 
         # find links to other apps
-        app_links = response.css("#content").css("div.node.node-mobileapp").css("h2").css("a::attr(href)").getall()
-        for link in app_links:
-            full_url = response.urljoin(link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+        for pkg_link in response.css("a::attr(href)").re("/application/.*"):
+            yield response.follow(pkg_link, callback=self.parse_pkg_page)
 
     def parse_pkg_page(self, response):
         """
@@ -90,3 +86,6 @@ class SlideMeSpider(scrapy.Spider):
         )
 
         yield res
+
+        for pkg_url in np.unique(response.css("a::attr(href)").re("/application/.*")):
+            yield response.follow(pkg_url, callback=self.parse_pkg_page)
