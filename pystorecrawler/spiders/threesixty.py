@@ -15,7 +15,13 @@ id_pattern = "http://zhushou\.360\.cn/detail/index/soft_id/(\d+)"
 
 class ThreeSixtySpider(scrapy.Spider):
     name = "360_spider"
-    start_urls = ['http://zhushou.360.cn']
+
+    def start_requests(self):
+        for cid in [1,2]:
+            for page_id in range(1, 51):
+                url = f"http://zhushou.360.cn/list/index/cid/{cid}?page={page_id}"
+                yield scrapy.Request(url, callback=self.parse_index_page)
+        yield scrapy.Request('http://zhushou.360.cn', callback=self.parse)
 
     def parse(self, response):
         """
@@ -29,6 +35,16 @@ class ThreeSixtySpider(scrapy.Spider):
         for pkg_page in response.css("div.ctcon.ctconw * a.sicon::attr(href)").getall():
             full_url = response.urljoin(pkg_page)
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+
+    def parse_index_page(self, response):
+        """
+        Crawls a paginated page of listed apps
+        Example URL: http://zhushou.360.cn/list/index/cid/1
+        """
+        # visit all apps
+        for pkg_page in response.css("#iconList h3 a::attr(href)").getall():
+            yield response.follow(pkg_page, callback=self.parse_pkg_page)
+
 
     def parse_pkg_page(self, response):
         """
