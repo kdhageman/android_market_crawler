@@ -1,6 +1,7 @@
 import re
 
 import scrapy
+import numpy as np
 
 from pystorecrawler.item import Meta
 from pystorecrawler.spiders.util import normalize_rating
@@ -11,7 +12,13 @@ id_pattern = "https://appstore\.huawei\.com/app/(.*)"
 
 class HuaweiSpider(scrapy.Spider):
     name = "huawei_spider"
-    start_urls = ['https://appstore.huawei.com/']
+
+    def start_requests(self):
+        for i in [2, 13]:
+            for j in range(1, 6):
+                url = f"https://appstore.huawei.com/game/list_{i}_0_{j}"
+                yield scrapy.Request(url, callback=self.parse)
+        yield scrapy.Request('https://appstore.huawei.com/', callback=self.parse)
 
     def parse(self, response):
         """
@@ -22,19 +29,8 @@ class HuaweiSpider(scrapy.Spider):
            response: scrapy.Response
         """
         # find links to packages
-        pkg_links = []
-
-        # recommended
-        for pkg_link in response.css("#recommendAppList * li.app-ico > a::attr(href)").getall():
-            pkg_links.append(pkg_link)
-
-        # others
-        for pkg_link in response.css("div.unit-tri * div.app-sweatch * div.open-ico > a::attr(href)").getall():
-            pkg_links.append(pkg_link)
-
-        for pkg_link in pkg_links:
-            full_url = response.urljoin(pkg_link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+        for pkg_link in np.unique(response.css("a::attr(href)").re("/app/.*")):
+            yield response.follow(pkg_link, callback=self.parse_pkg_page)
 
     def parse_pkg_page(self, response):
         """
@@ -85,9 +81,10 @@ class HuaweiSpider(scrapy.Spider):
             versions=versions
         )
 
-        # sidebar on the right
-        for pkg_link in response.css("div.unit.nofloat.corner")[1].css("a::attr(href)").getall():
-            full_url = response.urljoin(pkg_link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
-
         yield res
+
+        # sidebar on the right
+        for pkg_link in response.css("div.lay-right a::attr(href)").getall():
+            yield response.follow(pkg_link, callback=self.parse_pkg_page)
+
+

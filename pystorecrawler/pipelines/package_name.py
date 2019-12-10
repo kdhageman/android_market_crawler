@@ -28,6 +28,8 @@ class PackageNamePipeline:
                 for l in f.readlines():
                     self.seen.add(l.strip())
 
+        os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
+
         # open file for further appending
         self.f = open(fpath, 'a+')
 

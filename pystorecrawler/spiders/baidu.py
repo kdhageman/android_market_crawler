@@ -11,7 +11,10 @@ id_pattern = "http://as\.baidu\.com/(.*?)/(.*)\.html"
 
 class BaiduSpider(scrapy.Spider):
     name = "baidu_spider"
-    start_urls = ['http://as.baidu.com/']
+
+    def start_requests(self):
+        yield scrapy.Request('http://as.baidu.com/', self.parse)
+        yield scrapy.Request('https://as.baidu.com/rank/top/', self.parse_top_page)
 
     def parse(self, response):
         """
@@ -21,9 +24,24 @@ class BaiduSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
-        for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall() :
-            full_url = response.urljoin(pkg_link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+        for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
+            yield response.follow(pkg_link, callback=self.parse_pkg_page)
+
+    def parse_top_page(self, response):
+        """
+        Crawls the page of top apps
+        Example URL: https://as.baidu.com/rank/top/
+        Args:
+            response: scrapy.Response
+        """
+        # visit all apps
+        for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
+            yield response.follow(pkg_link, callback=self.parse_pkg_page)
+
+        # follow pagination
+        next_page = response.css("li.next a::attr(href)").get()
+        if next_page:
+            yield response.follow(next_page, self.parse_top_page)
 
     def parse_pkg_page(self, response):
         """
@@ -72,6 +90,6 @@ class BaiduSpider(scrapy.Spider):
         yield res
 
         # apps you might like
-        for pkg_link in response.css("div.sec-favourite div.app-bda.app-box::attr(href)").getall():
+        for pkg_link in response.css("div.sec-favourite a.app-box::attr(href)").getall()  :
             full_url = response.urljoin(pkg_link )
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
