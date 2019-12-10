@@ -14,6 +14,10 @@ class HuaweiSpider(scrapy.Spider):
     name = "huawei_spider"
 
     def start_requests(self):
+        for page_id in range(1, 124):
+            url = f"https://appstore.huawei.com/topics/{page_id}"
+            yield scrapy.Request(url, callback=self.parse_topics)
+
         for i in [2, 13]:
             for j in range(1, 6):
                 url = f"https://appstore.huawei.com/game/list_{i}_0_{j}"
@@ -22,7 +26,7 @@ class HuaweiSpider(scrapy.Spider):
 
     def parse(self, response):
         """
-        Parses the front page
+        Follow all links to package pages in the page
         Example URL: https://appstore.huawei.com/
 
         Args:
@@ -31,6 +35,14 @@ class HuaweiSpider(scrapy.Spider):
         # find links to packages
         for pkg_link in np.unique(response.css("a::attr(href)").re("/app/.*")):
             yield response.follow(pkg_link, callback=self.parse_pkg_page)
+
+    def parse_topics(self, response):
+        """
+        Parses a page of topics
+        Example URL: https://appstore.huawei.com/topics/
+        """
+        for topic_link in np.unique(response.css("a::attr(href)").re("/topic/.*")):
+            yield response.follow(topic_link, callback=self.parse)
 
     def parse_pkg_page(self, response):
         """
