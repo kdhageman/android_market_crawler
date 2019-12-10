@@ -175,8 +175,8 @@ def get_settings(config, spidername, logdir):
         CONCURRENT_REQUESTS=concurrent_requests,
         DEPTH_LIMIT=depth_limit,
         CLOSESPIDER_ITEMCOUNT=item_count,
-        AUTOTHROTTLE_ENABLED=True,
-        AUTOTHROTTLE_START_DELAY=1,
+        # AUTOTHROTTLE_ENABLED=True,
+        # AUTOTHROTTLE_START_DELAY=0,
         RETRY_TIMES=2,
         RETRY_HTTP_CODES=[429], # also retry rate limited requests
         # custom settings

@@ -1,5 +1,4 @@
 import json
-import random
 import re
 import urllib
 
@@ -86,7 +85,7 @@ class ThreeSixtySpider(scrapy.Spider):
         if meta['id']:
             for cid in range(21): # anecdotal evidence that cids up to 20 are allowed
                 related_url = related_tmpl % (meta['id'], cid)
-                yield scrapy.Request(related_url, callback=self.parse_related)
+                yield scrapy.Request(related_url, callback=self.parse_related, priority=-10)
 
     def parse_related(self, response):
         data = json.loads(response.body)
