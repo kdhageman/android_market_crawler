@@ -6,7 +6,7 @@ from pystorecrawler.item import Meta
 from pystorecrawler.spiders.util import normalize_rating
 
 version_pattern = '版本: (.*)'
-id_pattern = "http://as\.baidu\.com/(.*?)/(.*)\.html"
+id_pattern = "https?://as\.baidu\.com/(.*?)/(.*)\.html"
 
 
 class BaiduSpider(scrapy.Spider):
