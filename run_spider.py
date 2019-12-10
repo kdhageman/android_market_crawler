@@ -179,6 +179,7 @@ def get_settings(config, spidername, logdir):
         # AUTOTHROTTLE_START_DELAY=0,
         RETRY_TIMES=2,
         RETRY_HTTP_CODES=[429], # also retry rate limited requests
+        MEDIA_ALLOW_REDIRECTS=True,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=10 * 60 * 1000,  # 10 minute timeout (in milliseconds)
