@@ -42,6 +42,10 @@ class TencentSpider(PackageListSpider):
         Args:
             response: scrapy.Response
         """
+        if response.css("div.search-none-img"):
+            # not found page
+            return
+
         # find meta data
         meta = dict(
             url=response.url
