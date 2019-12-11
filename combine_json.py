@@ -1,5 +1,6 @@
 import argparse
 import os
+from tqdm import tqdm
 
 def main(args):
     with open(args.spidertxt, "r") as f:
@@ -7,17 +8,20 @@ def main(args):
 
     json_lines = []
     for spider in spiders:
-        walkdir = os.path.join(args.dir, spider)
+        spiderdir = os.path.join(args.dir, spider)
 
-        if os.path.exists(walkdir):
-            for root, dirs, files in os.walk(walkdir):
-                for file in files:
-                    if file == "meta.json":
-                        fullpath = os.path.join(root, file)
-                        with open(fullpath, "r") as f:
-                            content = f.readlines()
-                            if content:
-                                json_lines.append(content[-1])
+        if os.path.exists(spiderdir):
+            pkgs = [d for d in os.listdir(spiderdir) if os.path.isdir(os.path.join(spiderdir, d))]
+            for pkg in tqdm(pkgs, desc=spider, total=len(pkgs)):
+                walkdir = os.path.join(spiderdir, pkg)
+                for root, dirs, files in os.walk(walkdir):
+                    for file in files:
+                        if file == "meta.json":
+                            fullpath = os.path.join(root, file)
+                            with open(fullpath, "r") as f:
+                                content = f.readlines()
+                                if content:
+                                    json_lines.append(content[-1])
 
     with open(args.outfile, "w") as f:
         for json_line in json_lines:
