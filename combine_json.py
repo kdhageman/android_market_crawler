@@ -8,23 +8,20 @@ def last_json_from_file(f):
     Reads last JSON from file f
     Allows reading files that do not separate JSON content by a newline character
     """
-    c = f.read(1)
-    bcount = 0  # bracket count
-    last_json = ""
+    content = f.read()
     buf = ""
-    while c:
-        buf += c
-        if c == "{":
+    bcount = 0
+    for i in range(len(content) - 1, -1, -1):
+        c = content[i]
+        buf = c + buf
+        if c == "}":
             bcount += 1
-        elif c == "}":
+        elif c == "{":
             bcount -= 1
             if bcount == 0:
                 # last bracket
-                last_json = buf
-                buf = ""
-        c = f.read(1)
-    return last_json
-
+                return buf
+    return ""
 
 def walk_spider_dir(spiderdir, spider):
     """
@@ -56,7 +53,7 @@ def main(args):
 
     with open(args.outfile, "w") as f:
         for json_line in json_lines:
-            f.write(json_line + "\n")
+            f.write(json_line.strip() + "\n")
 
 
 if __name__ == "__main__":
