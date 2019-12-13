@@ -5,41 +5,21 @@ import scrapy
 from scrapy.crawler import CrawlerProcess
 
 
-class Pipeline:
-    def __init__(self, outfile):
-        self.outfile = outfile
-        self.f = None
+class Spider(scrapy.Spider):
+    def __init__(self, infile, outfile):
+        self.infile = infile
+        self.f = open(outfile, "w")
         self.seen = set()
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
+            infile=crawler.settings.get("INPUT_FILE"),
             outfile=crawler.settings.get('OUTPUT_FILE')
         )
 
-    def open_spider(self, spider):
-        self.f = open(self.outfile, "w")
-
-    def close_spider(self, spider):
+    def closed(self):
         self.f.close()
-
-    def process_item(self, item, spider):
-        domain = item.get("domain")
-        if domain and domain not in self.seen:
-            self.f.write(json.dumps(item) + "\n")
-            self.seen.add(domain)
-
-
-class Spider(scrapy.Spider):
-    def __init__(self, infile):
-        self.infile = infile
-        self.seen = set()
-
-    @classmethod
-    def from_crawler(cls, crawler):
-        return cls(
-            infile=crawler.settings.get("INPUT_FILE")
-        )
 
     def start_requests(self):
         with open(self.infile, "r") as f:
@@ -47,8 +27,10 @@ class Spider(scrapy.Spider):
                 parsed = json.loads(l)
                 assetlink_domains = parsed.get('assetlink_domains', [])
                 for domain in assetlink_domains:
-                    url = f"https://{domain}/.well-known/assetlinks.json"
-                    yield scrapy.Request(url, callback=self.parse, meta={"domain": domain})
+                    if domain not in self.seen:
+                        self.seen.add(domain)
+                        url = f"https://{domain}/.well-known/assetlinks.json"
+                        yield scrapy.Request(url, callback=self.parse, meta={"domain": domain})
 
     def parse(self, response):
         if response.status != 200:
@@ -68,7 +50,8 @@ class Spider(scrapy.Spider):
                 fps = target.get("sha256_cert_fingerprints", "")
                 fps = [fp.lower().replace(":", "") for fp in fps]
                 res['statements'][pkg_name] = fps
-        return res
+
+        self.f.write(json.dumps(res) + "\n")
 
 
 def get_settings(args):
@@ -76,9 +59,6 @@ def get_settings(args):
         CONCURRENT_REQUESTS=5,
         INPUT_FILE=args.infile,
         OUTPUT_FILE=args.outfile,
-        ITEM_PIPELINES={
-            'scripts.download_assetlinks.Pipeline': 300,
-        }
     )
 
 
