@@ -30,6 +30,23 @@ ALL_SPIDERS = [
     GooglePlaySpider
 ]
 
+def _load_user_agents(path):
+    try:
+        with open(path, "r") as f:
+            return [l.strip() for l in f.readlines()]
+    except:
+        return [
+            "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; FSL 7.0.6.01001)"
+        ]
+
+def _load_proxies(path):
+    try:
+        with open(path, "r") as f:
+            return [l.strip() for l in f.readlines()]
+    except:
+        return []
+
+
 def spider_by_name(name):
     """
     Returns an instance of a spider for the given name
@@ -134,37 +151,13 @@ def get_settings(config, spidername, logdir):
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
+        'pystorecrawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
-        # 'pystorecrawler.middlewares.too_many_requests.IncDec429RetryMiddleware': 543,
-        'pystorecrawler.middlewares.too_many_requests.Base429RetryMiddleware': 543,
+        'pystorecrawler.middlewares.too_many_requests.Base429RetryMiddleware': 543
     }
 
-    user_agents = [
-        ('Mozilla/5.0 (X11; Linux x86_64) '
-         'AppleWebKit/537.36 (KHTML, like Gecko) '
-         'Chrome/57.0.2987.110 '
-         'Safari/537.36'),  # chrome
-        ('Mozilla/5.0 (X11; Linux x86_64) '
-         'AppleWebKit/537.36 (KHTML, like Gecko) '
-         'Chrome/61.0.3163.79 '
-         'Safari/537.36'),  # chrome
-        ('Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:55.0) '
-         'Gecko/20100101 '
-         'Firefox/55.0'),  # firefox
-        ('Mozilla/5.0 (X11; Linux x86_64) '
-         'AppleWebKit/537.36 (KHTML, like Gecko) '
-         'Chrome/61.0.3163.91 '
-         'Safari/537.36'),  # chrome
-        ('Mozilla/5.0 (X11; Linux x86_64) '
-         'AppleWebKit/537.36 (KHTML, like Gecko) '
-         'Chrome/62.0.3202.89 '
-         'Chrome/62.0.3202.89 '
-         'Safari/537.36'),  # chrome
-        ('Mozilla/5.0 (X11; Linux x86_64) '
-         'AppleWebKit/537.36 (KHTML, like Gecko) '
-         'Chrome/63.0.3239.108 '
-         'Safari/537.36'),  # chrome
-    ]
+    user_agents = _load_user_agents(args.user_agents_file)
+    proxies = _load_proxies(args.proxies_file)
 
     settings = dict(
         LOG_LEVEL=log_level,
@@ -180,6 +173,8 @@ def get_settings(config, spidername, logdir):
         RETRY_TIMES=2,
         RETRY_HTTP_CODES=[429], # also retry rate limited requests
         MEDIA_ALLOW_REDIRECTS=True,
+        HTTPPROXY_ENABLED=True,
+        HTTP_PROXIES=proxies,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=10 * 60 * 1000,  # 10 minute timeout (in milliseconds)
@@ -216,6 +211,8 @@ if __name__ == "__main__":
     parser.add_argument("--config", help="Path to YAML configuration file", default="config/config.template.yml")
     parser.add_argument("--spider", help="Spider to run", required=True)
     parser.add_argument("--logdir", help="Directory in which to store the log files", default="logs")
+    parser.add_argument("--user_agents_file", help="Path to file of user agents", default="config/user_agents.txt")
+    parser.add_argument("--proxies_file", help="Path to file of proxy addresses", default="config/proxies.txt")
     args = parser.parse_args()
 
     with open(args.config) as f:

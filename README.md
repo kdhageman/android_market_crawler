@@ -21,9 +21,56 @@ Those crawlers simply ignore the lists and have their own package discovery mech
 Run the following commands from the root of the project directory:
 ```bash
 $ pip3 install -r requirements.txt
-$ python3 main.py --config {path to config file} --spider {name of spider, see spider_list.txt for available spiders} --logdir {directory where to store logs}  
+$ python run_spider.py --help
+usage: run_spider.py [-h] [--config CONFIG] --spider SPIDER [--logdir LOGDIR]
+                     [--user_agents_file USER_AGENTS_FILE]
+                     [--proxies_file PROXIES_FILE]
+
+Android APK market crawler
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --config CONFIG       Path to YAML configuration file
+  --spider SPIDER       Spider to run
+  --logdir LOGDIR       Directory in which to store the log files
+  --user_agents_file USER_AGENTS_FILE
+                        Path to file of user agents
+  --proxies_file PROXIES_FILE
+                        Path to file of proxy addresses
+  
 ```
 Alternatively, you can run all spiders as separate processes by running `./run_all.sh`.
+
+After having downloaded a set of APKs and their associated meta data, the following scripts can be run:
+```bash
+$ python combine_json.py --help
+usage: combine_json.py [-h] [--dir DIR] [--outfile OUTFILE]
+                       [--spidertxt SPIDERTXT]
+
+Aggregates JSON outputs from "run_spider.py" scripts
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --dir DIR             Directory to traverse
+  --outfile OUTFILE     Name of output file
+  --spidertxt SPIDERTXT
+                        File which contains names of spiders
+```
+and 
+```bash
+$ python analyze_apks.py --help
+usage: analyze_apks.py [-h] [--dir DIR] [--spidertxt SPIDERTXT]
+                       [--outfile OUTFILE]
+
+Analyze all APKs
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --dir DIR             Directory to traverse
+  --spidertxt SPIDERTXT
+                        File which contains names of spiders
+  --outfile OUTFILE     Name of output file
+```
 
 #### Supported markets
 A diverse set of markets is being crawled, both from the west and China. 

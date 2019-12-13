@@ -1,14 +1,17 @@
 import scrapy
+import re
 
 from pystorecrawler.item import Meta
 from pystorecrawler.spiders.util import normalize_rating
 
-pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
+dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"
 
 # TODO: deal with ordered requests (https://stackoverflow.com/a/16177544/12096194, https://stackoverflow.com/questions/54138758/scrapy-python-getting-items-from-yield-requests/54140461)
 class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
-    start_urls = ['https://www.apkmirror.com/']
+
+    def start_requests(self):
+        yield scrapy.Request('https://www.apkmirror.com/', callback=self.parse)
 
     def parse(self, response):
         """
@@ -106,20 +109,47 @@ class ApkMirrorSpider(scrapy.Spider):
         date = appspecs[-1].css("span::text").get()
         m = appspecs[0].css("::text")[0].re("Version: (.*)")
         version = m[0] if m else "undefined"
-        dl = response.css("a.downloadButton::attr(href)").get()
-        full_url = response.urljoin(dl)
+        dl_link = response.css("a.downloadButton::attr(href)").get()
+        dl_link_full = response.urljoin(dl_link)
 
         versions[version] = dict(
             timestamp=date,
-            download_url=full_url
+            download_url=dl_link_full
         )
 
-        res = Meta(
+        if re.search(dl_link_pattern, dl_link):
+            # in case this regex matches, the actual download link has been found
+            # otherwise, we must visit another nested download page first, before yielding the Meta response
+            yield Meta(
+                meta=meta,
+                versions=versions
+            )
+        else:
+            yield response.follow(dl_link, callback=self.download_url_from_button, meta=dict(meta=meta, versions=versions))
+
+    def download_url_from_button(self, response):
+        """
+        Obtains the true download URL from the button on the page
+        Args:
+            response:
+
+        Returns:
+
+        """
+        meta = response.meta['meta']
+        versions = response.meta['versions']
+
+        dl_url = response.xpath("//a[@rel = 'nofollow']/@href").get()
+        for version, d in versions.items():
+            if d['download_url'] == response.url:
+                d['download_url'] = response.urljoin(dl_url)
+                versions[version] = d
+                break
+
+        yield Meta(
             meta=meta,
             versions=versions
         )
-
-        yield res
 
     def parse_versions_page(self, response):
         """
