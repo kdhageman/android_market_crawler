@@ -40,6 +40,6 @@ class WriteMetaFilePipeline:
 
         with open(fpath, "a+") as f:
             jsonstr = json.dumps(dict(item))
-            f.write(jsonstr)
+            f.write(jsonstr + "\n")
 
         return item
