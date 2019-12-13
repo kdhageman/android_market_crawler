@@ -50,7 +50,7 @@ def parse_cert(cert):
     sha256 = cert.sha256.hex()
     pkey_algo = cert.public_key.algorithm
     pkey_size = cert.public_key.bit_size
-    pkey_sha256 = cert.sha256.hex()
+    pkey_sha256 = cert.public_key.sha256.hex()
 
     return dict(
         issuer=issuer,
