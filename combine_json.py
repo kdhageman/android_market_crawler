@@ -1,27 +1,10 @@
 import argparse
 import os
 from tqdm import tqdm
+import json
 
+from util import jsons_from_file, merge_jsons
 
-def last_json_from_file(f):
-    """
-    Reads last JSON from file f
-    Allows reading files that do not separate JSON content by a newline character
-    """
-    content = f.read()
-    buf = ""
-    bcount = 0
-    for i in range(len(content) - 1, -1, -1):
-        c = content[i]
-        buf = c + buf
-        if c == "}":
-            bcount += 1
-        elif c == "{":
-            bcount -= 1
-            if bcount == 0:
-                # last bracket
-                return buf
-    return ""
 
 def walk_spider_dir(spiderdir, spider):
     """
@@ -42,17 +25,19 @@ def main(args):
     with open(args.spidertxt, "r") as f:
         spiders = [l.strip() for l in f.readlines()]
 
-    json_lines = []
+    all_merged = []
     for spider in spiders:
         spiderdir = os.path.join(args.dir, spider)
 
         if os.path.exists(spiderdir):
             for f in walk_spider_dir(spiderdir, spider):
-                json_line = last_json_from_file(f)
-                json_lines.append(json_line)
+                jsons = jsons_from_file(f)
+                merged = merge_jsons(jsons)
+                all_merged.append(merged)
 
     with open(args.outfile, "w") as f:
-        for json_line in json_lines:
+        for l in all_merged:
+            json_line = json.dumps(l)
             f.write(json_line.strip() + "\n")
 
 
