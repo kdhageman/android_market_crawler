@@ -71,6 +71,18 @@ optional arguments:
                         File which contains names of spiders
   --outfile OUTFILE     Name of output file
 ```
+The following depends on the apk analysis script
+```bash
+$ python scripts/download_assetlinks.py  --help
+usage: download_assetlinks.py [-h] [--infile INFILE] [--outfile OUTFILE]
+
+Downloads the asset-links.json for the output file of "analyze_apks.py"
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --infile INFILE    path of input file
+  --outfile OUTFILE  path of output file
+```
 
 #### Supported markets
 A diverse set of markets is being crawled, both from the west and China. 
