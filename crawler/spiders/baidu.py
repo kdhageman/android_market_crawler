@@ -2,8 +2,8 @@ import re
 
 import scrapy
 
-from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import normalize_rating
+from crawler.item import Meta
+from crawler.spiders.util import normalize_rating
 
 version_pattern = '版本: (.*)'
 id_pattern = "https?://as\.baidu\.com/(.*?)/(.*)\.html"

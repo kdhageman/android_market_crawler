@@ -2,8 +2,8 @@ import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
-from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import get_directory, sha256
+from crawler.item import Meta
+from crawler.pipelines.util import get_directory, sha256
 
 
 class DownloadIconPipeline(FilesPipeline):

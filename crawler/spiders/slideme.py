@@ -2,8 +2,8 @@ import re
 
 import scrapy
 import numpy as np
-from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import normalize_rating
+from crawler.item import Meta
+from crawler.spiders.util import normalize_rating
 
 id_pattern = "http://slideme\.org/application/(.*)"
 

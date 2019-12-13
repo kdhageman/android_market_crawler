@@ -2,8 +2,8 @@ import re
 
 import scrapy
 
-from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import normalize_rating, PackageListSpider
+from crawler.item import Meta
+from crawler.spiders.util import normalize_rating, PackageListSpider
 
 pkg_pattern = "https://android\.myapp\.com/myapp/detail\.htm\?apkName=(.*)"
 

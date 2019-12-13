@@ -1,7 +1,7 @@
 import os
 
-from pystorecrawler.item import PackageName
-from pystorecrawler.pipelines.util import market_from_spider
+from crawler.item import PackageName
+from crawler.pipelines.util import market_from_spider
 
 
 class PackageNamePipeline:

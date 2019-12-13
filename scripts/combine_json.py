@@ -2,8 +2,10 @@ import argparse
 import os
 import json
 
-from apk.analysis import analyse
-from util import walk_spider_dir
+import sys
+
+sys.path.append(os.path.abspath('.'))
+from scripts.util import jsons_from_file, merge_jsons, walk_spider_dir
 
 
 def main(args):
@@ -15,17 +17,19 @@ def main(args):
             spiderdir = os.path.join(args.dir, spider)
 
             if os.path.exists(spiderdir):
-                for path in walk_spider_dir(spiderdir, spider, regex=".*\.apk"):
+                for path in walk_spider_dir(spiderdir, spider):
                     with open(path, "r") as f:
-                        a = analyse(f.name)
-                        outf.write(json.dumps(a).strip() + "\n")
-                        
+                        jsons = jsons_from_file(f)
+                        merged = merge_jsons(jsons)
+                        json_line = json.dumps(merged)
+                        outf.write(json_line.strip() + "\n")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Analyze all APKs')
+    parser = argparse.ArgumentParser(description='Aggregates JSON outputs from "run_spider.py" scripts')
     parser.add_argument("--dir", help="Directory to traverse", default=".")
+    parser.add_argument("--outfile", help="Name of output file", default="meta.combined.json")
     parser.add_argument("--spidertxt", help="File which contains names of spiders", default="config/spider_list.txt")
-    parser.add_argument("--outfile", help="Name of output file", default="apks.json")
     args = parser.parse_args()
 
     main(args)

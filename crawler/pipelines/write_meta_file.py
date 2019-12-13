@@ -1,8 +1,8 @@
 import json
 import os
 
-from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import get_directory
+from crawler.item import Meta
+from crawler.pipelines.util import get_directory
 
 FNAME = "meta.json"
 

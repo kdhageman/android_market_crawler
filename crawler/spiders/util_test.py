@@ -1,6 +1,6 @@
 import unittest
 
-from pystorecrawler.spiders.util import version_name
+from crawler.spiders.util import version_name
 
 
 class TestUtil(unittest.TestCase):

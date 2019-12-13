@@ -1,8 +1,8 @@
 import scrapy
 import re
 
-from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import normalize_rating, PackageListSpider
+from crawler.item import Meta
+from crawler.spiders.util import normalize_rating, PackageListSpider
 
 pkg_pattern = "http://app\.mi\.com/details\?id=(.*)"
 

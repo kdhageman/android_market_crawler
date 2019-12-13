@@ -5,17 +5,19 @@ import eventlet
 import yaml
 from scrapy.crawler import CrawlerProcess
 
-from pystorecrawler.pipelines.util import market_from_spider
-from pystorecrawler.spiders.apkmirror import ApkMirrorSpider
-from pystorecrawler.spiders.apkmonk import ApkMonkSpider
-from pystorecrawler.spiders.baidu import BaiduSpider
-from pystorecrawler.spiders.fdroid import FDroidSpider
-from pystorecrawler.spiders.gplay import GooglePlaySpider
-from pystorecrawler.spiders.huawei import HuaweiSpider
-from pystorecrawler.spiders.mi import MiSpider
-from pystorecrawler.spiders.slideme import SlideMeSpider
-from pystorecrawler.spiders.tencent import TencentSpider
-from pystorecrawler.spiders.threesixty import ThreeSixtySpider
+import sys
+sys.path.append(os.path.abspath('.'))
+from crawler.pipelines.util import market_from_spider
+from crawler.spiders.apkmirror import ApkMirrorSpider
+from crawler.spiders.apkmonk import ApkMonkSpider
+from crawler.spiders.baidu import BaiduSpider
+from crawler.spiders.fdroid import FDroidSpider
+from crawler.spiders.gplay import GooglePlaySpider
+from crawler.spiders.huawei import HuaweiSpider
+from crawler.spiders.mi import MiSpider
+from crawler.spiders.slideme import SlideMeSpider
+from crawler.spiders.tencent import TencentSpider
+from crawler.spiders.threesixty import ThreeSixtySpider
 
 ALL_SPIDERS = [
     ApkMirrorSpider,
@@ -30,6 +32,7 @@ ALL_SPIDERS = [
     GooglePlaySpider
 ]
 
+
 def _load_user_agents(path):
     try:
         with open(path, "r") as f:
@@ -38,6 +41,7 @@ def _load_user_agents(path):
         return [
             "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; FSL 7.0.6.01001)"
         ]
+
 
 def _load_proxies(path):
     try:
@@ -65,6 +69,7 @@ def spider_by_name(name):
         raise Exception("Unknown spider")
     return spider
 
+
 LOG_LEVELS = [
     "CRITICAL",
     "ERROR",
@@ -72,6 +77,7 @@ LOG_LEVELS = [
     "INFO",
     "DEBUG"
 ]
+
 
 class YamlException(Exception):
     def __init__(self, required_field):
@@ -137,23 +143,23 @@ def get_settings(config, spidername, logdir):
     log_file = os.path.join(logdir, f"{spidername}.log")
 
     item_pipelines = {
-        'pystorecrawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
-        'pystorecrawler.pipelines.package_name.PackageNamePipeline': 300,
-        'pystorecrawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
+        'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
+        'crawler.pipelines.package_name.PackageNamePipeline': 300,
+        'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
 
     if apk_enabled:
-        item_pipelines['pystorecrawler.pipelines.download_apks.DownloadApksPipeline'] = 200
+        item_pipelines['crawler.pipelines.download_apks.DownloadApksPipeline'] = 200
 
     if icon_enabled:
-        item_pipelines['pystorecrawler.pipelines.download_icon.DownloadIconPipeline'] = 210
+        item_pipelines['crawler.pipelines.download_icon.DownloadIconPipeline'] = 210
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
-        'pystorecrawler.middlewares.proxy.HttpProxyMiddleware': 100,
+        'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
-        'pystorecrawler.middlewares.too_many_requests.Base429RetryMiddleware': 543
+        'crawler.middlewares.too_many_requests.Base429RetryMiddleware': 543
     }
 
     user_agents = _load_user_agents(args.user_agents_file)
@@ -171,7 +177,7 @@ def get_settings(config, spidername, logdir):
         # AUTOTHROTTLE_ENABLED=True,
         # AUTOTHROTTLE_START_DELAY=0,
         RETRY_TIMES=2,
-        RETRY_HTTP_CODES=[429], # also retry rate limited requests
+        RETRY_HTTP_CODES=[429],  # also retry rate limited requests
         MEDIA_ALLOW_REDIRECTS=True,
         HTTPPROXY_ENABLED=True,
         HTTP_PROXIES=proxies,
@@ -202,15 +208,14 @@ def main(config, spidername, logdir):
     process.start()  # the script will block here until the crawling is finished
 
 
-
 if __name__ == "__main__":
     eventlet.monkey_patch(socket=True)
 
     # parse CLI arguments
     parser = argparse.ArgumentParser(description='Android APK market crawler')
     parser.add_argument("--config", help="Path to YAML configuration file", default="config/config.template.yml")
-    parser.add_argument("--spider", help="Spider to run", required=True)
     parser.add_argument("--logdir", help="Directory in which to store the log files", default="logs")
+    parser.add_argument("--spider", help="Spider to run", required=True, default="config/spider_list.txt")
     parser.add_argument("--user_agents_file", help="Path to file of user agents", default="config/user_agents.txt")
     parser.add_argument("--proxies_file", help="Path to file of proxy addresses", default="config/proxies.txt")
     args = parser.parse_args()

@@ -3,8 +3,8 @@ import re
 import numpy as np
 import scrapy
 
-from pystorecrawler.item import PackageName
-from pystorecrawler.spiders.util import PackageListSpider
+from crawler.item import PackageName
+from crawler.spiders.util import PackageListSpider
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
 

@@ -3,9 +3,9 @@ import shutil
 import tempfile
 import unittest
 
-from pystorecrawler.item import PackageName
-from pystorecrawler.pipelines.package_name import PackageNamePipeline
-from pystorecrawler.pipelines.util import TestSpider
+from crawler.item import PackageName
+from crawler.pipelines.package_name import PackageNamePipeline
+from crawler.pipelines.util import TestSpider
 
 
 class TestPackageNamePipeline(unittest.TestCase):

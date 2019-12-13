@@ -6,9 +6,9 @@ import unittest
 
 from pytest_httpserver import HTTPServer
 
-from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.download_apks import DownloadApksPipeline
-from pystorecrawler.pipelines.util import TestSpider
+from crawler.item import Meta
+from crawler.pipelines.download_apks import DownloadApksPipeline
+from crawler.pipelines.util import TestSpider
 
 
 class TestDownloadPipeline(unittest.TestCase):

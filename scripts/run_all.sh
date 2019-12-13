@@ -11,4 +11,4 @@ echo "[*] Starting all spiders in background"
 echo "  > Configuration file: $1"
 echo "  > Log file directory: $2"
 
-xargs -n1 -P 0 -a spider_list.txt python run_spider.py --config $1 --logdir $2 --spider
+xargs -n1 -P 0 -a config/spider_list.txt python scripts/run_spider.py --config $1 --logdir $2 --spider

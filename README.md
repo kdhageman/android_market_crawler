@@ -21,7 +21,7 @@ Those crawlers simply ignore the lists and have their own package discovery mech
 Run the following commands from the root of the project directory:
 ```bash
 $ pip3 install -r requirements.txt
-$ python run_spider.py --help
+$ python scripts/run_spider.py --help
 usage: run_spider.py [-h] [--config CONFIG] --spider SPIDER [--logdir LOGDIR]
                      [--user_agents_file USER_AGENTS_FILE]
                      [--proxies_file PROXIES_FILE]
@@ -43,7 +43,7 @@ Alternatively, you can run all spiders as separate processes by running `./run_a
 
 After having downloaded a set of APKs and their associated meta data, the following scripts can be run:
 ```bash
-$ python combine_json.py --help
+$ python scripts/combine_json.py --help
 usage: combine_json.py [-h] [--dir DIR] [--outfile OUTFILE]
                        [--spidertxt SPIDERTXT]
 
@@ -58,7 +58,7 @@ optional arguments:
 ```
 and 
 ```bash
-$ python analyze_apks.py --help
+$ python scripts/analyze_apks.py --help
 usage: analyze_apks.py [-h] [--dir DIR] [--spidertxt SPIDERTXT]
                        [--outfile OUTFILE]
 

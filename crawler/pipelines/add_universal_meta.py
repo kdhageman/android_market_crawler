@@ -1,7 +1,7 @@
 import time
 
-from pystorecrawler.item import Meta
-from pystorecrawler.pipelines.util import market_from_spider
+from crawler.item import Meta
+from crawler.pipelines.util import market_from_spider
 
 
 class AddUniversalMetaPipeline:

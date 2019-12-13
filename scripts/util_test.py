@@ -1,11 +1,11 @@
 import unittest
 import json
-from util import jsons_from_file, merge_jsons
+from scripts.util import jsons_from_file, merge_jsons
 
 
 class TestUtil(unittest.TestCase):
     def test_json_util(self):
-        path = "resources/meta.json"
+        path = "../resources/meta.json"
         with open(path) as f:
             jsons = jsons_from_file(f)
             merged = merge_jsons(jsons)

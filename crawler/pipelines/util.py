@@ -6,7 +6,6 @@ import requests
 import scrapy
 from eventlet import Timeout
 
-from pystorecrawler.item import Meta
 
 def get_identifier(meta):
     """
@@ -49,7 +48,7 @@ def get_directory(meta, spider):
     Args:
         spider: scrapy.Spider
             spider that crawled the item
-        item: pystorecrawler.item.Meta
+        item: crawler.item.Meta
             item resulting from crawl
 
     Returns:
@@ -70,6 +69,7 @@ class TestSpider(scrapy.Spider):
     def parse(self, response):
         pass
 
+
 def get(url, timeout):
     """
     Performs an HTTP GET request for the given URL, and ensures that the entire requests does not exceed the timeout value (in ms)
@@ -85,13 +85,15 @@ def get(url, timeout):
         return requests.get(url, allow_redirects=True, timeout=60)
 
     r = None
-    with Timeout(timeout, False):  # ensure that APK downloading does not exceed timeout duration; TODO: is this preferred behaviour?
+    with Timeout(timeout,
+                 False):  # ensure that APK downloading does not exceed timeout duration; TODO: is this preferred behaviour?
         r = requests.get(url, allow_redirects=True, timeout=60)
 
     if not r:
         raise TimeoutError(f"request timeout for '{url}'")
 
     return r
+
 
 def sha256(f):
     """

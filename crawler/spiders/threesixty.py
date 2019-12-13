@@ -4,8 +4,8 @@ import urllib
 
 import scrapy
 
-from pystorecrawler.item import Meta
-from pystorecrawler.spiders.util import normalize_rating
+from crawler.item import Meta
+from crawler.spiders.util import normalize_rating
 
 related_tmpl = "http://openbox.mobilem.360.cn/detail/rank?soft_id=%s&cid=%s&start=0&num=100" # an open API for retrieving JSON data about apps
 pkg_tmpl = "http://zhushou.360.cn/detail/index/soft_id/%s"
