@@ -6,26 +6,21 @@ import json
 from util import jsons_from_file, merge_jsons, walk_spider_dir
 
 
-
 def main(args):
     with open(args.spidertxt, "r") as f:
         spiders = [l.strip() for l in f.readlines()]
 
-    all_merged = []
-    for spider in spiders:
-        spiderdir = os.path.join(args.dir, spider)
+    with open(args.outfile, "w") as outf:
+        for spider in spiders:
+            spiderdir = os.path.join(args.dir, spider)
 
-        if os.path.exists(spiderdir):
-            for path in walk_spider_dir(spiderdir, spider):
-                with open(path, "r") as f:
-                    jsons = jsons_from_file(f)
-                    merged = merge_jsons(jsons)
-                    all_merged.append(merged)
-
-    with open(args.outfile, "w") as f:
-        for l in all_merged:
-            json_line = json.dumps(l)
-            f.write(json_line.strip() + "\n")
+            if os.path.exists(spiderdir):
+                for path in walk_spider_dir(spiderdir, spider):
+                    with open(path, "r") as f:
+                        jsons = jsons_from_file(f)
+                        merged = merge_jsons(jsons)
+                        json_line = json.dumps(merged)
+                        outf.write(json_line.strip() + "\n")
 
 
 if __name__ == "__main__":

@@ -10,20 +10,16 @@ def main(args):
     with open(args.spidertxt, "r") as f:
         spiders = [l.strip() for l in f.readlines()]
 
-    json_lines = []
-    for spider in spiders:
-        spiderdir = os.path.join(args.dir, spider)
+    with open(args.outfile, "w") as outf:
+        for spider in spiders:
+            spiderdir = os.path.join(args.dir, spider)
 
-        if os.path.exists(spiderdir):
-            for path in walk_spider_dir(spiderdir, spider, regex=".*\.apk"):
-                with open(path, "r") as f:
-                    a = analyse(f.name)
-                    json_lines.append(json.dumps(a))
-
-    with open(args.outfile, "w") as f:
-        for l in json_lines:
-            f.write(l.strip() + "\n")
-
+            if os.path.exists(spiderdir):
+                for path in walk_spider_dir(spiderdir, spider, regex=".*\.apk"):
+                    with open(path, "r") as f:
+                        a = analyse(f.name)
+                        outf.write(json.dumps(a).strip() + "\n")
+                        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyze all APKs')
