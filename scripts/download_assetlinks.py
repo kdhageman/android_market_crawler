@@ -5,8 +5,11 @@ import scrapy
 from scrapy.crawler import CrawlerProcess
 
 
-class Spider(scrapy.Spider):
-    def __init__(self, infile, outfile):
+class AssetLinkSpider(scrapy.Spider):
+    name = "download_assetlinks"
+
+    def __init__(self, crawler, infile="", outfile=""):
+        self.crawler = crawler
         self.infile = infile
         self.f = open(outfile, "w")
         self.seen = set()
@@ -14,12 +17,10 @@ class Spider(scrapy.Spider):
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
+            crawler,
             infile=crawler.settings.get("INPUT_FILE"),
             outfile=crawler.settings.get('OUTPUT_FILE')
         )
-
-    def closed(self):
-        self.f.close()
 
     def start_requests(self):
         with open(self.infile, "r") as f:
@@ -27,15 +28,12 @@ class Spider(scrapy.Spider):
                 parsed = json.loads(l)
                 assetlink_domains = parsed.get('assetlink_domains', [])
                 for domain in assetlink_domains:
-                    if domain not in self.seen:
+                    if domain.strip() and domain not in self.seen:
                         self.seen.add(domain)
                         url = f"https://{domain}/.well-known/assetlinks.json"
                         yield scrapy.Request(url, callback=self.parse, meta={"domain": domain})
 
     def parse(self, response):
-        if response.status != 200:
-            return
-
         domain = response.meta.get("domain")
         res = dict(
             domain=domain,
@@ -59,13 +57,14 @@ def get_settings(args):
         CONCURRENT_REQUESTS=5,
         INPUT_FILE=args.infile,
         OUTPUT_FILE=args.outfile,
+        DUPEFILTER_CLASS='scrapy.dupefilters.BaseDupeFilter'  # disable dupefilter
     )
 
 
 def main(args):
     settings = get_settings(args)
     process = CrawlerProcess(settings)
-    process.crawl(Spider)
+    process.crawl(AssetLinkSpider)
     process.start()
 
 
