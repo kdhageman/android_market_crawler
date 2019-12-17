@@ -2,6 +2,7 @@ import argparse
 import os
 
 import eventlet
+import sentry_sdk
 import yaml
 from scrapy.crawler import CrawlerProcess
 
@@ -158,6 +159,7 @@ def get_settings(config, spidername, logdir):
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
+        'crawler.middlewares.sentry.SentryMiddleware': 110,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
         'crawler.middlewares.too_many_requests.Base429RetryMiddleware': 543
     }
@@ -199,6 +201,10 @@ def get_settings(config, spidername, logdir):
 
 
 def main(config, spidername, logdir):
+    dsn = config.get("sentry", {}).get("dsn", "")
+    if dsn:
+        sentry_sdk.init(dsn)
+
     settings = get_settings(config, spidername, logdir)
     process = CrawlerProcess(settings)
 

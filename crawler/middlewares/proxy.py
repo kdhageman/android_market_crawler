@@ -1,6 +1,7 @@
 import random
 
-class HttpProxyMiddleware(object):
+
+class HttpProxyMiddleware:
 
     def __init__(self, proxies=[]):
         self.proxies = proxies
