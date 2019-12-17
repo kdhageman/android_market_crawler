@@ -1,3 +1,4 @@
+import statsd
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 from scrapy.utils.response import response_status_message
 from crawler.middlewares.sentry import capture
@@ -18,19 +19,22 @@ class Base429RetryMiddleware(RetryMiddleware):
             the number of seconds to increment the backoff time on any requests
     """
 
-    def __init__(self, crawler, base_inc, default_backoff):
+    def __init__(self, crawler, base_inc, default_backoff, statsd_host, statsd_port):
         super(Base429RetryMiddleware, self).__init__(crawler.settings)
         self.crawler = crawler
         self.default_backoff = default_backoff
         self.base_inc = base_inc
-        self.base_backoff = 0
+        self.backoff = 0
+        self.c = statsd.StatsClient(statsd_host, statsd_port, prefix='scrape')
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
             crawler,
-            crawler.settings.get("RATELIMIT_BASE_INC", 0.05),  # 50 ms
-            crawler.settings.get("RATELIMIT_DEFAULT_BACKOFF", 10)
+            base_inc=crawler.settings.get("RATELIMIT_BASE_INC", 0.05),  # 50 ms
+            default_backoff=crawler.settings.get("RATELIMIT_DEFAULT_BACKOFF", 10),
+            statsd_host=crawler.settings.get('STATSD_HOST'),
+            statsd_port=crawler.settings.getint('STATSD_PORT')
         )
 
     def process_response(self, request, response, spider):
@@ -43,22 +47,23 @@ class Base429RetryMiddleware(RetryMiddleware):
                 backoff = self.default_backoff
                 log_msg = f"hit rate limit, waiting for {backoff} seconds"
 
-            self.base_backoff += self.base_inc
+            self.backoff += self.base_inc
 
             spider.logger.warning(log_msg)
-            spider.logger.warning(f"increased base backoff to {self.base_backoff} seconds")
+            spider.logger.warning(f"increased base backoff to {self.backoff} seconds")
             tags = {
                 'backoff': backoff,
                 'retry_after': retry_after,
                 'spider': spider.name
             }
             capture(msg="hit rate limit", tags=tags)
+            self.c.gauge(f"{spider}.backoff.gauge", backoff)
 
             self.pause(backoff)
 
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response
-        self.pause(self.base_backoff)
+        self.pause(self.backoff)
         return response
 
     def pause(self, t):

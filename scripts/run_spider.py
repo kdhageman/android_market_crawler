@@ -141,6 +141,12 @@ def get_settings(config, spidername, logdir):
     apk_enabled = downloads.get("apk", True)
     icon_enabled = downloads.get("icon", True)
 
+    statsd = config.get("statsd", None)
+    if not statsd:
+        raise YamlException("statsd")
+    statsd_host = statsd.get("host")
+    statsd_port = statsd.get("port")
+
     log_file = os.path.join(logdir, f"{spidername}.log")
 
     item_pipelines = {
@@ -160,6 +166,7 @@ def get_settings(config, spidername, logdir):
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'crawler.middlewares.sentry.SentryMiddleware': 110,
+        'crawler.middlewares.statsd.StatsdMiddleware': 111,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
         'crawler.middlewares.too_many_requests.Base429RetryMiddleware': 543
     }
@@ -169,7 +176,6 @@ def get_settings(config, spidername, logdir):
 
     settings = dict(
         LOG_LEVEL=log_level,
-        LOG_FILE=log_file,
         DOWNLOADER_MIDDLEWARES=downloader_middlewares,
         USER_AGENTS=user_agents,
         ITEM_PIPELINES=item_pipelines,
@@ -191,8 +197,13 @@ def get_settings(config, spidername, logdir):
         RATELIMIT_DEC_TIME=ratelimit_dec,
         RATELIMIT_BASE_INC=ratelimit_base,
         RATELIMIT_DEFAULT_BACKOFF=ratelimit_default,
-        PACKAGE_FILES=package_files
+        PACKAGE_FILES=package_files,
+        STATSD_HOST=statsd_host,
+        STATSD_PORT=statsd_port
     )
+
+    if scrapy.get("log_to_file", True):
+        settings['LOG_FILE'] = log_file
 
     if resumation_enabled:
         settings['JOBDIR'] = jobdir

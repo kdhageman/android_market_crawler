@@ -1,13 +1,15 @@
 from sentry_sdk import capture_message, configure_scope, capture_exception
 
+from crawler.middlewares.util import is_success
+
 
 class SentryMiddleware:
     def process_spider_output(self, response, result, spider):
-        if not 200 <= response.status_code < 400:  # all 2xx and 3xx responses are accepted
+        if not is_success(response.status_code):  # all 2xx and 3xx responses are accepted
             capture(msg="failed request", tags=_tags(response, spider))
 
     def process_spider_exception(self, response, exception, spider):
-        if not 200 <= response.status_code < 400:  # all 2xx and 3xx responses are accepted
+        if not is_success(response.status_code):  # all 2xx and 3xx responses are accepted
             capture(exception=exception, tags=_tags(response, spider))
 
 
