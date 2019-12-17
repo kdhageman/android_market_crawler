@@ -19,3 +19,5 @@ scrapy:
 downloads: # can be used to enable (=true) or disable (=false) downloads of various files
   apk: true
   icon: true
+sentry:
+  dsn: "" # DSN from Sentry
