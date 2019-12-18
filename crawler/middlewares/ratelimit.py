@@ -9,6 +9,7 @@ from crawler.middlewares.sentry import capture
 import time
 
 from crawler.middlewares.util import is_success
+from crawler.pipelines.util import market_from_spider
 
 
 class RatelimitMiddleware(RetryMiddleware):
@@ -39,11 +40,11 @@ class RatelimitMiddleware(RetryMiddleware):
         self.first_ok = False
 
         self.c = InfluxDBClient(**influxdb_params)
-        self.reset_influxdb()
+        self.reset_influxdb(crawler.spider)
 
-    def capture_influxdb(self, spiders={}):
+    def capture_influxdb(self, markets={}):
         points = []
-        for spider, vals in spiders.items():
+        for market, vals in markets.items():
             fields = {}
             if 'backoff' in vals:
                 fields["backoff"] = vals['backoff']
@@ -52,7 +53,7 @@ class RatelimitMiddleware(RetryMiddleware):
             point = {
                 "measurement": "rate_limiting",
                 "tags": {
-                    "spider": spider
+                    "market": market
                 },
                 "fields": fields
             }
@@ -63,20 +64,18 @@ class RatelimitMiddleware(RetryMiddleware):
             print(e)
             capture_exception(e)
 
-    def reset_influxdb(self):
+    def reset_influxdb(self, spider):
         """
         Sets all backoff/retry_after to zero
         """
-        qry = "SHOW TAG VALUES WITH KEY = spider"
-        results = self.c.query(qry)
-        spiders = {}
-        for result in results:
-            for d in result:
-                spiders[d['value']] = dict(
-                    backoff=float(0),
-                    interval=float(0)
-                )
-        self.capture_influxdb(spiders)
+        market = market_from_spider(spider)
+        dat = {
+            market: {
+                'backoff': 0,
+                'interval': 0
+            }
+        }
+        self.capture_influxdb(dat)
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -109,7 +108,8 @@ class RatelimitMiddleware(RetryMiddleware):
                 'spider': spider.name
             }
             capture(msg="hit rate limit", tags=tags)
-            self.capture_influxdb({spider.name: {"backoff": float(backoff), "interval": self.interval}})
+            market=market_from_spider(spider)
+            self.capture_influxdb({market: {"backoff": float(backoff), "interval": self.interval}})
 
             self.pause(backoff)
 
@@ -129,7 +129,8 @@ class RatelimitMiddleware(RetryMiddleware):
                     self.upper_limit_interval = min(self.upper_limit_interval, self.interval) if self.upper_limit_interval else self.interval
                     self.interval -= diff
                     self.tstart = time.time()
-                    self.capture_influxdb({spider.name: {"interval": self.interval}})
+                    market = market_from_spider(spider)
+                    self.capture_influxdb({market: {"interval": self.interval}})
                     spider.logger.warning(f"decreased interval to {self.interval} seconds")
 
         # self.pause(self.interval)
