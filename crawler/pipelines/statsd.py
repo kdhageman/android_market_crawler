@@ -4,14 +4,14 @@ from crawler.item import Meta
 
 
 class StatsdMiddleware(object):
-    def __init__(self, host, port):
-        self.c = statsd.StatsClient(host, port, prefix='scrape')
+    def __init__(self, params):
+        params['prefix'] = "scrape"
+        self.c = statsd.StatsClient(**params)
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
-            host=crawler.settings.get('STATSD_HOST'),
-            port=crawler.settings.getint('STATSD_PORT')
+            params=crawler.settings.get('STATSD_PARAMS'),
         )
 
     def process_item(self, item, spider):

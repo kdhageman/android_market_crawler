@@ -137,11 +137,7 @@ def get_settings(config, spidername, logdir):
     apk_enabled = downloads.get("apk", True)
     icon_enabled = downloads.get("icon", True)
 
-    statsd = config.get("statsd", None)
-    if not statsd:
-        raise YamlException("statsd")
-    statsd_host = statsd.get("host")
-    statsd_port = statsd.get("port")
+    statsd = config.get("statsd", {})
 
     influxdb = config.get("influxdb", None)
     if not influxdb:
