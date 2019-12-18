@@ -9,8 +9,9 @@ scrapy:
   item_count: 10
   log_level: INFO
   ratelimit:
-    base: 0.05
-    default: 30
+    default_backoff: 10
+    ok_window_duration: 30
+    epsilon: 0.5
   resumation:
     enabled: true
     jobdir: ./jobdir

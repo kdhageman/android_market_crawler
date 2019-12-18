@@ -1,5 +1,5 @@
 from influxdb import InfluxDBClient
-from influxdb.exceptions import InfluxDBClientError
+from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 from scrapy.utils.response import response_status_message
 from sentry_sdk import capture_exception
@@ -8,11 +8,13 @@ from crawler.middlewares.sentry import capture
 
 import time
 
+from crawler.middlewares.util import is_success
+
 
 class RatelimitMiddleware(RetryMiddleware):
     """
     Middleware for dynamically adjusting querying rate.
-    Maintains a backoff time that slowly increments every time a 429 is seen and is applied to all subsequent request.
+    Maintains a backoff time that increments exponentially every time a 429 is seen and is applied to all subsequent request.
     # inspired by https://stackoverflow.com/questions/43630434/how-to-handle-a-429-too-many-requests-response-in-scrapy
 
     Configured with two parameters:
@@ -25,29 +27,40 @@ class RatelimitMiddleware(RetryMiddleware):
     def __init__(self, crawler, ratelimit_params, influxdb_params):
         super(RatelimitMiddleware, self).__init__(crawler.settings)
         self.crawler = crawler
-        self.default_backoff = float(ratelimit_params.get("default", 10))
-        self.inc = float(ratelimit_params.get("inc", 0.05))
+        self.default_backoff = float(ratelimit_params.get("default_backoff", 10))
+        self.base_inc = 0.02
+        self.exp_inc = self.base_inc
         self.interval = float(0)
+        self.upper_limit_interval = 0  # upper interval were converging towards
+        self.lower_limit_interval = 0  # lower interval were converging towards
+        self.tstart = None  # start time of current delta-slot
+        self.ok_window_duration = ratelimit_params.get("ok_window_duration", 10)  # window duration in seconds
+        self.epsilon = float(ratelimit_params.get("epsilon", 1))  # stop reducing interval when almost converged with limit interval, epsilon defines what
+        self.first_ok = False
+
         self.c = InfluxDBClient(**influxdb_params)
         self.reset_influxdb()
 
     def capture_influxdb(self, spiders={}):
         points = []
         for spider, vals in spiders.items():
+            fields = {}
+            if 'backoff' in vals:
+                fields["backoff"] = vals['backoff']
+            if 'interval' in vals:
+                fields["interval"] = vals['interval']
             point = {
                 "measurement": "rate_limiting",
                 "tags": {
                     "spider": spider
                 },
-                "fields": {
-                    "backoff": vals['backoff'],
-                    "interval": vals['interval']
-                }
+                "fields": fields
             }
             points.append(point)
         try:
             self.c.write_points(points)
-        except InfluxDBClientError as e:
+        except (InfluxDBClientError, InfluxDBServerError) as e:
+            print(e)
             capture_exception(e)
 
     def reset_influxdb(self):
@@ -75,17 +88,20 @@ class RatelimitMiddleware(RetryMiddleware):
 
     def process_response(self, request, response, spider):
         if response.status == 429:
-            retry_after = int(response.headers.get("Retry-After", 0))
-            if retry_after:
-                backoff = retry_after
-                log_msg = f"hit rate limit, waiting for {backoff} seconds (respecting Retry-After header)"
+            self.lower_limit_interval = max(self.interval, self.lower_limit_interval)
+            self.first_ok = True
+
+            if not self.upper_limit_interval:
+                # exponential backoff when there is no known upper limit
+                self.interval += self.exp_inc
+                self.exp_inc *= 2  # exponential interval
             else:
-                backoff = self.default_backoff
-                log_msg = f"hit rate limit, waiting for {backoff} seconds"
+                # there is an known upper limit, so converge to it
+                self.interval += (self.upper_limit_interval - self.interval) / 2
 
-            self.interval += self.inc
+            retry_after = float(response.headers.get("Retry-After", 0))
+            backoff = retry_after if retry_after else self.default_backoff
 
-            spider.logger.warning(log_msg)
             spider.logger.warning(f"increased interval to {self.interval} seconds")
             tags = {
                 'interval': self.interval,
@@ -99,7 +115,24 @@ class RatelimitMiddleware(RetryMiddleware):
 
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response
-        self.pause(self.interval)
+
+        if is_success(response.status):
+            self.exp_inc = self.base_inc  # reset interval increment val
+            if self.first_ok:
+                self.first_ok = False
+                # first OK response after rate limiting
+                self.tstart = time.time()
+            elif time.time() - self.tstart >= self.ok_window_duration:
+                # converge towards
+                diff = (self.interval - self.lower_limit_interval) / 2
+                if diff > self.epsilon:
+                    self.upper_limit_interval = min(self.upper_limit_interval, self.interval) if self.upper_limit_interval else self.interval
+                    self.interval -= diff
+                    self.tstart = time.time()
+                    self.capture_influxdb({spider.name: {"interval": self.interval}})
+                    spider.logger.warning(f"decreased interval to {self.interval} seconds")
+
+        # self.pause(self.interval)
         return response
 
     def pause(self, t):
