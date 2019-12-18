@@ -29,6 +29,41 @@ class RatelimitMiddleware(RetryMiddleware):
         self.inc = ratelimit_params.get("inc", 0.05)
         self.interval = float(0)
         self.c = InfluxDBClient(**influxdb_params)
+        self.reset_influxdb()
+
+    def capture_influxdb(self, spiders={}):
+        points = []
+        for spider, vals in spiders.items():
+            point = {
+                "measurement": "rate_limiting",
+                "tags": {
+                    "spider": spider
+                },
+                "fields": {
+                    "backoff": vals['backoff'],
+                    "interval": vals['interval']
+                }
+            }
+            points.append(point)
+        try:
+            self.c.write_points(points)
+        except InfluxDBClientError as e:
+            capture_exception(e)
+
+    def reset_influxdb(self):
+        """
+        Sets all backoff/retry_after to zero
+        """
+        qry = "SHOW TAG VALUES WITH KEY = spider"
+        results = self.c.query(qry)
+        spiders = {}
+        for result in results:
+            for d in result:
+                spiders[d['value']] = dict(
+                    backoff=float(0),
+                    interval=float(0)
+                )
+        self.capture_influxdb(spiders)
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -54,24 +89,11 @@ class RatelimitMiddleware(RetryMiddleware):
             spider.logger.warning(f"increased interval to {self.interval} seconds")
             tags = {
                 'interval': self.interval,
-                'retry_after': retry_after,
+                'backoff': backoff,
                 'spider': spider.name
             }
             capture(msg="hit rate limit", tags=tags)
-            points = [{
-                "measurement": "rate_limiting",
-                "tags": {
-                    "spider": spider.name
-                },
-                "fields": {
-                    "retry_after": retry_after,
-                    "backoff": self.interval
-                }
-            }]
-            try:
-                self.c.write_points(points)
-            except InfluxDBClientError as e:
-                capture_exception(e)
+            self.capture_influxdb({spider.name: {"backoff": backoff, "interval": self.interval}})
 
             self.pause(backoff)
 
