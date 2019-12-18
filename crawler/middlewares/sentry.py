@@ -23,7 +23,7 @@ def _tags(response, spider):
 
 def capture(msg="", exception=None, tags={}):
     with configure_scope() as scope:
-        for k, v in tags:
+        for k, v in tags.items():
             scope.set_tag(k, v)
         if exception:
             capture_exception(exception)

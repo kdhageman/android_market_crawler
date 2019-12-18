@@ -122,11 +122,6 @@ def get_settings(config, spidername, logdir):
     if not ratelimit:
         raise YamlException("scrapy/ratelimit")
 
-    ratelimit_inc = ratelimit.get("inc", 10)
-    ratelimit_dec = ratelimit.get("dec", 5)
-    ratelimit_base = ratelimit.get("base", 0.05)
-    ratelimit_default = ratelimit.get("default", 30)
-
     resumation = scrapy.get("resumation", None)
     if not resumation:
         raise YamlException("scrapy/resumation")
@@ -151,12 +146,6 @@ def get_settings(config, spidername, logdir):
     influxdb = config.get("influxdb", None)
     if not influxdb:
         raise YamlException("influxdb")
-    influxdb_host = influxdb.get("host")
-    influxdb_port = influxdb.get("port")
-    influxdb_user = influxdb.get("user")
-    influxdb_password = influxdb.get("password")
-    influxdb_database = influxdb.get("database")
-    influxdb_ssl = influxdb.get("ssl")
 
     log_file = os.path.join(logdir, f"{spidername}.log")
 
@@ -180,7 +169,7 @@ def get_settings(config, spidername, logdir):
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'crawler.middlewares.sentry.SentryMiddleware': 110,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
-        'crawler.middlewares.too_many_requests.Base429RetryMiddleware': 543
+        'crawler.middlewares.ratelimit.RatelimitMiddleware': 543
     }
 
     user_agents = _load_user_agents(args.user_agents_file)
@@ -205,19 +194,10 @@ def get_settings(config, spidername, logdir):
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=10 * 60 * 1000,  # 10 minute timeout (in milliseconds)
         DOWNLOAD_MAXSIZE=0,
-        RATELIMIT_INC_TIME=ratelimit_inc,
-        RATELIMIT_DEC_TIME=ratelimit_dec,
-        RATELIMIT_BASE_INC=ratelimit_base,
-        RATELIMIT_DEFAULT_BACKOFF=ratelimit_default,
+        RATELIMIT_PARAMS=ratelimit,
         PACKAGE_FILES=package_files,
-        STATSD_HOST=statsd_host,
-        STATSD_PORT=statsd_port,
-        INFLUXDB_HOST=influxdb_host,
-        INFLUXDB_PORT=influxdb_port,
-        INFLUXDB_USER=influxdb_user,
-        INFLUXDB_PASSWORD=influxdb_password,
-        INFLUXDB_DATABASE=influxdb_database,
-        INFLUXDB_SSL=influxdb_ssl
+        STATSD_PARAMS=statsd,
+        INFLUXDB_PARAMS=influxdb
     )
 
     if scrapy.get("log_to_file", True):

@@ -9,8 +9,6 @@ scrapy:
   item_count: 10
   log_level: INFO
   ratelimit:
-#    inc: 10
-#    dec: 5
     base: 0.05
     default: 30
   resumation:
@@ -21,3 +19,13 @@ downloads: # can be used to enable (=true) or disable (=false) downloads of vari
   icon: true
 sentry:
   dsn: "" # DSN from Sentry
+statsd: # not fully supported
+  host: localhost
+  port: 8125
+influxdb:
+  host: localhost
+  port: 8086
+  username: user
+  password: passwd
+  database: default
+  ssl: false

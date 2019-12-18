@@ -5,15 +5,8 @@ from crawler.item import Meta
 
 
 class InfluxdbMiddleware(object):
-    def __init__(self, host, port, username, password, database, ssl):
-        self.c = InfluxDBClient(
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            database=database,
-            ssl=ssl
-        )
+    def __init__(self, params):
+        self.c = InfluxDBClient(**params)
         self.counters = {
             "count": 0,
             "apks": 0,
@@ -23,14 +16,7 @@ class InfluxdbMiddleware(object):
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(
-            host=crawler.settings.get('INFLUXDB_HOST'),
-            port=crawler.settings.getint('INFLUXDB_PORT'),
-            username=crawler.settings.get('INFLUXDB_USER'),
-            password=crawler.settings.get('INFLUXDB_PASSWORD'),
-            database=crawler.settings.get('INFLUXDB_DATABASE'),
-            ssl=crawler.settings.get('INFLUXDB_SSL')
-        )
+        return cls(params=crawler.settings.get("INFLUXDB_PARAMS"))
 
     def process_item(self, item, spider):
         if not isinstance(item, Meta):

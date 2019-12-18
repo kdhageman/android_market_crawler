@@ -5,6 +5,8 @@ import re
 import requests
 import scrapy
 from eventlet import Timeout
+from scrapy.settings import Settings
+from scrapy.statscollectors import MemoryStatsCollector
 
 
 def get_identifier(meta):
@@ -60,11 +62,29 @@ def get_directory(meta, spider):
     return os.path.join(market, identifier)
 
 
+class TestEngine:
+    def pause(self):
+        pass
+
+    def unpause(self):
+        pass
+
+
+class TestCrawler:
+    def __init__(self):
+        self.settings = Settings()
+        self.stats = MemoryStatsCollector(self)
+        self.engine = TestEngine()
+
+
 class TestSpider(scrapy.Spider):
     """
     Spider for testing purposes
     """
     name = "test_spider"
+
+    def __init__(self):
+        self.crawler = TestCrawler()
 
     def parse(self, response):
         pass

@@ -1,12 +1,15 @@
-import statsd
+from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBClientError
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 from scrapy.utils.response import response_status_message
+from sentry_sdk import capture_exception
+
 from crawler.middlewares.sentry import capture
 
 import time
 
 
-class Base429RetryMiddleware(RetryMiddleware):
+class RatelimitMiddleware(RetryMiddleware):
     """
     Middleware for dynamically adjusting querying rate.
     Maintains a backoff time that slowly increments every time a 429 is seen and is applied to all subsequent request.
@@ -19,22 +22,20 @@ class Base429RetryMiddleware(RetryMiddleware):
             the number of seconds to increment the backoff time on any requests
     """
 
-    def __init__(self, crawler, base_inc, default_backoff, statsd_host, statsd_port):
-        super(Base429RetryMiddleware, self).__init__(crawler.settings)
+    def __init__(self, crawler, ratelimit_params, influxdb_params):
+        super(RatelimitMiddleware, self).__init__(crawler.settings)
         self.crawler = crawler
-        self.default_backoff = default_backoff
-        self.base_inc = base_inc
-        self.backoff = 0
-        self.c = statsd.StatsClient(statsd_host, statsd_port, prefix='scrape')
+        self.default_backoff = ratelimit_params.get("default", 10)
+        self.inc = ratelimit_params.get("inc", 0.05)
+        self.interval = float(0)
+        self.c = InfluxDBClient(**influxdb_params)
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
             crawler,
-            base_inc=crawler.settings.get("RATELIMIT_BASE_INC", 0.05),  # 50 ms
-            default_backoff=crawler.settings.get("RATELIMIT_DEFAULT_BACKOFF", 10),
-            statsd_host=crawler.settings.get('STATSD_HOST'),
-            statsd_port=crawler.settings.getint('STATSD_PORT')
+            ratelimit_params=crawler.settings.get("RATELIMIT_PARAMS", {}),  # 50 ms
+            influxdb_params=crawler.settings.get("INFLUXDB_PARAMS", {})
         )
 
     def process_response(self, request, response, spider):
@@ -47,23 +48,36 @@ class Base429RetryMiddleware(RetryMiddleware):
                 backoff = self.default_backoff
                 log_msg = f"hit rate limit, waiting for {backoff} seconds"
 
-            self.backoff += self.base_inc
+            self.interval += self.inc
 
             spider.logger.warning(log_msg)
-            spider.logger.warning(f"increased base backoff to {self.backoff} seconds")
+            spider.logger.warning(f"increased interval to {self.interval} seconds")
             tags = {
-                'backoff': backoff,
+                'interval': self.interval,
                 'retry_after': retry_after,
                 'spider': spider.name
             }
             capture(msg="hit rate limit", tags=tags)
-            self.c.gauge(f"{spider}.backoff.gauge", backoff)
+            points = [{
+                "measurement": "rate_limiting",
+                "tags": {
+                    "spider": spider.name
+                },
+                "fields": {
+                    "retry_after": retry_after,
+                    "backoff": self.interval
+                }
+            }]
+            try:
+                self.c.write_points(points)
+            except InfluxDBClientError as e:
+                capture_exception(e)
 
             self.pause(backoff)
 
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response
-        self.pause(self.backoff)
+        self.pause(self.interval)
         return response
 
     def pause(self, t):
