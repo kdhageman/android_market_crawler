@@ -34,7 +34,7 @@ class RatelimitMiddleware(RetryMiddleware):
         self.interval = float(0)
         self.upper_limit_interval = 0  # upper interval were converging towards
         self.lower_limit_interval = 0  # lower interval were converging towards
-        self.tstart = None  # start time of current delta-slot
+        self.tstart = time.time()  # start time of current delta-slot
         self.ok_window_duration = ratelimit_params.get("ok_window_duration", 10)  # window duration in seconds
         self.epsilon = float(ratelimit_params.get("epsilon", 1))  # stop reducing interval when almost converged with limit interval, epsilon defines what
         self.first_ok = False
