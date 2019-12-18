@@ -7,6 +7,7 @@ import yaml
 from scrapy.crawler import CrawlerProcess
 
 import sys
+
 sys.path.append(os.path.abspath('.'))
 from crawler.pipelines.util import market_from_spider
 from crawler.spiders.apkmirror import ApkMirrorSpider
@@ -147,11 +148,23 @@ def get_settings(config, spidername, logdir):
     statsd_host = statsd.get("host")
     statsd_port = statsd.get("port")
 
+    influxdb = config.get("influxdb", None)
+    if not influxdb:
+        raise YamlException("influxdb")
+    influxdb_host = influxdb.get("host")
+    influxdb_port = influxdb.get("port")
+    influxdb_user = influxdb.get("user")
+    influxdb_password = influxdb.get("password")
+    influxdb_database = influxdb.get("database")
+    influxdb_ssl = influxdb.get("ssl")
+
     log_file = os.path.join(logdir, f"{spidername}.log")
 
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
         'crawler.pipelines.package_name.PackageNamePipeline': 300,
+        # 'crawler.pipelines.statsd.StatsdMiddleware': 310,
+        'crawler.pipelines.influxdb.InfluxdbMiddleware': 310,
         'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
 
@@ -166,7 +179,6 @@ def get_settings(config, spidername, logdir):
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'crawler.middlewares.sentry.SentryMiddleware': 110,
-        'crawler.middlewares.statsd.StatsdMiddleware': 111,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
         'crawler.middlewares.too_many_requests.Base429RetryMiddleware': 543
     }
@@ -199,7 +211,13 @@ def get_settings(config, spidername, logdir):
         RATELIMIT_DEFAULT_BACKOFF=ratelimit_default,
         PACKAGE_FILES=package_files,
         STATSD_HOST=statsd_host,
-        STATSD_PORT=statsd_port
+        STATSD_PORT=statsd_port,
+        INFLUXDB_HOST=influxdb_host,
+        INFLUXDB_PORT=influxdb_port,
+        INFLUXDB_USER=influxdb_user,
+        INFLUXDB_PASSWORD=influxdb_password,
+        INFLUXDB_DATABASE=influxdb_database,
+        INFLUXDB_SSL=influxdb_ssl
     )
 
     if scrapy.get("log_to_file", True):

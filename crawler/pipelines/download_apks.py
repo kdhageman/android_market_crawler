@@ -55,6 +55,7 @@ class DownloadApksPipeline(FilesPipeline):
                 path = os.path.join(self.outdir, resultdata['path'])
                 values['file_path'] = path
                 values['file_md5'] = resultdata['checksum']
+                values['file_size'] = os.path.getsize(path)
 
                 with open(path, 'rb') as f:
                     values['file_sha256'] = sha256(f)
