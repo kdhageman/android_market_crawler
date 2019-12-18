@@ -25,8 +25,8 @@ class RatelimitMiddleware(RetryMiddleware):
     def __init__(self, crawler, ratelimit_params, influxdb_params):
         super(RatelimitMiddleware, self).__init__(crawler.settings)
         self.crawler = crawler
-        self.default_backoff = ratelimit_params.get("default", 10)
-        self.inc = ratelimit_params.get("inc", 0.05)
+        self.default_backoff = float(ratelimit_params.get("default", 10))
+        self.inc = float(ratelimit_params.get("inc", 0.05))
         self.interval = float(0)
         self.c = InfluxDBClient(**influxdb_params)
         self.reset_influxdb()
@@ -93,7 +93,7 @@ class RatelimitMiddleware(RetryMiddleware):
                 'spider': spider.name
             }
             capture(msg="hit rate limit", tags=tags)
-            self.capture_influxdb({spider.name: {"backoff": backoff, "interval": self.interval}})
+            self.capture_influxdb({spider.name: {"backoff": float(backoff), "interval": self.interval}})
 
             self.pause(backoff)
 
