@@ -84,7 +84,8 @@ class TencentSpider(PackageListSpider):
             versions=versions
         )
 
-        yield res
+        if meta['developer_name']:
+            yield res
 
         # add related apps
         related_app_urls = response.css("a.appName::attr(href)").getall()
