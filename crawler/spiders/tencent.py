@@ -1,11 +1,10 @@
 import re
+import urllib
 
 import scrapy
 
 from crawler.item import Meta
 from crawler.spiders.util import normalize_rating, PackageListSpider
-
-pkg_pattern = "https://android\.myapp\.com/myapp/detail\.htm\?apkName=(.*)"
 
 
 class TencentSpider(PackageListSpider):
@@ -57,9 +56,9 @@ class TencentSpider(PackageListSpider):
         meta['app_name'] = response.css("div.det-name-int::text").get()
         meta['app_description'] = response.css("div.det-app-data-info::text").get()
 
-        m = re.search(pkg_pattern, response.url)
-        if m:
-            meta['pkg_name'] = m.group(1)
+        qs = urllib.parse.urlparse(response.url).query
+        query_params = urllib.parse.parse_qs(qs)
+        meta['pkg_name'] = query_params.get("apkName", [""])[0]
 
         user_rating = response.css("div.com-blue-star-num::text").re("(.*)分")[0]
         meta['user_rating'] = normalize_rating(user_rating, 5)
@@ -73,7 +72,7 @@ class TencentSpider(PackageListSpider):
         versions = dict()
         version = divs[0].css("::text").get()
         dl_link = response.css("a::attr(data-apkurl)").get()
-        date = divs[1].attrib['data-apkpublishtime'] # as unix timestamp
+        date = divs[1].attrib['data-apkpublishtime']  # as unix timestamp
 
         versions[version] = dict(
             timestamp=date,
