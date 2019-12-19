@@ -143,12 +143,15 @@ def get_settings(config, spidername, logdir):
     if not influxdb:
         raise YamlException("influxdb")
 
+    gplay = config.get("googleplay", {})
+    if not gplay:
+        raise YamlException("googleplay")
+
     log_file = os.path.join(logdir, f"{spidername}.log")
 
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
         'crawler.pipelines.package_name.PackageNamePipeline': 300,
-        # 'crawler.pipelines.statsd.StatsdMiddleware': 310,
         'crawler.pipelines.influxdb.InfluxdbMiddleware': 310,
         'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
@@ -193,7 +196,8 @@ def get_settings(config, spidername, logdir):
         RATELIMIT_PARAMS=ratelimit,
         PACKAGE_FILES=package_files,
         STATSD_PARAMS=statsd,
-        INFLUXDB_PARAMS=influxdb
+        INFLUXDB_PARAMS=influxdb,
+        GPLAY_PARAMS=gplay
     )
 
     if scrapy.get("log_to_file", True):
