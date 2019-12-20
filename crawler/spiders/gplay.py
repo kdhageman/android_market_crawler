@@ -181,6 +181,7 @@ class GooglePlaySpider(PackageListSpider):
                     except Exception as e:
                         # unreliable api, so catch ANY exception
                         capture_exception(e)
+                        continue
                     self.pause(self.interval)
 
                     market = market_from_spider(self)
