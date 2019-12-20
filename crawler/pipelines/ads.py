@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 
 import requests
 from publicsuffixlist import PublicSuffixList
-from requests import HTTPError, Timeout
+from requests import RequestException
 from sentry_sdk import capture_exception
 
 from crawler.item import Meta
@@ -46,7 +46,8 @@ class AdsPipeline:
 
             try:
                 resp = requests.get(ads_txt_url, timeout=5, headers=headers, proxies=random_proxy())
-                resp.raise_for_status()
+                if resp.status_code != 404:
+                    resp.raise_for_status()
                 if not "text/plain" in resp.headers.get("Content-Type", "").lower():
                     return item
 
@@ -59,6 +60,6 @@ class AdsPipeline:
                     f.write(resp.content)
 
                 item['meta'][key] = fpath
-            except (HTTPError, Timeout) as e:
+            except RequestException as e:
                 capture_exception(e)
         return item

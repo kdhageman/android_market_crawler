@@ -1,7 +1,7 @@
 import os
 
 import requests
-from requests import HTTPError, Timeout
+from requests import RequestException
 from sentry_sdk import capture_exception
 
 from crawler.item import Meta
@@ -40,6 +40,6 @@ class PrivacyPolicyPipeline:
                     f.write(resp.content)
 
                 item['meta']['privacy_policy_path'] = fpath
-            except (HTTPError, Timeout) as e:
+            except RequestException as e:
                 capture_exception(e)
         return item
