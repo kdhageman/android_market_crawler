@@ -1,3 +1,4 @@
+import os
 import re
 from random import choice
 
@@ -5,6 +6,7 @@ import numpy as np
 import scrapy
 
 from crawler.item import Meta
+from crawler.pipelines.util import market_from_spider, sha256
 from crawler.spiders.util import PackageListSpider, normalize_rating
 from gplaycrawler.playcrawler.googleplayapi.googleplay import GooglePlayAPI
 
@@ -81,7 +83,7 @@ class GooglePlaySpider(PackageListSpider):
 
     name = "googleplay_spider"
 
-    def __init__(self, crawler, lang="", android_id="", accounts=[]):
+    def __init__(self, crawler, outdir, lang="", android_id="", accounts=[]):
         super().__init__(crawler=crawler, settings=crawler.settings)
         self.apis = []
         for account in accounts:
@@ -93,10 +95,12 @@ class GooglePlaySpider(PackageListSpider):
                 self.apis.append(api)
         if len(self.apis) == 0:
             raise Exception("cannot crawl Google Play without valid user accounts")
+        self.outdir = outdir
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(crawler, **crawler.settings.get("GPLAY_PARAMS"))
+        outdir = crawler.settings.get("CRAWL_ROOTDIR", "/tmp/crawl")
+        return cls(crawler, outdir, **crawler.settings.get("GPLAY_PARAMS"))
 
     def start_requests(self):
         for req in super().start_requests():
@@ -161,14 +165,27 @@ class GooglePlaySpider(PackageListSpider):
             details = api.toDict(api.details(pkg))
             meta, versions = parse_details(details)
 
-            version_code = list(versions.values())[0]['code']
-            if version_code:
-                # apk = api.download(pkg, version_code)
-                # TODO: store apk
+            for version, dat in versions.items():
+                version_code = dat['code']
+                if version_code:
+                    apk = api.download(pkg, version_code)
 
-                yield Meta(meta=meta, versions=versions)
-            else:
-                self.logger.warn(f"failed to find 'version_code' for {pkg}")
+                    market = market_from_spider(self)
+                    fpath = os.path.join(self.outdir, market, meta['pkg_name'], f"{version}.apk")
+
+                    os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
+
+                    # TODO: parse APK
+                    with open(fpath, "wb") as f:
+                        f.write(apk)
+                    with open(fpath, "rb") as f:
+                        dat['file_sha256'] = sha256(f)
+                    dat['file_size'] = len(apk)
+                    dat['file_path'] = fpath
+                    versions[version] = dat
+                else:
+                    self.logger.warn(f"failed to find 'version_code' for {pkg}")
+            yield Meta(meta=meta, versions=versions)
 
         # similar apps
         similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
