@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from random import choice
 
 import numpy as np
@@ -8,7 +9,9 @@ import scrapy
 from crawler.item import Meta
 from crawler.pipelines.util import market_from_spider, sha256
 from crawler.spiders.util import PackageListSpider, normalize_rating
-from gplaycrawler.playcrawler.googleplayapi.googleplay import GooglePlayAPI
+sys.path.append("./gplaycrawler/playcrawler")
+sys.path.append("./gplaycrawler/playcrawler/googleplayapi")
+from googleplayapi.googleplay import GooglePlayAPI
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
 
