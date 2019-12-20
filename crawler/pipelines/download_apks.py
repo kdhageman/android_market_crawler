@@ -9,7 +9,7 @@ try:
 except ImportError:
     from io import BytesIO
 
-from crawler.pipelines.util import get_directory, sha256
+from crawler.util import get_directory, sha256
 
 
 class DownloadApksPipeline(FilesPipeline):

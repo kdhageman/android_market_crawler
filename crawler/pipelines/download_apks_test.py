@@ -8,7 +8,7 @@ from pytest_httpserver import HTTPServer
 
 from crawler.item import Meta
 from crawler.pipelines.download_apks import DownloadApksPipeline
-from crawler.pipelines.util import TestSpider
+from crawler.util import TestSpider
 
 
 class TestDownloadPipeline(unittest.TestCase):

@@ -6,7 +6,7 @@ from publicsuffixlist import PublicSuffixList
 from requests import HTTPError
 
 from crawler.item import Meta
-from crawler.pipelines.util import get_directory
+from crawler.util import get_directory, random_proxy
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 
@@ -42,7 +42,7 @@ class AdsPipeline:
             headers = {
                 "Content-Type": CONTENT_TYPE
             }
-            resp = requests.get(ads_txt_url, timeout=2, headers=headers)
+            resp = requests.get(ads_txt_url, timeout=2, headers=headers, proxies=random_proxy())
             try:
                 resp.raise_for_status()
                 if not "text/plain" in resp.headers.get("Content-Type", "").lower():

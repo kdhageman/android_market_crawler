@@ -9,7 +9,7 @@ from scrapy.crawler import CrawlerProcess
 import sys
 
 sys.path.append(os.path.abspath('.'))
-from crawler.pipelines.util import market_from_spider
+from crawler.util import market_from_spider
 from crawler.spiders.apkmirror import ApkMirrorSpider
 from crawler.spiders.apkmonk import ApkMonkSpider
 from crawler.spiders.baidu import BaiduSpider
@@ -151,8 +151,7 @@ def get_settings(config, spidername, logdir):
 
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
-        'crawler.pipelines.package_name.PackageNamePipeline': 300,
-        'crawler.pipelines.influxdb.InfluxdbMiddleware': 301,
+        'crawler.pipelines.influxdb.InfluxdbMiddleware': 300,
         'crawler.pipelines.ads.AdsPipeline': 500,
         'crawler.pipelines.privacy_policy.PrivacyPolicyPipeline': 501,
         'crawler.pipelines.analyze_apks.AnalyzeApkPipeline': 700,
@@ -191,7 +190,6 @@ def get_settings(config, spidername, logdir):
         RETRY_TIMES=2,
         RETRY_HTTP_CODES=[429],  # also retry rate limited requests
         MEDIA_ALLOW_REDIRECTS=True,
-        HTTPPROXY_ENABLED=True,
         HTTP_PROXIES=proxies,
         # custom settings
         CRAWL_ROOTDIR=rootdir,

@@ -8,8 +8,7 @@ from crawler.middlewares.sentry import capture
 
 import time
 
-from crawler.middlewares.util import is_success
-from crawler.pipelines.util import market_from_spider
+from crawler.util import market_from_spider, is_success
 
 
 class RatelimitMiddleware(RetryMiddleware):

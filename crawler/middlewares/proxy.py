@@ -1,9 +1,11 @@
 import random
+from crawler import util
 
 
 class HttpProxyMiddleware:
 
     def __init__(self, proxies=[]):
+        util._PROXIES = proxies
         self.proxies = proxies
 
     @classmethod

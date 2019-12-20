@@ -3,6 +3,7 @@ import json
 import requests
 
 from crawler.item import Meta
+from crawler.util import random_proxy
 
 
 class AssetLinksPipeline:
@@ -23,7 +24,7 @@ class AssetLinksPipeline:
                     al = self.seen[domain]
                 except KeyError:
                     url = f"https://{domain}/.well-known/assetlinks.json"
-                    resp = requests.get(url, timeout=5)
+                    resp = requests.get(url, timeout=5, proxies=random_proxy())
                     if resp.status_code != 200:
                         continue
                     if not "application/json" in resp.headers.get("Content-Type"):

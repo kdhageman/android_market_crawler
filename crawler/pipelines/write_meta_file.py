@@ -2,7 +2,7 @@ import json
 import os
 
 from crawler.item import Meta
-from crawler.pipelines.util import get_directory
+from crawler.util import get_directory
 
 FNAME = "meta.json"
 

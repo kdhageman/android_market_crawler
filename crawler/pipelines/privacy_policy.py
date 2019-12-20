@@ -5,7 +5,7 @@ from requests import HTTPError
 from sentry_sdk import capture_exception
 
 from crawler.item import Meta
-from crawler.pipelines.util import get_directory
+from crawler.util import get_directory, random_proxy
 
 FNAME = "privacy_policy.html"
 
@@ -27,7 +27,7 @@ class PrivacyPolicyPipeline:
         privacy_policy_url = item['meta'].get("privacy_policy_url", "")
 
         if privacy_policy_url:
-            resp = requests.get(privacy_policy_url, timeout=2)
+            resp = requests.get(privacy_policy_url, timeout=5, proxies=random_proxy())
             try:
                 resp.raise_for_status()
 

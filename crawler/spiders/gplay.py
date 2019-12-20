@@ -7,7 +7,7 @@ import numpy as np
 import scrapy
 
 from crawler.item import Meta
-from crawler.pipelines.util import market_from_spider, sha256
+from crawler.util import market_from_spider, sha256, random_proxy
 from crawler.spiders.util import PackageListSpider, normalize_rating
 sys.path.append("./gplaycrawler/playcrawler")
 sys.path.append("./gplaycrawler/playcrawler/googleplayapi")
@@ -86,14 +86,15 @@ class GooglePlaySpider(PackageListSpider):
 
     name = "googleplay_spider"
 
-    def __init__(self, crawler, outdir, lang="", android_id="", accounts=[]):
+    def __init__(self, crawler, outdir, proxies=[], lang="", android_id="", accounts=[]):
         super().__init__(crawler=crawler, settings=crawler.settings)
         self.apis = []
         for account in accounts:
             email = account.get("email", "")
             password = account.get("password", "")
             if email and password:
-                api = GooglePlayAPI(androidId=android_id, lang=lang)
+                p = random_proxy()
+                api = GooglePlayAPI(androidId=android_id, lang=lang, proxies=p)
                 api.login(email, password)
                 self.apis.append(api)
         if len(self.apis) == 0:
@@ -103,7 +104,8 @@ class GooglePlaySpider(PackageListSpider):
     @classmethod
     def from_crawler(cls, crawler):
         outdir = crawler.settings.get("CRAWL_ROOTDIR", "/tmp/crawl")
-        return cls(crawler, outdir, **crawler.settings.get("GPLAY_PARAMS"))
+        proxies = crawler.settings.get("HTTP_PROXIES", [])
+        return cls(crawler, outdir, proxies, **crawler.settings.get("GPLAY_PARAMS"))
 
     def start_requests(self):
         for req in super().start_requests():

@@ -1,7 +1,7 @@
 from influxdb import InfluxDBClient
 
 from crawler.item import Meta, PackageName
-from crawler.pipelines.util import market_from_spider
+from crawler.util import market_from_spider
 
 
 class InfluxdbMiddleware(object):

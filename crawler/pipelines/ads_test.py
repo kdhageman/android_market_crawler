@@ -5,7 +5,7 @@ import unittest
 
 from crawler.item import Meta
 from crawler.pipelines.ads import AdsPipeline
-from crawler.pipelines.util import TestSpider
+from crawler.util import TestSpider
 
 
 class TestAdsTxtPipeline(unittest.TestCase):

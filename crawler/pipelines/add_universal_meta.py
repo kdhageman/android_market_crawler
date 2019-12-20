@@ -1,7 +1,7 @@
 import time
 
 from crawler.item import Meta
-from crawler.pipelines.util import market_from_spider
+from crawler.util import market_from_spider
 
 
 class AddUniversalMetaPipeline:

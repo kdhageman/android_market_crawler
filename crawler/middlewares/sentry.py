@@ -1,6 +1,6 @@
 from sentry_sdk import capture_message, configure_scope, capture_exception
 
-from crawler.middlewares.util import is_success
+from crawler.util import is_success
 
 
 class SentryMiddleware:

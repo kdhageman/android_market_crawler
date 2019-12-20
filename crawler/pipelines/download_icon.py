@@ -3,7 +3,7 @@ import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
 from crawler.item import Meta
-from crawler.pipelines.util import get_directory, sha256
+from crawler.util import get_directory, sha256
 
 
 class DownloadIconPipeline(FilesPipeline):
