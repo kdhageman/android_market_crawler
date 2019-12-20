@@ -155,6 +155,7 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.influxdb.InfluxdbMiddleware': 301,
         'crawler.pipelines.ads_txt.AdsTxtPipeline': 500,
         'crawler.pipelines.privacy_policy.PrivacyPolicyPipeline': 501,
+        'crawler.pipelines.analyze_apks.AnalyzeApkPipeline': 700,
         'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
 
