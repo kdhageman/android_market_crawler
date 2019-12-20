@@ -166,19 +166,7 @@ class GooglePlaySpider(PackageListSpider):
                 # apk = api.download(pkg, version_code)
                 # TODO: store apk
 
-                # TODO: move to pipeline
-                privacy_policy_url = meta['privacy_policy_url']
-                developer_website = meta["developer_website"]
-                if privacy_policy_url:
-                    # download privacy policy
-                    yield scrapy.Request(privacy_policy_url, callback=self.parse_privacy_policy, priority=1000,
-                                         meta=dict(meta=meta, versions=versions))
-                elif developer_website:
-                    # downloads ads.txt
-                    ads_url = f"{developer_website}/ads.txt"
-                    return scrapy.Request(ads_url, callback=self.parse_ads_txt, priority=1001, meta=meta)
-                else:
-                    return Meta(meta=meta, versions=versions)
+                yield Meta(meta=meta, versions=versions)
             else:
                 self.logger.warn(f"failed to find 'version_code' for {pkg}")
 
@@ -187,22 +175,6 @@ class GooglePlaySpider(PackageListSpider):
         if similar_link:
             full_url = response.urljoin(similar_link)
             yield scrapy.Request(full_url, callback=self.parse_similar_apps)
-
-    def parse_privacy_policy(self, response):
-        privacy_policy_html = response.body.decode("utf-8")
-        meta = response.meta
-        meta['meta']['privacy_policy_html'] = privacy_policy_html
-
-        developer_website = meta['meta']["developer_website"]
-        if developer_website:
-            ads_url = f"{developer_website}/ads.txt"
-            return scrapy.Request(ads_url, callback=self.parse_ads_txt, priority=1001, meta=meta)
-        return Meta(meta=meta['meta'], versions=meta['versions'])
-
-    def parse_ads_txt(self, response):
-        meta = response.meta
-        meta['meta']['ads_txt'] = response.body.decode("utf-8")
-        return Meta(meta=meta['meta'], versions=meta['versions'])
 
     def parse_similar_apps(self, response):
         """

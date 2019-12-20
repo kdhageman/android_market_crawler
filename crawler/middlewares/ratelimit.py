@@ -71,8 +71,8 @@ class RatelimitMiddleware(RetryMiddleware):
         market = market_from_spider(spider)
         dat = {
             market: {
-                'backoff': 0,
-                'interval': 0
+                'backoff': float(0),
+                'interval': float(0)
             }
         }
         self.capture_influxdb(dat)

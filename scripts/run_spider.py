@@ -152,7 +152,9 @@ def get_settings(config, spidername, logdir):
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
         'crawler.pipelines.package_name.PackageNamePipeline': 300,
-        'crawler.pipelines.influxdb.InfluxdbMiddleware': 310,
+        'crawler.pipelines.influxdb.InfluxdbMiddleware': 301,
+        'crawler.pipelines.ads_txt.AdsTxtPipeline': 500,
+        'crawler.pipelines.privacy_policy.PrivacyPolicyPipeline': 501,
         'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
 
