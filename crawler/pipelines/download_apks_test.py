@@ -33,7 +33,7 @@ class TestDownloadPipeline(unittest.TestCase):
 
             versions = {
                 version: {
-                    "timeestamp": 0,
+                    "timestamp": 0,
                     "download_url": server.url_for("/test")
                 }
             }

@@ -1,12 +1,77 @@
 import re
+from random import choice
 
 import numpy as np
 import scrapy
 
-from crawler.item import PackageName
-from crawler.spiders.util import PackageListSpider
+from crawler.item import Meta
+from crawler.spiders.util import PackageListSpider, normalize_rating
+from gplaycrawler.playcrawler.googleplayapi.googleplay import GooglePlayAPI
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
+
+
+def parse_details(details):
+    """
+    Parse the details from the Google Play api
+    Args:
+        details: dict
+    """
+    docv2 = details.get("docV2", {})
+    url = docv2.get("shareUrl", "")
+    pkg_name = docv2.get("docid", "")
+    app_name = docv2.get("title", "")
+    creator = docv2.get("creator", "")
+    description = docv2.get("descriptionHtml", "")
+    available = docv2.get("availability", {}).get("restriction", 0) == 1
+    user_rating = docv2.get("aggregateRating", {}).get("starRating", 0)
+    user_rating = normalize_rating(user_rating, 5)
+
+    ad = docv2.get("details", {}).get("appDetails", {})
+    developer_name = ad.get("developerName", "")
+    developer_email = ad.get("developerEmail", "")
+    developer_website = ad.get("developerWebsite", "")
+    downloads = ad.get("numDownloads", "")
+
+    ann = docv2.get("annotations", {})
+    privacy_policy_url = ann.get("privacyPolicyUrl", "")
+    contains_ads = "contains ads" in str(ann.get("badgeForDoc", "")).lower()
+
+    offer = str(docv2.get("offer", ""))
+    m = re.search('currencyCode: "(.*)"', offer)
+    currency = m[1] if m else ""
+    m = re.search('formattedAmount: "(.*)"', offer)
+    price = m[1] if m else ""
+
+    meta = dict(
+        url=url,
+        pkg_name=pkg_name,
+        app_name=app_name,
+        creator=creator,
+        description=description,
+        available=available,
+        user_rating=user_rating,
+        developer_name=developer_name,
+        developer_email=developer_email,
+        developer_website=developer_website,
+        downloads=downloads,
+        privacy_policy_url=privacy_policy_url,
+        contains_ads=contains_ads,
+        currency=currency,
+        price=price
+    )
+
+    version_code = ad.get("versionCode", "")
+    version_string = ad.get("versionString", "")
+    version_date = ad.get("uploadDate")
+
+    versions = {
+        version_string: {
+            "timestamp": version_date,
+            "code": version_code
+        }
+    }
+    return meta, versions
 
 
 class GooglePlaySpider(PackageListSpider):
@@ -15,6 +80,23 @@ class GooglePlaySpider(PackageListSpider):
     """
 
     name = "googleplay_spider"
+
+    def __init__(self, crawler, lang="", android_id="", accounts=[]):
+        super().__init__(crawler=crawler, settings=crawler.settings)
+        self.apis = []
+        for account in accounts:
+            email = account.get("email", "")
+            password = account.get("password", "")
+            if email and password:
+                api = GooglePlayAPI(androidId=android_id, lang=lang)
+                api.login(email, password)
+                self.apis.append(api)
+        if len(self.apis) == 0:
+            raise Exception("cannot crawl Google Play without valid user accounts")
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(crawler, **crawler.settings.get("GPLAY_PARAMS"))
 
     def start_requests(self):
         for req in super().start_requests():
@@ -71,16 +153,28 @@ class GooglePlaySpider(PackageListSpider):
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
 
+        # package name
+        m = re.search(pkg_pattern, response.url)
+        if m:
+            pkg = m.group(1)
+            api = choice(self.apis)
+            details = api.toDict(api.details(pkg))
+            meta, versions = parse_details(details)
+
+            version_code = list(versions.values())[0]['code']
+            if version_code:
+                # apk = api.download(pkg, version_code)
+                # TODO: store apk
+
+                yield Meta(meta=meta, versions=versions)
+            else:
+                self.logger.warn(f"failed to find 'version_code' for {pkg}")
+
         # similar apps
         similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
         if similar_link:
             full_url = response.urljoin(similar_link)
             yield scrapy.Request(full_url, callback=self.parse_similar_apps)
-
-        # package name
-        m = re.search(pkg_pattern, response.url)
-        if m:
-            yield PackageName(name=m.group(1))
 
     def parse_similar_apps(self, response):
         """

@@ -1,0 +1,3 @@
+[submodule "gplaycrawler"]
+	path = gplaycrawler
+	url = git@imdea.gitlab:feal94/gplaycrawler.git
