@@ -6,6 +6,7 @@ from random import choice
 
 import numpy as np
 import scrapy
+from sentry_sdk import capture_exception
 
 from crawler.item import Meta
 from crawler.util import market_from_spider, sha256, random_proxy
@@ -175,7 +176,11 @@ class GooglePlaySpider(PackageListSpider):
             for version, dat in versions.items():
                 version_code = dat['code']
                 if version_code:
-                    apk = api.download(pkg, version_code)
+                    try:
+                        apk = api.download(pkg, version_code)
+                    except Exception as e:
+                        # unreliable api, so catch ANY exception
+                        capture_exception(e)
                     self.pause(self.interval)
 
                     market = market_from_spider(self)
