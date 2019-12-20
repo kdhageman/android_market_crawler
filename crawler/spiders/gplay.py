@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import time
 from random import choice
 
 import numpy as np
@@ -86,7 +87,7 @@ class GooglePlaySpider(PackageListSpider):
 
     name = "googleplay_spider"
 
-    def __init__(self, crawler, outdir, proxies=[], lang="", android_id="", accounts=[]):
+    def __init__(self, crawler, outdir, proxies=[], interval=1, lang="", android_id="", accounts=[]):
         super().__init__(crawler=crawler, settings=crawler.settings)
         self.apis = []
         for account in accounts:
@@ -100,6 +101,7 @@ class GooglePlaySpider(PackageListSpider):
         if len(self.apis) == 0:
             raise Exception("cannot crawl Google Play without valid user accounts")
         self.outdir = outdir
+        self.interval = interval
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -174,6 +176,7 @@ class GooglePlaySpider(PackageListSpider):
                 version_code = dat['code']
                 if version_code:
                     apk = api.download(pkg, version_code)
+                    self.pause(self.interval)
 
                     market = market_from_spider(self)
                     fpath = os.path.join(self.outdir, market, meta['pkg_name'], f"{version}.apk")
@@ -213,3 +216,15 @@ class GooglePlaySpider(PackageListSpider):
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
             yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+
+    def pause(self, t):
+        """
+        Pause the crawler for t seconds
+        Args:
+            t: int
+                number of seconds to pause crawler
+        """
+        if t:
+            self.crawler.engine.pause()
+            time.sleep(t)
+            self.crawler.engine.unpause()

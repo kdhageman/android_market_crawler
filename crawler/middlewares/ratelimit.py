@@ -41,22 +41,15 @@ class RatelimitMiddleware(RetryMiddleware):
         self.c = InfluxDBClient(**influxdb_params)
         self.reset_influxdb(crawler.spider)
 
-    def capture_influxdb(self, markets={}):
-        points = []
-        for market, vals in markets.items():
-            fields = {}
-            if 'backoff' in vals:
-                fields["backoff"] = vals['backoff']
-            if 'interval' in vals:
-                fields["interval"] = vals['interval']
-            point = {
-                "measurement": "rate_limiting",
-                "tags": {
-                    "market": market
-                },
-                "fields": fields
-            }
-            points.append(point)
+    def capture_influxdb(self, market, status, fields):
+        points = [{
+            "measurement": "rate_limiting",
+            "tags": {
+                "market": market,
+                "status": status
+            },
+            "fields": fields
+        }]
         try:
             self.c.write_points(points)
         except (InfluxDBClientError, InfluxDBServerError) as e:
@@ -68,13 +61,11 @@ class RatelimitMiddleware(RetryMiddleware):
         Sets all backoff/retry_after to zero
         """
         market = market_from_spider(spider)
-        dat = {
-            market: {
-                'backoff': float(0),
-                'interval': float(0)
-            }
+        fields = {
+            'backoff': float(0),
+            'interval': float(0)
         }
-        self.capture_influxdb(dat)
+        self.capture_influxdb(market, 200, fields)
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -85,7 +76,7 @@ class RatelimitMiddleware(RetryMiddleware):
         )
 
     def process_response(self, request, response, spider):
-        if response.status == 429:
+        if response.status in [429, 403]:
             self.lower_limit_interval = max(self.interval, self.lower_limit_interval)
             self.first_ok = True
 
@@ -104,11 +95,12 @@ class RatelimitMiddleware(RetryMiddleware):
             tags = {
                 'interval': self.interval,
                 'backoff': backoff,
-                'spider': spider.name
+                'spider': spider.name,
+                'status': response.status
             }
             capture(msg="hit rate limit", tags=tags)
-            market=market_from_spider(spider)
-            self.capture_influxdb({market: {"backoff": float(backoff), "interval": self.interval}})
+            market = market_from_spider(spider)
+            self.capture_influxdb(market, response.status, {"backoff": float(backoff), "interval": self.interval})
 
             self.pause(backoff)
 
@@ -125,14 +117,15 @@ class RatelimitMiddleware(RetryMiddleware):
                 # converge towards
                 diff = (self.interval - self.lower_limit_interval) / 2
                 if diff > self.epsilon:
-                    self.upper_limit_interval = min(self.upper_limit_interval, self.interval) if self.upper_limit_interval else self.interval
+                    self.upper_limit_interval = min(self.upper_limit_interval,
+                                                    self.interval) if self.upper_limit_interval else self.interval
                     self.interval -= diff
                     self.tstart = time.time()
                     market = market_from_spider(spider)
-                    self.capture_influxdb({market: {"interval": self.interval}})
+                    self.capture_influxdb({market, response.status, {"interval": self.interval}})
                     spider.logger.warning(f"decreased interval to {self.interval} seconds")
 
-        # self.pause(self.interval)
+        self.pause(self.interval)
         return response
 
     def pause(self, t):

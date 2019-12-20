@@ -30,3 +30,10 @@ influxdb:
   password: passwd
   database: default
   ssl: false
+googleplay:
+  interval: 1 # in seconds
+  lang: en_US
+  android_id: # id
+  accounts:
+    - email: # email
+      password: # password

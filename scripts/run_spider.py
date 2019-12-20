@@ -72,15 +72,6 @@ def spider_by_name(name):
     return spider
 
 
-LOG_LEVELS = [
-    "CRITICAL",
-    "ERROR",
-    "WARNING",
-    "INFO",
-    "DEBUG"
-]
-
-
 class YamlException(Exception):
     def __init__(self, required_field):
         msg = f"Invalid YAML file: missing '{required_field}'"
