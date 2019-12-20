@@ -1,12 +1,29 @@
-from lxml import etree
-import numpy as np
 from zipfile import BadZipFile
 
+import numpy as np
 from androguard.core.bytecodes.apk import APK
+from sentry_sdk import capture_exception
+
+from crawler.item import Meta
 
 _namespaces = {
     'android': 'http://schemas.android.com/apk/res/android'
 }
+
+
+class AnalyzeApkPipeline:
+    def process_item(self, item, spider):
+        if not isinstance(item, Meta):
+            return item
+
+        for version, dat in item['versions'].items():
+            filepath = dat.get('file_path', "")
+            if filepath:
+                dat['analysis'] = analyse(filepath)
+                item['versions'][version] = dat
+
+        return item
+
 
 def _assetlinks_domain(host):
     """
@@ -22,6 +39,7 @@ def _assetlinks_domain(host):
         host = host[1:]
     return host
 
+
 def parse_app_links(man):
     """
     Parse the manifest.xml document for app links
@@ -34,11 +52,11 @@ def parse_app_links(man):
     man_hosts = man.xpath("//intent-filter[@android:autoVerify='true']/data/@android:host", namespaces=_namespaces)
     unique_man_hosts = np.unique(man_hosts)
 
-    assetlink_domains = []
+    assetlink_domains = {}
     for uh in unique_man_hosts:
         ald = _assetlinks_domain(uh)
         if ald not in assetlink_domains:
-            assetlink_domains.append(ald)
+            assetlink_domains[ald] = ""
     return assetlink_domains
 
 
@@ -87,6 +105,7 @@ def get_certs(apk):
 
     return res
 
+
 def _uses_permissions_sdk_23(apk):
     res = []
     for uses_permission in apk.find_tags("uses-permission-sdk-23"):
@@ -94,6 +113,16 @@ def _uses_permissions_sdk_23(apk):
         max_sdk_version = apk._get_permission_maxsdk(uses_permission)
         res.append([name, max_sdk_version])
     return res
+
+
+def _uses_permissions_sdk_m(apk):
+    res = []
+    for uses_permission in apk.find_tags("uses-permission-sdk-m"):
+        name = apk.get_value_from_tag(uses_permission, "name")
+        max_sdk_version = apk._get_permission_maxsdk(uses_permission)
+        res.append([name, max_sdk_version])
+    return res
+
 
 def analyse(path):
     """
@@ -105,9 +134,9 @@ def analyse(path):
 
     """
     try:
-        apk = APK(path)
-    except BadZipFile:
-        print(f"bad zip file: {path}")
+        apk = APK(path, testzip=False)
+    except BadZipFile as e:
+        capture_exception(e)
         return dict(
             path=path
         )
@@ -119,6 +148,7 @@ def analyse(path):
         permissions=dict(
             uses=apk.uses_permissions,
             uses_23=_uses_permissions_sdk_23(apk),
+            uses_m=_uses_permissions_sdk_m(apk),
             declared=apk.declared_permissions
         ),
         sdk_version=dict(
