@@ -1,6 +1,8 @@
 import json
 
 import requests
+from requests import RequestException
+from sentry_sdk import capture_exception
 
 from crawler.item import Meta
 from crawler.util import random_proxy
@@ -23,14 +25,18 @@ class AssetLinksPipeline:
                 try:
                     al = self.seen[domain]
                 except KeyError:
-                    url = f"https://{domain}/.well-known/assetlinks.json"
-                    resp = requests.get(url, timeout=5, proxies=random_proxy())
-                    if resp.status_code != 200:
+                    try:
+                        url = f"https://{domain}/.well-known/assetlinks.json"
+                        resp = requests.get(url, timeout=5, proxies=random_proxy())
+                        if resp.status_code != 404:
+                            resp.raise_for_status()
+                        if not "application/json" in resp.headers.get("Content-Type"):
+                            continue
+                        al = parse_result(resp.text)
+                        self.seen[domain] = al
+                    except RequestException as e:
+                        capture_exception(e)
                         continue
-                    if not "application/json" in resp.headers.get("Content-Type"):
-                        continue
-                    al = parse_result(resp.text)
-                    self.seen[domain] = al
 
                 dat['analysis']['assetlink_domains'][domain] = al
             item['versions'][version] = dat
