@@ -1,6 +1,9 @@
 import os
+import urllib
+from urllib.parse import urlparse
 
 import requests
+from publicsuffixlist import PublicSuffixList
 from requests import HTTPError
 from sentry_sdk import capture_exception
 
@@ -8,6 +11,7 @@ from crawler.item import Meta
 from crawler.pipelines.util import get_directory
 
 FNAME = "ads.txt"
+CONTENT_TYPE = "text/plain;charset=utf-8"
 
 
 class AdsTxtPipeline:
@@ -19,29 +23,42 @@ class AdsTxtPipeline:
 
     def __init__(self, outdir):
         self.outdir = outdir
+        self.psl = PublicSuffixList()
 
     def process_item(self, item, spider):
         if not isinstance(item, Meta):
             return item
 
         developer_website = item.get("meta", {}).get("developer_website", "")
+        if not developer_website:
+            return item
+        parsed_url = urlparse(developer_website)
+        root_domain = self.psl.privatesuffix(parsed_url.hostname)
+        if not root_domain:
+            return item
 
-        if developer_website:
-            ads_txt_url = f"{developer_website}/ads.txt"
-            resp = requests.get(ads_txt_url, timeout=2)
-            try:
-                resp.raise_for_status()
+        parsed_url = parsed_url._replace(netloc=root_domain, path="/app-ads.txt")
 
-                meta_dir = get_directory(item['meta'], spider)
-                fpath = os.path.join(self.outdir, meta_dir, FNAME)
+        ads_txt_url = parsed_url.geturl()
+        headers = {
+            "Content-Type": CONTENT_TYPE
+        }
+        resp = requests.get(ads_txt_url, timeout=2, headers=headers)
+        try:
+            resp.raise_for_status()
+            if resp.headers.get("Content-Type", "").lower() != CONTENT_TYPE:
+                return item
 
-                os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
+            meta_dir = get_directory(item['meta'], spider)
+            fpath = os.path.join(self.outdir, meta_dir, FNAME)
 
-                with open(fpath, "wb") as f:
-                    f.write(resp.content)
+            os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
-                item['meta']['ads_txt_path'] = fpath
+            with open(fpath, "wb") as f:
+                f.write(resp.content)
 
-            except HTTPError as e:
-                capture_exception(e)
+            item['meta']['ads_txt_path'] = fpath
+
+        except HTTPError as e:
+            capture_exception(e)
         return item
