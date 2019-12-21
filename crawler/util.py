@@ -78,6 +78,7 @@ class TestCrawler:
         self.settings = Settings()
         self.stats = MemoryStatsCollector(self)
         self.engine = TestEngine()
+        self.spider = None
 
 
 class TestSpider(scrapy.Spider):
