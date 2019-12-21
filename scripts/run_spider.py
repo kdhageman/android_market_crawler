@@ -161,8 +161,13 @@ def get_settings(config, spidername, logdir):
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'crawler.middlewares.sentry.SentryMiddleware': 110,
+        'crawler.middlewares.stats.StatsMiddleware': 120,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
         'crawler.middlewares.ratelimit.RatelimitMiddleware': 543
+    }
+
+    extensions = {
+        'crawler.extensions.stats.InfluxdbLogs': 100
     }
 
     user_agents = _load_user_agents(args.user_agents_file)
@@ -170,7 +175,9 @@ def get_settings(config, spidername, logdir):
 
     settings = dict(
         LOG_LEVEL=log_level,
+        LOGSTATS_INTERVAL=10.0,
         DOWNLOADER_MIDDLEWARES=downloader_middlewares,
+        EXTENSIONS=extensions,
         USER_AGENTS=user_agents,
         ITEM_PIPELINES=item_pipelines,
         CONCURRENT_REQUESTS=concurrent_requests,
