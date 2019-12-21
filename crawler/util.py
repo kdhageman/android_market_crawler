@@ -94,6 +94,20 @@ class TestSpider(scrapy.Spider):
         pass
 
 
+class HttpClient:
+    def __init__(self, crawler):
+        self.crawler = crawler
+
+    def get(self, url, **kwargs):
+        resp = requests.get(url, kwargs)
+
+        resp_codes = self.crawler.stats.get_value("response_codes", default={})
+        resp_codes[resp.status_code] = resp_codes.get(resp.status_code, 0) + 1
+        self.crawler.stats.set_value("response_codes", resp_codes)
+
+        return resp
+
+
 def get(url, timeout):
     """
     Performs an HTTP GET request for the given URL, and ensures that the entire requests does not exceed the timeout value (in ms)

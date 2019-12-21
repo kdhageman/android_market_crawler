@@ -1,11 +1,10 @@
 import json
 
-import requests
 from requests import RequestException
 from sentry_sdk import capture_exception
 
 from crawler.item import Meta
-from crawler.util import random_proxy
+from crawler.util import random_proxy, HttpClient
 
 
 class AssetLinksPipeline:
@@ -13,8 +12,14 @@ class AssetLinksPipeline:
     Download /.well-known/assetlink.json
     """
 
-    def __init__(self):
+    def __init__(self, client):
+        self.client = client
         self.seen = {}
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        client = HttpClient(crawler)
+        return cls(client)
 
     def process_item(self, item, spider):
         if not isinstance(item, Meta):
@@ -27,7 +32,7 @@ class AssetLinksPipeline:
                 except KeyError:
                     try:
                         url = f"https://{domain}/.well-known/assetlinks.json"
-                        resp = requests.get(url, timeout=5, proxies=random_proxy())
+                        resp = self.client.get(url, timeout=5, proxies=random_proxy())
                         if resp.status_code != 404:
                             resp.raise_for_status()
                         if not "application/json" in resp.headers.get("Content-Type"):

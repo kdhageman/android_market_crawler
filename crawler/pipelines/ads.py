@@ -1,13 +1,12 @@
 import os
 from urllib.parse import urlparse
 
-import requests
 from publicsuffixlist import PublicSuffixList
 from requests import RequestException
 from sentry_sdk import capture_exception
 
 from crawler.item import Meta
-from crawler.util import get_directory, random_proxy
+from crawler.util import get_directory, random_proxy, HttpClient
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 
@@ -15,11 +14,14 @@ CONTENT_TYPE = "text/plain;charset=utf-8"
 class AdsPipeline:
     @classmethod
     def from_crawler(cls, crawler):
+        client = HttpClient(crawler)
         return cls(
+            client=client,
             outdir=crawler.settings.get('CRAWL_ROOTDIR')
         )
 
-    def __init__(self, outdir):
+    def __init__(self, client, outdir):
+        self.client = client
         self.outdir = outdir
         self.psl = PublicSuffixList()
 
@@ -45,7 +47,7 @@ class AdsPipeline:
             }
 
             try:
-                resp = requests.get(ads_txt_url, timeout=5, headers=headers, proxies=random_proxy())
+                resp = self.client.get(ads_txt_url, timeout=5, headers=headers, proxies=random_proxy())
                 if resp.status_code != 404:
                     resp.raise_for_status()
                 if not "text/plain" in resp.headers.get("Content-Type", "").lower():

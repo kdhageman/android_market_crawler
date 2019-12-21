@@ -1,11 +1,10 @@
 import os
 
-import requests
 from requests import RequestException
 from sentry_sdk import capture_exception
 
 from crawler.item import Meta
-from crawler.util import get_directory, random_proxy
+from crawler.util import get_directory, random_proxy, HttpClient
 
 FNAME = "privacy_policy.html"
 
@@ -13,11 +12,14 @@ FNAME = "privacy_policy.html"
 class PrivacyPolicyPipeline:
     @classmethod
     def from_crawler(cls, crawler):
+        client = HttpClient(crawler)
         return cls(
+            client=client,
             outdir=crawler.settings.get('CRAWL_ROOTDIR')
         )
 
-    def __init__(self, outdir):
+    def __init__(self, client, outdir):
+        self.client = client
         self.outdir = outdir
 
     def process_item(self, item, spider):
@@ -28,7 +30,7 @@ class PrivacyPolicyPipeline:
 
         if privacy_policy_url:
             try:
-                resp = requests.get(privacy_policy_url, timeout=5, proxies=random_proxy())
+                resp = self.client.get(privacy_policy_url, timeout=5, proxies=random_proxy())
                 resp.raise_for_status()
 
                 meta_dir = get_directory(item['meta'], spider)
