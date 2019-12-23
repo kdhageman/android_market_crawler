@@ -6,6 +6,7 @@ from random import choice
 import requests
 import scrapy
 from eventlet import Timeout
+from influxdb import InfluxDBClient
 from scrapy.settings import Settings
 from scrapy.statscollectors import MemoryStatsCollector
 
@@ -106,6 +107,17 @@ class HttpClient:
         self.crawler.stats.set_value("response_codes", resp_codes)
 
         return resp
+
+
+class InfluxDBClient:
+    def __init__(self, params):
+        self.c = None
+        if params:
+            self.c = InfluxDBClient(**params)
+
+    def write_points(self, *args, **kwargs):
+        if self.c:
+            self.c.write_points(args, kwargs)
 
 
 def get(url, timeout):

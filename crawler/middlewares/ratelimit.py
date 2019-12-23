@@ -1,6 +1,5 @@
 from enum import Enum
 
-from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 from scrapy.utils.response import response_status_message
@@ -10,7 +9,7 @@ from crawler.middlewares import sentry
 
 import time
 
-from crawler.util import market_from_spider, is_success
+from crawler.util import market_from_spider, is_success, InfluxDBClient
 
 
 class Status(Enum):
@@ -109,7 +108,7 @@ class RatelimitMiddleware(RetryMiddleware):
         self.interval = _ExponentialInterval(inc_start, epsilon)
         self.window = _TimeWindow(time_window_size)
 
-        self.c = InfluxDBClient(**influxdb_params)
+        self.c = InfluxDBClient(influxdb_params)
         self.reset_influxdb(crawler.spider)
 
     @classmethod

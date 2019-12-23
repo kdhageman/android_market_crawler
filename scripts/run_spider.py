@@ -130,13 +130,15 @@ def get_settings(config, spidername, logdir):
 
     statsd = config.get("statsd", {})
 
-    influxdb = config.get("influxdb", None)
-    if not influxdb:
-        raise YamlException("influxdb")
+    influxdb = config.get("influxdb", {})
 
     gplay = config.get("googleplay", {})
     if not gplay:
         raise YamlException("googleplay")
+
+    sqlite = config.get("sqlite", {})
+    if not sqlite:
+        raise YamlException("sqlite")
 
     log_file = os.path.join(logdir, f"{spidername}.log")
 
@@ -147,7 +149,8 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.privacy_policy.PrivacyPolicyPipeline': 501,
         'crawler.pipelines.analyze_apks.AnalyzeApkPipeline': 700,
         'crawler.pipelines.assetlinks.AssetLinksPipeline': 800,
-        'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
+        'crawler.pipelines.sqlite.SqlitePipeline': 1000,
+        'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1010
     }
 
     if apk_enabled:
@@ -197,7 +200,8 @@ def get_settings(config, spidername, logdir):
         PACKAGE_FILES=package_files,
         STATSD_PARAMS=statsd,
         INFLUXDB_PARAMS=influxdb,
-        GPLAY_PARAMS=gplay
+        GPLAY_PARAMS=gplay,
+        SQLITE_PARAMS=sqlite
     )
 
     if scrapy.get("log_to_file", True):
