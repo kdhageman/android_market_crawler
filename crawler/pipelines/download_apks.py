@@ -40,6 +40,8 @@ class DownloadApksPipeline(FilesPipeline):
             return
 
         for version, values in item['versions'].items():
+            if values.get("skip", False):
+                continue
             download_url = values.get('download_url', None)
             if download_url:
                 yield scrapy.Request(download_url, meta={'meta': item['meta'], 'version': version}, priority=100)

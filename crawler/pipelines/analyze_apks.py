@@ -19,9 +19,11 @@ class AnalyzeApkPipeline:
         for version, dat in item['versions'].items():
             filepath = dat.get('file_path', "")
             if filepath:
-                dat['analysis'] = analyse(filepath)
-                item['versions'][version] = dat
-
+                try:
+                    dat['analysis'] = analyse(filepath)
+                    item['versions'][version] = dat
+                except:
+                    pass
         return item
 
 
