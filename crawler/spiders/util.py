@@ -13,7 +13,8 @@ class PackageListSpider(scrapy.Spider):
                 line = f.readline()
                 while line:
                     url = self.url_by_package(line.strip())
-                    yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page)
+                    meta = {'dont_redirect': True}
+                    yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
                     line = f.readline()
         return True
 
