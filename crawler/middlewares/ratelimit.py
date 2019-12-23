@@ -122,7 +122,7 @@ class RatelimitMiddleware(RetryMiddleware):
     def process_response(self, request, response, spider):
         status_code = response.status
         market = market_from_spider(spider)
-        if status_code in [429, 403]:
+        if status_code in [429, 403, 503]:
             backoff = float(response.headers.get("Retry-After", 0))
             self.interval.inc()
             spider.logger.warning(f"increased interval to {self.interval.get()} seconds")
