@@ -147,10 +147,10 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.influxdb.InfluxdbMiddleware': 300,
         'crawler.pipelines.ads.AdsPipeline': 500,
         'crawler.pipelines.privacy_policy.PrivacyPolicyPipeline': 501,
+        'crawler.pipelines.sqlite.SqlitePipeline': 600,
         'crawler.pipelines.analyze_apks.AnalyzeApkPipeline': 700,
         'crawler.pipelines.assetlinks.AssetLinksPipeline': 800,
-        'crawler.pipelines.sqlite.SqlitePipeline': 1000,
-        'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1010
+        'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
     }
 
     if apk_enabled:
