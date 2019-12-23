@@ -17,4 +17,4 @@ class HttpProxyMiddleware:
     def process_request(self, request, spider):
         if self.proxies:
             proxy = random.choice(self.proxies)
-            request.meta['proxy'] = proxy
+            request.meta['proxy'] = f"http://{proxy}"
