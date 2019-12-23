@@ -1,9 +1,8 @@
-from influxdb import InfluxDBClient
 from scrapy import signals
 from scrapy.exceptions import NotConfigured
 from twisted.internet import task
 
-from crawler.util import market_from_spider
+from crawler.util import market_from_spider, InfluxDBClient
 
 
 class InfluxdbLogs(object):
@@ -18,7 +17,7 @@ class InfluxdbLogs(object):
         interval = crawler.settings.getfloat('LOGSTATS_INTERVAL')
         if not interval:
             raise NotConfigured
-        c = InfluxDBClient(**crawler.settings.get("INFLUXDB_PARAMS"))
+        c = InfluxDBClient(crawler.settings.get("INFLUXDB_PARAMS"))
         o = cls(crawler, c, interval)
 
         crawler.signals.connect(o.spider_opened, signal=signals.spider_opened)

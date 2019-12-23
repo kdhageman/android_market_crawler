@@ -1,5 +1,7 @@
 import json
 import os
+from json import JSONDecodeError
+
 from tqdm import tqdm
 import re
 
@@ -37,11 +39,14 @@ def merge_jsons(jsons):
         'versions': {}
     }
     for st in jsons:
-        j = json.loads(st)
-        res['meta'] = j['meta']  # meta field in result equals the last json string, and thus the last timestamp
-        for version, dat in j['versions'].items():
-            if version not in res['versions']:
-                res['versions'][version] = dat
+        try:
+            j = json.loads(st)
+            res['meta'] = j['meta']  # meta field in result equals the last json string, and thus the last timestamp
+            for version, dat in j['versions'].items():
+                if version not in res['versions']:
+                    res['versions'][version] = dat
+        except JSONDecodeError:
+            pass
     return res
 
 

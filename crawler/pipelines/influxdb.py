@@ -1,16 +1,14 @@
-from influxdb import InfluxDBClient
-
 from crawler.item import Meta, PackageName
-from crawler.util import market_from_spider
+from crawler.util import market_from_spider, InfluxDBClient
 
 
 class InfluxdbMiddleware(object):
     def __init__(self, params):
-        self.c = InfluxDBClient(**params)
+        self.c = InfluxDBClient(params)
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(params=crawler.settings.get("INFLUXDB_PARAMS"))
+        return cls(crawler.settings.get("INFLUXDB_PARAMS"))
 
     def process_item(self, item, spider):
         market = market_from_spider(spider)

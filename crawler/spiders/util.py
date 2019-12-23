@@ -48,6 +48,7 @@ def version_name(orig, versions):
         c +=1
     return version
 
+
 def normalize_rating(rating, maxval):
     """
     Normalizes a (string) rating between 0 and a max value to a float between 0 and 100
