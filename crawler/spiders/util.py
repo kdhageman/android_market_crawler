@@ -9,7 +9,7 @@ class PackageListSpider(scrapy.Spider):
         pkg_files = self.settings.get("PACKAGE_FILES", [])
         for pkg_file in pkg_files:
 
-            with open(pkg_file) as f:
+            with open(pkg_file, 'r') as f:
                 line = f.readline()
                 while line:
                     url = self.url_by_package(line.strip())
