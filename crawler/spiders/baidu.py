@@ -6,15 +6,15 @@ from crawler.item import Meta
 from crawler.spiders.util import normalize_rating
 
 version_pattern = '版本: (.*)'
-id_pattern = "https?://as\.baidu\.com/(.*?)/(.*)\.html"
+id_pattern = "https?://shouji\.baidu\.com/(.*?)/(.*)\.html"
 
 
 class BaiduSpider(scrapy.Spider):
     name = "baidu_spider"
 
     def start_requests(self):
-        yield scrapy.Request('http://as.baidu.com/', self.parse)
-        yield scrapy.Request('https://as.baidu.com/rank/top/', self.parse_top_page)
+        yield scrapy.Request('https://shouji.baidu.com/', self.parse)
+        yield scrapy.Request('https://shouji.baidu.com/rank/top/', self.parse_top_page)
 
     def parse(self, response):
         """
@@ -25,7 +25,7 @@ class BaiduSpider(scrapy.Spider):
             response: scrapy.Response
         """
         for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
-            yield response.follow(pkg_link, callback=self.parse_pkg_page)
+            yield response.follow(pkg_link, callback=self.parse_pkg_page, priority=2)
 
     def parse_top_page(self, response):
         """
@@ -36,7 +36,7 @@ class BaiduSpider(scrapy.Spider):
         """
         # visit all apps
         for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
-            yield response.follow(pkg_link, callback=self.parse_pkg_page)
+            yield response.follow(pkg_link, callback=self.parse_pkg_page, priority=2)
 
         # follow pagination
         next_page = response.css("li.next a::attr(href)").get()
@@ -56,11 +56,19 @@ class BaiduSpider(scrapy.Spider):
         )
         yui3 = response.css("div.yui3-u")
         meta['app_name'] = yui3.css("div.intro-top h1.app-name > span::text").get()
-        meta['app_description'] = "\n".join(yui3.css("div.section-container.introduction div.brief-long p::text").getall())
+        if not meta['app_name']:
+            # we found a non-existing app page
+            return
+        meta['app_description'] = "\n".join(
+            yui3.css("div.section-container.introduction div.brief-long p::text").getall())
 
         m = re.search(id_pattern, response.url)
         if m:
-            meta["id"] = f"{m.group(1)}-{m.group(2)}"
+            type = m.group(1)
+            id = int(m.group(2))
+            meta["id"] = f"{type}-{id}"
+            pkg_url = f"https://shouji.baidu.com/{type}/{id+1}.html"
+            yield scrapy.Request(pkg_url, callback=self.parse_pkg_page, priority=1)
 
         meta['downloads'] = response.css("span.download-num::text").re("下载次数: (.*)")[0]
 
@@ -90,6 +98,6 @@ class BaiduSpider(scrapy.Spider):
         yield res
 
         # apps you might like
-        for pkg_link in response.css("div.sec-favourite a.app-box::attr(href)").getall()  :
-            full_url = response.urljoin(pkg_link )
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+        for pkg_link in response.css("div.sec-favourite a.app-box::attr(href)").getall():
+            full_url = response.urljoin(pkg_link)
+            yield scrapy.Request(full_url, callback=self.parse_pkg_page, priority=2)
