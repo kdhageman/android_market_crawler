@@ -123,7 +123,7 @@ class RatelimitMiddleware(RetryMiddleware):
         status_code = response.status
         market = market_from_spider(spider)
         if status_code in [429, 403, 503]:
-            backoff = float(response.headers.get("Retry-After", 0))
+            backoff = float(response.headers.get("Retry-After", self.default_backoff))
             self.interval.inc()
             spider.logger.warning(f"increased interval to {self.interval.get()} seconds")
 
@@ -136,7 +136,10 @@ class RatelimitMiddleware(RetryMiddleware):
             sentry.capture(msg="hit rate limit", tags=tags)
             self.capture_influxdb(market, response.status, {"backoff": float(backoff), "interval": self.interval.get()})
 
-            self.pause(backoff if backoff else self.default_backoff)
+            if backoff > self.interval.get():
+                self.pause(backoff)
+            else:
+                self.pause(self.interval.get())
             self.window.start()
 
             reason = response_status_message(response.status)
