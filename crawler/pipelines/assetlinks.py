@@ -1,4 +1,5 @@
 import json
+from json import JSONDecodeError
 
 from requests import RequestException
 from sentry_sdk import capture_exception
@@ -35,12 +36,14 @@ class AssetLinksPipeline:
                         resp = self.client.get(url, timeout=5, proxies=random_proxy())
                         if resp.status_code != 404:
                             resp.raise_for_status()
-                        if not "application/json" in resp.headers.get("Content-Type"):
+                        if "application/json" not in resp.headers.get("Content-Type", ["application/json"]):
                             continue
                         al = parse_result(resp.text)
                         self.seen[domain] = al
                     except RequestException as e:
                         capture_exception(e)
+                        continue
+                    except JSONDecodeError:
                         continue
 
                 dat['analysis']['assetlink_domains'][domain] = al
