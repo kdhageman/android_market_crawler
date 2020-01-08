@@ -38,7 +38,7 @@ class AdsPipeline:
             return item
 
         # retrieve both app-ads.txt and ads.txt
-        for key, path, fname in [("app_ads_path", "/app-ads.txt", "app-ads.txt"), ("ads_path", "/ads.txt", "ads.txt")]:
+        for key, status_key, path, fname in [("app_ads_path", "app_ads_status", "/app-ads.txt", "app-ads.txt"), ("ads_path", "app_ads_status", "/ads.txt", "ads.txt")]:
             parsed_url = parsed_url._replace(netloc=root_domain, path=path)
 
             ads_txt_url = parsed_url.geturl()
@@ -48,6 +48,7 @@ class AdsPipeline:
 
             try:
                 resp = self.client.get(ads_txt_url, timeout=5, headers=headers, proxies=random_proxy())
+                item['meta'][status_key] = resp.status_code
                 if resp.status_code != 404:
                     resp.raise_for_status()
                 if not "text/plain" in resp.headers.get("Content-Type", "").lower():

@@ -181,6 +181,7 @@ class GooglePlaySpider(PackageListSpider):
                     except Exception as e:
                         # unreliable api, so catch ANY exception
                         capture_exception(e)
+                        dat['file_success'] = 0
                         continue
                     self.pause(self.interval)
 
@@ -189,11 +190,11 @@ class GooglePlaySpider(PackageListSpider):
 
                     os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
-                    # TODO: parse APK
                     with open(fpath, "wb") as f:
                         f.write(apk)
                     with open(fpath, "rb") as f:
                         dat['file_sha256'] = sha256(f)
+                    dat['file_success'] = 1
                     dat['file_size'] = len(apk)
                     dat['file_path'] = fpath
                     versions[version] = dat

@@ -31,6 +31,7 @@ class PrivacyPolicyPipeline:
         if privacy_policy_url:
             try:
                 resp = self.client.get(privacy_policy_url, timeout=5, proxies=random_proxy())
+                item['meta']['privacy_policy_status'] = resp.status_code
                 resp.raise_for_status()
 
                 meta_dir = get_directory(item['meta'], spider)
