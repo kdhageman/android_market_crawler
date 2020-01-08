@@ -2,7 +2,7 @@ import unittest
 
 from lxml import etree
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.pipelines.analyze_apks import AnalyzeApkPipeline, parse_app_links, _assetlinks_domain
 
 
@@ -10,7 +10,7 @@ from crawler.pipelines.analyze_apks import AnalyzeApkPipeline, parse_app_links, 
 class AnalyzeApkPipelineTest(unittest.TestCase):
     def test_process_item(self):
         pipeline = AnalyzeApkPipeline()
-        item = Meta(
+        item = Result(
             versions={
                 '1.0.0': {
                     "file_path": "/work/git/test_project/app/build/outputs/apk/debug/app-debug.apk"

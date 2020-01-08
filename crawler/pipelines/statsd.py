@@ -1,6 +1,6 @@
 import statsd
 
-from crawler.item import Meta
+from crawler.item import Result
 
 
 class StatsdMiddleware(object):
@@ -15,7 +15,7 @@ class StatsdMiddleware(object):
         )
 
     def process_item(self, item, spider):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         market = item['meta']['market']

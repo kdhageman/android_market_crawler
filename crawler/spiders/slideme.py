@@ -2,7 +2,7 @@ import re
 
 import scrapy
 import numpy as np
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 id_pattern = "http://slideme\.org/application/(.*)"
@@ -80,7 +80,7 @@ class SlideMeSpider(scrapy.Spider):
             download_url=full_url
         )
 
-        res = Meta(
+        res = Result(
             meta=meta,
             versions=versions
         )

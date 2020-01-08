@@ -1,7 +1,7 @@
 import scrapy
 import re
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.spiders.util import PackageListSpider
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
@@ -71,7 +71,7 @@ class FDroidSpider(PackageListSpider):
                 download_url=dl_link
             )
 
-        res = Meta(
+        res = Result(
             meta=meta,
             versions=versions
         )

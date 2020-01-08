@@ -4,7 +4,7 @@ from json import JSONDecodeError
 from requests import RequestException
 from sentry_sdk import capture_exception
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import random_proxy, HttpClient
 
 
@@ -23,7 +23,7 @@ class AssetLinksPipeline:
         return cls(client)
 
     def process_item(self, item, spider):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         for version, dat in item['versions'].items():

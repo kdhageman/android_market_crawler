@@ -2,7 +2,7 @@ import json
 
 import scrapy
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.spiders.util import version_name, PackageListSpider
 
 url_pattern = "/download-app/(.*)/(.*)/"
@@ -109,7 +109,7 @@ class ApkMonkSpider(PackageListSpider):
 
         if len(data['remaining']) == 0:
             # this is the last download link to be returned
-            return Meta(meta=data['meta'], versions=data['versions'])
+            return Result(meta=data['meta'], versions=data['versions'])
 
         next_version = data['remaining'].pop()
         data['cur'] = next_version

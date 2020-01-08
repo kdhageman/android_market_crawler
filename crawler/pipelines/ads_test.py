@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import unittest
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.pipelines.ads import AdsPipeline
 from crawler.util import TestSpider
 
@@ -21,7 +21,7 @@ class TestAdsTxtPipeline(unittest.TestCase):
             "pkg_name": "ads_only",
             "developer_website": "http://www.businessinsider.com/"
         }
-        m = Meta(meta=meta)
+        m = Result(meta=meta)
         pipeline.process_item(m, spider)
 
         # website with valid app-ads.txt
@@ -29,7 +29,7 @@ class TestAdsTxtPipeline(unittest.TestCase):
             "pkg_name": "app_ads_only",
             "developer_website": "https://outfit7.com/"
         }
-        m = Meta(meta=meta)
+        m = Result(meta=meta)
         pipeline.process_item(m, spider)
 
         # website with invalid ads.txt (text/html instead of text/plain)
@@ -37,7 +37,7 @@ class TestAdsTxtPipeline(unittest.TestCase):
             "pkg_name": "invalid",
             "developer_website": "http://kefirgames.ru/en"
         }
-        m = Meta(meta=meta)
+        m = Result(meta=meta)
         pipeline.process_item(m, spider)
 
         self.assertTrue(self.exists("app_ads_only", "app-ads.txt"))

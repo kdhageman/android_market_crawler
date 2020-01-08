@@ -8,7 +8,7 @@ import numpy as np
 import scrapy
 from sentry_sdk import capture_exception
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import market_from_spider, sha256, random_proxy
 from crawler.spiders.util import PackageListSpider, normalize_rating
 sys.path.append("./gplaycrawler/playcrawler")
@@ -199,7 +199,7 @@ class GooglePlaySpider(PackageListSpider):
                     versions[version] = dat
                 else:
                     self.logger.warn(f"failed to find 'version_code' for {pkg}")
-            yield Meta(meta=meta, versions=versions)
+            yield Result(meta=meta, versions=versions)
 
         # similar apps
         similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()

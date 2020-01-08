@@ -4,7 +4,7 @@ import urllib
 
 import scrapy
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 related_tmpl = "http://openbox.mobilem.360.cn/detail/rank?soft_id=%s&cid=%s&start=0&num=100" # an open API for retrieving JSON data about apps
@@ -90,7 +90,7 @@ class ThreeSixtySpider(scrapy.Spider):
             download_url=dl_link
         )
 
-        res = Meta(
+        res = Result(
             meta=meta,
             versions=versions
         )

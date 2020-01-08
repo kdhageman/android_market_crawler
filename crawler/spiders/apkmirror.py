@@ -1,7 +1,7 @@
 import scrapy
 import re
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"
@@ -120,7 +120,7 @@ class ApkMirrorSpider(scrapy.Spider):
         if re.search(dl_link_pattern, dl_link):
             # in case this regex matches, the actual download link has been found
             # otherwise, we must visit another nested download page first, before yielding the Meta response
-            yield Meta(
+            yield Result(
                 meta=meta,
                 versions=versions
             )
@@ -146,7 +146,7 @@ class ApkMirrorSpider(scrapy.Spider):
                 versions[version] = d
                 break
 
-        yield Meta(
+        yield Result(
             meta=meta,
             versions=versions
         )

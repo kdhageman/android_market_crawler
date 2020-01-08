@@ -3,7 +3,7 @@ import os
 from requests import RequestException
 from sentry_sdk import capture_exception
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import get_directory, random_proxy, HttpClient
 
 FNAME = "privacy_policy.html"
@@ -23,7 +23,7 @@ class PrivacyPolicyPipeline:
         self.outdir = outdir
 
     def process_item(self, item, spider):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         privacy_policy_url = item['meta'].get("privacy_policy_url", "")

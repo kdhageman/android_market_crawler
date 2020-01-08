@@ -2,7 +2,7 @@ import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
-from crawler.item import Meta
+from crawler.item import Result
 
 try:
     from cStringIO import StringIO as BytesIO
@@ -36,7 +36,7 @@ class DownloadApksPipeline(FilesPipeline):
         return os.path.join(dir, fname)
 
     def get_media_requests(self, item, info):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return
 
         for version, values in item['versions'].items():

@@ -2,7 +2,7 @@ import re
 
 import scrapy
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 version_pattern = '版本: (.*)'
@@ -90,7 +90,7 @@ class BaiduSpider(scrapy.Spider):
                 download_url=dl_link
             )
 
-        res = Meta(
+        res = Result(
             meta=meta,
             versions=versions
         )

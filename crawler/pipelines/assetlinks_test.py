@@ -1,13 +1,13 @@
 import unittest
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.pipelines.assetlinks import AssetLinksPipeline, parse_result
 
 
 class AssetLinksPipelineTest(unittest.TestCase):
     def test_process_item(self):
         pipeline = AssetLinksPipeline()
-        item = Meta(
+        item = Result(
             versions={
                 "1.0.0": {
                     "analysis": {

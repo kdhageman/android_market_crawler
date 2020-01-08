@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import market_from_spider
 
 _tables = [
@@ -37,7 +37,7 @@ class PreDownloadPackagePipeline(SqlitePipeline):
         return cls(**crawler.settings.get("SQLITE_PARAMS"))
 
     def process_item(self, item, spider):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         self.create_package(item)
@@ -68,7 +68,7 @@ class PreDownloadVersionPipeline(SqlitePipeline):
         return cls(**crawler.settings.get("SQLITE_PARAMS"))
 
     def process_item(self, item, spider):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         meta = item.get("meta", {})
@@ -113,7 +113,7 @@ class PostDownloadPipeline(SqlitePipeline):
         return cls(**crawler.settings.get("SQLITE_PARAMS"))
 
     def process_item(self, item, spider):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         meta = item.get("meta", {})

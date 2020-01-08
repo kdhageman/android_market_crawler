@@ -1,7 +1,7 @@
 import json
 import os
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import get_directory
 
 FNAME = "meta.json"
@@ -30,7 +30,7 @@ class WriteMetaFilePipeline:
             item: dict of download URLs and store meta data
             spider: spider that crawled the market
         """
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         meta_dir = get_directory(item['meta'], spider)

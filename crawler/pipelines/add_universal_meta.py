@@ -1,6 +1,6 @@
 import time
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import market_from_spider
 
 
@@ -9,7 +9,7 @@ class AddUniversalMetaPipeline:
         """
         Adds a timestamp/market name to the meta data in the item
         """
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         res = item

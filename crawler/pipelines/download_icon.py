@@ -2,7 +2,7 @@ import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import get_directory, sha256
 
 
@@ -26,7 +26,7 @@ class DownloadIconPipeline(FilesPipeline):
         return os.path.join(dir, "icon.ico")
 
     def get_media_requests(self, item, info):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return
 
         icon_url = item['meta'].get('icon_url', None)

@@ -6,7 +6,7 @@ import unittest
 
 from pytest_httpserver import HTTPServer
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.pipelines.download_apks import DownloadApksPipeline
 from crawler.util import TestSpider
 
@@ -38,7 +38,7 @@ class TestDownloadPipeline(unittest.TestCase):
                 }
             }
 
-            item = Meta(
+            item = Result(
                 meta=meta,
                 versions=versions
             )

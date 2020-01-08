@@ -5,7 +5,7 @@ from publicsuffixlist import PublicSuffixList
 from requests import RequestException
 from sentry_sdk import capture_exception
 
-from crawler.item import Meta
+from crawler.item import Result
 from crawler.util import get_directory, random_proxy, HttpClient
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
@@ -26,7 +26,7 @@ class AdsPipeline:
         self.psl = PublicSuffixList()
 
     def process_item(self, item, spider):
-        if not isinstance(item, Meta):
+        if not isinstance(item, Result):
             return item
 
         developer_website = item.get("meta", {}).get("developer_website", "")
