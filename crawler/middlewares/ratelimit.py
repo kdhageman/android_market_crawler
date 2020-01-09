@@ -9,7 +9,8 @@ from crawler.middlewares import sentry
 
 import time
 
-from crawler.util import market_from_spider, is_success, InfluxDBClient
+from crawler.pipelines.util import InfluxDBClient
+from crawler.util import market_from_spider, is_success
 
 
 class Status(Enum):

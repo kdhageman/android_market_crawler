@@ -2,7 +2,8 @@ from scrapy import signals
 from scrapy.exceptions import NotConfigured
 from twisted.internet import task
 
-from crawler.util import market_from_spider, InfluxDBClient
+from crawler.pipelines.util import InfluxDBClient
+from crawler.util import market_from_spider
 
 
 class InfluxdbLogs(object):

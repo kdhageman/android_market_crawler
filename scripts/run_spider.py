@@ -140,6 +140,10 @@ def get_settings(config, spidername, logdir):
     if not sqlite:
         raise YamlException("sqlite")
 
+    janus = config.get("janusgraph", {})
+    if not janus:
+        raise YamlException("janusgraph")
+
     log_file = os.path.join(logdir, f"{spidername}.log")
 
     item_pipelines = {
@@ -199,7 +203,8 @@ def get_settings(config, spidername, logdir):
         STATSD_PARAMS=statsd,
         INFLUXDB_PARAMS=influxdb,
         GPLAY_PARAMS=gplay,
-        SQLITE_PARAMS=sqlite
+        SQLITE_PARAMS=sqlite,
+        JANUS_PARAMS=janus
     )
 
     if scrapy.get("log_to_file", True):
@@ -226,7 +231,7 @@ def main(config, spidername, logdir):
 
 
 if __name__ == "__main__":
-    eventlet.monkey_patch(socket=True)
+    # eventlet.monkey_patch(socket=True)
 
     # parse CLI arguments
     parser = argparse.ArgumentParser(description='Android APK market crawler')

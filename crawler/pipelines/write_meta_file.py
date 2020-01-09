@@ -2,6 +2,7 @@ import json
 import os
 
 from crawler.item import Result
+from crawler.store.janusgraph import Store
 from crawler.util import get_directory
 
 FNAME = "meta.json"
@@ -15,11 +16,11 @@ class WriteMetaFilePipeline:
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
-            outdir=crawler.settings.get('CRAWL_ROOTDIR')
+            params=crawler.settings.get('JANUS_PARAMS')
         )
 
-    def __init__(self, outdir):
-        self.outdir = outdir
+    def __init__(self, params):
+        self.store = Store(**params)
 
     def process_item(self, item, spider):
         """
@@ -33,13 +34,6 @@ class WriteMetaFilePipeline:
         if not isinstance(item, Result):
             return item
 
-        meta_dir = get_directory(item['meta'], spider)
-        fpath = os.path.join(self.outdir, meta_dir, FNAME)
-
-        os.makedirs(os.path.dirname(fpath), exist_ok=True) # ensure directories exist
-
-        with open(fpath, "a+") as f:
-            jsonstr = json.dumps(dict(item))
-            f.write(jsonstr + "\n")
+        self.store.store_result(item)
 
         return item
