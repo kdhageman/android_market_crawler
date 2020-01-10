@@ -87,8 +87,6 @@ def _dn_from_dict(d):
 def _cert_props(props):
     remove_keys = [
         "sha256"
-        # "not_before",
-        # "not_after",
     ]
     flatten_keys = [
         "pkey"
@@ -118,27 +116,28 @@ def _etld_from_pkg(pkg_name):
     return res
 
 
-# TODO: upsert
 # TODO: permissions in APKs
 class Store:
     def __init__(self, url="ws://localhost:8182/gremlin", username="", password=""):
         graph = Graph()
-        conn = DriverRemoteConnection(url, "g", username=username, password=password)
-        self.g = graph.traversal().withRemote(conn)
+        self.conn = DriverRemoteConnection(url, "g", username=username, password=password)
+        self.g = graph.traversal().withRemote(self.conn)
+
+    def close(self):
+        self.conn.close()
 
     def store_result(self, result):
         pkg_name = pkg_name_from_result(result)
         self.get_or_create_package(pkg_name, result)
 
-    def _connect(self, src, dst, label):
-        self.g.V(src.id).addE(label).to(self.g.V(dst.id)).next()
+    def _connect(self, src, dst, label, properties={}):
+        t = self.g.V(src.id).addE(label).to(self.g.V(dst.id))
+        for k, v in properties.items():
+            t = t.property(k, v)
+        t.next()
 
     def get_or_create_package(self, pkg_name, props):
-        existing = self._get("pkg", {"pkg_name": pkg_name})
-        if existing:
-            return existing
-
-        pkg_node = self._create("pkg", {"pkg_name": pkg_name})
+        pkg_node = self._get_or_create("pkg", {"pkg_name": pkg_name})
 
         meta_node = self.create_meta(pkg_name, props)
         self._connect(meta_node, pkg_node, "is_meta_for")
@@ -183,31 +182,40 @@ class Store:
 
         sha256 = props.get("file_sha256", None)
         if sha256:
-            # DONE: get or create APK
             apk_node = self.get_or_create_apk(sha256, props=props.get("analysis", {}))
-            # DONE: create edge between APK and version
             self._connect(apk_node, version_node, "is_apk_for")
 
         return version_node
 
     def get_or_create_apk(self, sha256, props={}):
+        self._get("apk", {"sha256": sha256})
+
         apk_props = _apk_props(props)
         apk_node = self._get_or_create("apk", {"sha256": sha256}, props=apk_props)
         certs = props.get("certs", {})
         for version in ["v1", "v2", "v3"]:
             for cert in certs.get(version, []):
                 cert_props = _cert_props(cert)
-                cert_sha = cert["sha256"]
-                cert_node = self._get_or_create("cert", {"sha256": cert_sha}, props=cert_props)
+                cert_fingerprint = cert["sha256"]
+                cert_node = self._get("cert", {"fingerprint": cert_fingerprint})
+                if cert_node:
+                    cert_properties = self.g.V(cert_node.id).valueMap().next()
+                    if not cert_properties or "subject" not in self.g.V(cert_node.id).valueMap().next():
+                        # must update the cert
+                        self._update(cert_node, cert_props)
+                else:
+                    cert_node = self._create("cert", {"fingerprint": cert_fingerprint}, props=cert_props)
                 self._connect(apk_node, cert_node, version)
 
         assetlinks = props.get("assetlink_domains", {})
         for domain, packages in assetlinks.items():
             domain_node = self._get_or_create("domain", {"domain": domain})
+            self._connect(apk_node, domain_node, "is_in_intentfilter")
+
             for pkg, shas in packages.items():
                 for sha in shas:
-                    apk_node = self._get_or_create("apk", {"sha256": sha})
-                    self._connect(domain_node, apk_node, "assetlink")
+                    cert_node = self._get_or_create("cert", {"fingerprint": sha})
+                    self._connect(domain_node, cert_node, "is_in_assetlinks", {"pkg_name": pkg})
 
         return apk_node
 
@@ -217,7 +225,7 @@ class Store:
             t = t.has(label, idname, identifier)
         if t.hasNext():
             # already exists
-            return t.next()
+            return t.valueMap().next()
         return None
 
     def _create(self, label, ids, props={}):
@@ -227,6 +235,12 @@ class Store:
         for k, v in props.items():
             q = q.property(k, v if v else "")
         return q.next()
+
+    def _update(self, node, props={}):
+        q = self.g.V(node.id)
+        for k, v in props.items():
+            q = q.property(k, v)
+        q.next()
 
     def _get_or_create(self, label, ids, props={}):
         """

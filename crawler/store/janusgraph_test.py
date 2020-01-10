@@ -11,7 +11,7 @@ from crawler.store.janusgraph import Store, _etld_from_pkg, _apk_props, _dn_from
 def connect(url, username="", password=""):
     graph = Graph()
     conn = DriverRemoteConnection(url, 'g', username=username, password=password)
-    return graph.traversal().withRemote(conn)
+    return conn, graph.traversal().withRemote(conn)
 
 
 class TestStore(unittest.TestCase):
@@ -19,13 +19,17 @@ class TestStore(unittest.TestCase):
 
     def setUp(self):
         self.s = Store(self.url)
-        g = connect(self.url)
+        conn, g = connect(self.url)
         # remove all vertices and edges
         g.V().drop().iterate()
         g.E().drop().iterate()
+        conn.close()
 
-    def test_init(self):
-        with open("resources/meta.json") as f:
+    def tearDown(self):
+        self.s.close()
+
+    def test_store_result(self):
+        with open("resources/meta.1.json") as f:
             raw = f.read()
         parsed = json.loads(raw)
 
@@ -49,16 +53,28 @@ class TestStore(unittest.TestCase):
             Case("dev_mail", 1, 1),
             Case("etld", 1, 1),
             Case("version", 1, 2),
-            Case("apk", 1, 4),
-            Case("cert", 1, 3)
+            Case("apk", 1, 5),
+            Case("cert", 2, 5),
+            Case("domain", 1, 3)
         ]
 
-        g = connect(self.url)
+        conn, g = connect(self.url)
         for case in cases:
             actual_count = g.V().hasLabel(case.label).count().next()
             self.assertEqual(actual_count, case.expected_count)
             actual_edges = g.V().hasLabel(case.label).both().count().next()
             self.assertEqual(actual_edges, case.expected_edges)
+        conn.close()
+
+        with open("resources/meta.2.json") as f:
+            raw = f.read()
+        parsed = json.loads(raw)
+
+        result = Result(
+            meta=parsed['meta'],
+            versions=parsed['versions']
+        )
+        self.s.store_result(result)
 
     def test_etld_from_pkg(self):
         class Case:
@@ -75,7 +91,7 @@ class TestStore(unittest.TestCase):
             self.assertEqual(etld, case.expected)
 
     def test_apk_props(self):
-        with open("resources/meta.json") as f:
+        with open("resources/meta.1.json") as f:
             raw = f.read()
         parsed = json.loads(raw)
 

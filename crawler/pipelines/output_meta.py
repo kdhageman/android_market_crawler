@@ -16,11 +16,11 @@ class WriteMetaFilePipeline:
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
-            params=crawler.settings.get('JANUS_PARAMS')
+            outdir=crawler.settings.get('CRAWL_ROOTDIR')
         )
 
-    def __init__(self, params):
-        self.store = Store(**params)
+    def __init__(self, outdir):
+        self.outdir = outdir
 
     def process_item(self, item, spider):
         """
@@ -31,6 +31,32 @@ class WriteMetaFilePipeline:
             item: dict of download URLs and store meta data
             spider: spider that crawled the market
         """
+        if not isinstance(item, Result):
+            return item
+
+        meta_dir = get_directory(item['meta'], spider)
+        fpath = os.path.join(self.outdir, meta_dir, FNAME)
+
+        os.makedirs(os.path.dirname(fpath), exist_ok=True) # ensure directories exist
+
+        with open(fpath, "a+") as f:
+            jsonstr = json.dumps(dict(item))
+            f.write(jsonstr + "\n")
+
+        return item
+
+
+class StorePipeline:
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            params=crawler.settings.get('JANUS_PARAMS')
+        )
+
+    def __init__(self, params):
+        self.store = Store(**params)
+
+    def process_item(self, item, spider):
         if not isinstance(item, Result):
             return item
 

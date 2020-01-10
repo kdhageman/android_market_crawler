@@ -158,7 +158,8 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.sqlite.PostDownloadPipeline': 600 if apk_enabled else None,
         'crawler.pipelines.analyze_apks.AnalyzeApkPipeline': 700,
         'crawler.pipelines.assetlinks.AssetLinksPipeline': 800,
-        'crawler.pipelines.write_meta_file.WriteMetaFilePipeline': 1000
+        'crawler.pipelines.output_meta.WriteMetaFilePipeline': 1000,
+        'crawler.pipelines.output_meta.StorePipeline': 1001
     }
 
     downloader_middlewares = {
