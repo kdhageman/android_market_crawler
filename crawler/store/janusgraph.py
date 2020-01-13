@@ -118,7 +118,7 @@ def _etld_from_pkg(pkg_name):
 
 # TODO: permissions in APKs
 class Store:
-    def __init__(self, url="ws://localhost:8182/gremlin", username="", password=""):
+    def __init__(self, url="ws://localhost:8182/gremlin", username="", password="", enabled=False):
         graph = Graph()
         self.conn = DriverRemoteConnection(url, "g", username=username, password=password)
         self.g = graph.traversal().withRemote(self.conn)

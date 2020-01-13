@@ -16,10 +16,12 @@ def connect(url, username="", password=""):
 
 class TestStore(unittest.TestCase):
     url = "ws://localhost:8182/gremlin"
+    username = ""
+    password = ""
 
     def setUp(self):
-        self.s = Store(self.url)
-        conn, g = connect(self.url)
+        self.s = Store(self.url, username=self.username, password=self.password)
+        conn, g = connect(self.url, username=self.username, password=self.password)
         # remove all vertices and edges
         g.V().drop().iterate()
         g.E().drop().iterate()
@@ -58,7 +60,7 @@ class TestStore(unittest.TestCase):
             Case("domain", 1, 3)
         ]
 
-        conn, g = connect(self.url)
+        conn, g = connect(self.url, username=self.username, password=self.password)
         for case in cases:
             actual_count = g.V().hasLabel(case.label).count().next()
             self.assertEqual(actual_count, case.expected_count)

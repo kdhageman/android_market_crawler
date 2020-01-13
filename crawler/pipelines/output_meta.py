@@ -1,6 +1,8 @@
 import json
 import os
 
+from sentry_sdk import capture_exception
+
 from crawler.item import Result
 from crawler.store.janusgraph import Store
 from crawler.util import get_directory
@@ -60,6 +62,9 @@ class StorePipeline:
         if not isinstance(item, Result):
             return item
 
-        self.store.store_result(item)
+        try:
+            self.store.store_result(item)
+        except Exception as e:
+            capture_exception(e)
 
         return item

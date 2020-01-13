@@ -39,6 +39,7 @@ googleplay:
     - email: # email
       password: # password
 janusgraph:
+  enabled: true
   url: ws://localhost:8182/gremlin
   username:
   password:
