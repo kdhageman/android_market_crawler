@@ -12,7 +12,7 @@ class NoApkError(Exception):
     pass
 
 
-def _props(d, remove_keys=[], flatten_keys=[], replace_keys={}):
+def _props(d, remove_keys=[], flatten_keys=[], replace_keys={}, list_keys={}):
     res = d.copy()
     for remove_key in remove_keys:
         if remove_key in res:
@@ -28,6 +28,10 @@ def _props(d, remove_keys=[], flatten_keys=[], replace_keys={}):
         if original in res:
             res[new] = res[original]
             del res[original]
+
+    for list_key in list_keys:
+        res[list_key] = ",".join(res[list_key])
+
     return res
 
 
@@ -39,7 +43,10 @@ def _meta_props(result: Result):
         "developer_email",
         "developer_website"
     ]
-    return _props(meta, remove_keys=remove_keys)
+    list_keys = [
+        "categories"
+    ]
+    return _props(meta, remove_keys=remove_keys, list_keys=list_keys)
 
 
 def _version_props(props):

@@ -30,6 +30,11 @@ class TestStore(unittest.TestCase):
     def tearDown(self):
         self.s.close()
 
+    def test_clear_store(self):
+        conn, g = connect(self.url, username=self.username, password=self.password)
+        self.assertEqual(g.E().count().next(), 0)
+        self.assertEqual(g.V().count().next(), 0)
+
     def test_store_result(self):
         with open("resources/meta.1.json") as f:
             raw = f.read()
