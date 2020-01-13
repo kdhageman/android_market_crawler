@@ -1,12 +1,13 @@
 import argparse
 import os
 
-import eventlet
 import sentry_sdk
 import yaml
 from scrapy.crawler import CrawlerProcess
 
 import sys
+
+from scripts.util import merge
 
 sys.path.append(os.path.abspath('.'))
 from crawler.util import market_from_spider
@@ -232,18 +233,23 @@ def main(config, spidername, logdir):
 
 
 if __name__ == "__main__":
-    # eventlet.monkey_patch(socket=True)
-
     # parse CLI arguments
     parser = argparse.ArgumentParser(description='Android APK market crawler')
-    parser.add_argument("--config", help="Path to YAML configuration file", default="config/config.template.yml")
+    parser.add_argument("--configs", help="Path to YAML configuration files", nargs="+",
+                        default="config/config.template.yml")
     parser.add_argument("--logdir", help="Directory in which to store the log files", default="logs")
     parser.add_argument("--spider", help="Spider to run", required=True, default="config/spider_list.txt")
     parser.add_argument("--user_agents_file", help="Path to file of user agents", default="config/user_agents.txt")
     parser.add_argument("--proxies_file", help="Path to file of proxy addresses", default="config/proxies.txt")
     args = parser.parse_args()
 
-    with open(args.config) as f:
-        cnf = yaml.load(f, Loader=yaml.FullLoader)
+    cnf = {}
+    for cnf_file in args.configs:
+        try:
+            with open(cnf_file) as f:
+                cnf = merge(cnf, yaml.load(f, Loader=yaml.FullLoader))
+        except IOError as e:
+            print(f"Error in configuration file: {e}")
+            sys.exit(-1)
 
     main(cnf, args.spider, args.logdir)

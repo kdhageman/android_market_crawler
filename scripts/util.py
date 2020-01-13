@@ -62,3 +62,22 @@ def walk_spider_dir(spiderdir, spider, regex="meta.json"):
                 if re.search(regex, file):
                     fullpath = os.path.join(root, file)
                     yield fullpath
+
+
+def merge(a, b):
+    """
+    Merges two dictionaries, where the values of b overwrite a
+    Args:
+        a: original dictionary
+        b: dictionary that overwrites a
+
+    Returns:
+        merged dictionary
+    """
+    res = a.copy()
+    for k, v in b.items():
+        if isinstance(v, dict):
+            res[k] = merge(a.get(k, {}), v)
+        else:
+            res[k] = v
+    return res
