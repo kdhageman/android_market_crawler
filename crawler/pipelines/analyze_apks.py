@@ -161,7 +161,7 @@ def analyse(path):
         ),
         android_version=dict(
             name=apk.get_androidversion_name(),
-            code=apk.get_androidversion_code()
+            code=apk.get_androidversion_code() if apk.get_androidversion_code() else -1
         ),
         assetlink_domains=parse_app_links(apk.get_android_manifest_xml())
     )
