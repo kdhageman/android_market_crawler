@@ -12,4 +12,4 @@ echo "  > Configuration directory:            $1"
 echo "  > Main configuration file:            $1/config.yml"
 echo "  > Log file directory:                 $2"
 
-xargs -I {} -n1 -P 0 -a config/spider_list.txt python scripts/run_spider.py --config $1/config.yml $1/{}.yml --logdir $2 --spider
+xargs -I {} -n1 -P 0 -a config/spider_list.txt echo python scripts/run_spider.py --config $1/config.yml $1/{}.yml --logdir $2 --spider {}
