@@ -7,8 +7,6 @@ from scrapy.crawler import CrawlerProcess
 
 import sys
 
-from scripts.util import merge
-
 sys.path.append(os.path.abspath('.'))
 from crawler.util import market_from_spider
 from crawler.spiders.apkmirror import ApkMirrorSpider
@@ -21,6 +19,7 @@ from crawler.spiders.mi import MiSpider
 from crawler.spiders.slideme import SlideMeSpider
 from crawler.spiders.tencent import TencentSpider
 from crawler.spiders.threesixty import ThreeSixtySpider
+from scripts.util import merge
 
 ALL_SPIDERS = [
     ApkMirrorSpider,
