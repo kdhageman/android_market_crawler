@@ -24,6 +24,16 @@ sentry:
 statsd: # not fully supported
   host: localhost
   port: 8125
+database:
+  type: sqlite
+  sqlite:
+    dbfile: /path/to/db/file
+  postgres:
+    host: localhost
+    port: 5432
+    username: user
+    password: passwd
+    database: default
 influxdb:
   host: localhost
   port: 8086
