@@ -136,9 +136,9 @@ def get_settings(config, spidername, logdir):
     if not gplay:
         raise YamlException("googleplay")
 
-    sqlite = config.get("sqlite", {})
-    if not sqlite:
-        raise YamlException("sqlite")
+    database = config.get("database", {})
+    if not database:
+        raise YamlException("database")
 
     janus = config.get("janusgraph", {})
     if not janus:
@@ -148,14 +148,14 @@ def get_settings(config, spidername, logdir):
 
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
-        'crawler.pipelines.sqlite.PreDownloadPackagePipeline': 110,
-        'crawler.pipelines.sqlite.PreDownloadVersionPipeline': 111 if apk_enabled else None,
+        'crawler.pipelines.database.PreDownloadPackagePipeline': 110,
+        'crawler.pipelines.database.PreDownloadVersionPipeline': 111 if apk_enabled else None,
         'crawler.pipelines.download_apks.DownloadApksPipeline': 200 if apk_enabled else None,
         'crawler.pipelines.download_icon.DownloadIconPipeline': 210 if icon_enabled else None,
         'crawler.pipelines.influxdb.InfluxdbMiddleware': 300,
         'crawler.pipelines.ads.AdsPipeline': 500,
         'crawler.pipelines.privacy_policy.PrivacyPolicyPipeline': 501,
-        'crawler.pipelines.sqlite.PostDownloadPipeline': 600 if apk_enabled else None,
+        'crawler.pipelines.database.PostDownloadPipeline': 600 if apk_enabled else None,
         'crawler.pipelines.analyze_apks.AnalyzeApkPipeline': 700,
         'crawler.pipelines.assetlinks.AssetLinksPipeline': 800,
         'crawler.pipelines.output_meta.WriteMetaFilePipeline': 1000,
@@ -204,7 +204,7 @@ def get_settings(config, spidername, logdir):
         STATSD_PARAMS=statsd,
         INFLUXDB_PARAMS=influxdb,
         GPLAY_PARAMS=gplay,
-        SQLITE_PARAMS=sqlite,
+        DATABASE_PARAMS=database,
         JANUS_PARAMS=janus
     )
 
