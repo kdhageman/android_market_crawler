@@ -1,7 +1,7 @@
 import os
-import sqlite3
 
-import pg8000
+from sqlalchemy import create_engine
+from sqlalchemy.sql import text
 
 from crawler.item import Result
 from crawler.util import market_from_spider
@@ -28,7 +28,17 @@ class InvalidParametersError(Exception):
     pass
 
 
-def _conn_from_params(params):
+def _postgres_dsn_from_params(params):
+    host = params.get("host")
+    port = params.get("port")
+    username = params.get("username")
+    password = params.get("password")
+    database = params.get("database")
+
+    return f"postgresql+pg8000://{username}:{password}@{host}:{port}/{database}"
+
+
+def _engine_from_params(params):
     """
     Return the database connection given the database settings of the crawler
     Args:
@@ -40,15 +50,15 @@ def _conn_from_params(params):
     db_specific_params = params.get(dbtype, None)
     if dbtype == "sqlite":
         filename = db_specific_params.get("dbfile", None)
-        conn = sqlite3.connect(filename)
+        dsn = f"sqlite:///{filename}"
+        engine = create_engine(dsn)
     elif dbtype == "postgres":
-        conn = pg8000.connect(**db_specific_params)
+        dsn = _postgres_dsn_from_params(db_specific_params)
+        engine = create_engine(dsn)
     else:
         raise InvalidParametersError
 
-    if not db_specific_params:
-        pass
-    return conn, dbtype
+    return engine, dbtype
 
 
 class _DatabaseConnection:
@@ -67,46 +77,34 @@ class _DatabaseConnection:
 
 
 class DatabasePipeline:
-    def __init__(self, conn, dbtype):
-        self.conn = conn
+    def __init__(self, engine, dbtype):
+        self.engine = engine
         self.dbtype = dbtype
 
         tables = _tables_from_dbtype[dbtype]
         for table, fields in tables:
-            qry = f"CREATE TABLE IF NOT EXISTS {table} ({fields})"
-            with _DatabaseConnection(self.conn) as cur:
-                cur.execute(qry)
+            qry = text(f"CREATE TABLE IF NOT EXISTS {table} ({fields})")
+            with self.engine.connect() as con:
+                con.execute(qry)
 
     def path_by_sha(self, sha):
-        qry = "SELECT path FROM apks WHERE sha256 = ?"
-        with _DatabaseConnection(self.conn) as cur:
-            res = cur.execute(qry, (sha,))
+        qry = text("SELECT path FROM apks WHERE sha256 = :sha")
+        with self.engine.connect() as con:
+            res = con.execute(qry, sha=sha)
             first = res.fetchone()
             return first[0] if first else None
         return None
 
-    def insert(self, table, values=()):
-        if self.dbtype == "sqlite":
-            qry = f"INSERT INTO {table} VALUES ({', '.join(['?' for v in values])})"
-        elif self.dbtype == "postgres":
-            qry = f"INSERT INTO {table} VALUES {', '.join(['(%s)' for v in values])}"
-        with _DatabaseConnection(self.conn) as cur:
-            return cur.execute(qry, values)
-
-    def close_spider(self, spider):
-        self.cur.close()
-        self.conn.close()
-
 
 class PreDownloadPackagePipeline(DatabasePipeline):
-    def __init__(self, conn, dbtype):
-        super().__init__(conn, dbtype)
+    def __init__(self, engine, dbtype):
+        super().__init__(engine, dbtype)
 
     @classmethod
     def from_crawler(cls, crawler):
         params = crawler.settings.get("DATABASE_PARAMS")
-        conn, dbtype = _conn_from_params(params)
-        return cls(conn, dbtype)
+        engine, dbtype = _engine_from_params(params)
+        return cls(engine, dbtype)
 
     def process_item(self, item, spider):
         if not isinstance(item, Result):
@@ -122,7 +120,15 @@ class PreDownloadPackagePipeline(DatabasePipeline):
         identifier = meta.get("id", None)
         pkg_name = meta.get("pkg_name", None)
         ts = meta.get('timestamp', 0)
-        self.insert("packages", (pkg_name, identifier, market, ts))
+        with self.engine.connect() as con:
+            qry = text("INSERT INTO packages VALUES (:pkg_name, :identifier, :market, :ts)")
+            vals = dict(
+                pkg_name=pkg_name,
+                identifier=identifier,
+                market=market,
+                ts=ts
+            )
+            con.execute(qry, **vals)
 
 
 class PreDownloadVersionPipeline(DatabasePipeline):
@@ -130,14 +136,14 @@ class PreDownloadVersionPipeline(DatabasePipeline):
     Checks if the APK for a specific version has already been downloaded or not
     """
 
-    def __init__(self, conn, dbtype):
-        super().__init__(conn, dbtype)
+    def __init__(self, engine, dbtype):
+        super().__init__(engine, dbtype)
 
     @classmethod
     def from_crawler(cls, crawler):
         params = crawler.settings.get("DATABASE_PARAMS")
-        conn, dbtype = _conn_from_params(params)
-        return cls(conn, dbtype)
+        engine, dbtype = _engine_from_params(params)
+        return cls(engine, dbtype)
 
     def process_item(self, item, spider):
         if not isinstance(item, Result):
@@ -165,10 +171,15 @@ class PreDownloadVersionPipeline(DatabasePipeline):
         """
         Returns the SHA256 value of the apk for the given tuple of values
         """
-        self.select(["sha256"], "versions", ["pkg_name", "id", "version", "market"])
-        qry = "SELECT sha256 FROM versions WHERE (pkg_name = ? OR id = ?) AND version = ? and market = ?"
-        with _DatabaseConnection(self.conn) as cur:
-            res = cur.execute(qry, (pkg_name, identifier, version, market))
+        with self.engine.connect() as con:
+            qry = text("SELECT sha256 FROM versions WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market")
+            vals = dict(
+                pkg_name=pkg_name,
+                identifier=identifier,
+                version=version,
+                market=market
+            )
+            res = con.execute(qry, **vals)
             first = res.fetchone()
             return first[0] if first else None
         return None
@@ -179,14 +190,14 @@ class PostDownloadPipeline(DatabasePipeline):
     Ensures that (1) duplicate APKs cleaned up and (2) crawls are logged in the database
     """
 
-    def __init__(self, conn, dbtype):
-        super().__init__(conn, dbtype)
+    def __init__(self, engine, dbtype):
+        super().__init__(engine, dbtype)
 
     @classmethod
     def from_crawler(cls, crawler):
         params = crawler.settings.get("DATABASE_PARAMS")
-        conn, dbtype = _conn_from_params(params)
-        return cls(conn, dbtype)
+        engine, dbtype = _engine_from_params(params)
+        return cls(engine, dbtype)
 
     def process_item(self, item, spider):
         if not isinstance(item, Result):
@@ -226,17 +237,31 @@ class PostDownloadPipeline(DatabasePipeline):
         return item
 
     def create_version(self, pkg_name, identifier, version, market, sha):
-        qry = "INSERT INTO versions VALUES (?, ?, ?, ?, ?)"
-        with self.conn:
-            self.conn.execute(qry, (pkg_name, identifier, version, market, sha))
+        with self.engine.connect() as con:
+            qry = text("INSERT INTO versions VALUES (:pkg_name, :identifier, :version, :market, :sha)")
+            vals = dict(
+                pkg_name=pkg_name,
+                identifier=identifier,
+                version=version,
+                market=market,
+                sha=sha
+            )
+            con.execute(qry, **vals)
 
     def sha_exists(self, sha):
-        qry = "SELECT path FROM apks WHERE sha256 = ?"
-        with self.conn:
-            res = self.conn.execute(qry, (sha,))
+        with self.engine.connect() as con:
+            qry = text("SELECT path FROM apks WHERE sha256 = :sha")
+            vals = dict(
+                sha=sha
+            )
+            res = con.execute(qry, **vals)
             return res.fetchone()
 
     def create_sha(self, sha, path):
-        qry = "INSERT INTO apks VALUES (?, ?)"
-        with self.conn:
-            res = self.conn.execute(qry, (sha, path))
+        with self.engine.connect() as con:
+            qry = text("INSERT INTO apks VALUES (:sha, :path)")
+            vals = dict(
+                sha=sha,
+                path=path
+            )
+            con.execute(qry, **vals)
