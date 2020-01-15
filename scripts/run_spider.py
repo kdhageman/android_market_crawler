@@ -248,7 +248,5 @@ if __name__ == "__main__":
             with open(cnf_file) as f:
                 cnf = merge(cnf, yaml.load(f, Loader=yaml.FullLoader))
         except Exception as e:
-            print(f"Error in configuration file: {e}")
-            sys.exit(-1)
-
+            pass
     main(cnf, args.spider, args.logdir)
