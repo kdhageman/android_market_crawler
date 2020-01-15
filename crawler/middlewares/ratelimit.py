@@ -26,11 +26,12 @@ class RatelimitMiddleware(RetryMiddleware):
             the number of seconds to increment the backoff time on any requests
     """
 
-    def __init__(self, crawler, influxdb_params, default_backoff=600, codes=[429]):
+    def __init__(self, crawler, influxdb_params, default_backoff=600, codes=[429], interval=0):
         super(RatelimitMiddleware, self).__init__(crawler.settings)
         self.crawler = crawler
         self.default_backoff = default_backoff
         self.codes = codes
+        self.interval = interval
 
         self.c = InfluxDBClient(influxdb_params)
         self.reset_influxdb(crawler.spider)
@@ -61,6 +62,7 @@ class RatelimitMiddleware(RetryMiddleware):
 
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response
+        self.pause(self.interval)
         return response
 
     def pause(self, t):
