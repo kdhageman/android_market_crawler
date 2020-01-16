@@ -6,8 +6,7 @@ from sentry_sdk import capture_exception
 from twisted.internet import defer
 
 from crawler.item import Result
-from crawler.util import get_directory, random_proxy, HttpClient, RequestException, response_has_content_type, \
-    ContentTypeError
+from crawler.util import get_directory, random_proxy, HttpClient, RequestException, response_has_content_type, ContentTypeError
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 

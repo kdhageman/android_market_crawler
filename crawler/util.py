@@ -94,6 +94,10 @@ class TestSpider(scrapy.Spider):
         pass
 
 
+class RequestException(Exception):
+    pass
+
+
 class ContentTypeError(Exception):
     pass
 
