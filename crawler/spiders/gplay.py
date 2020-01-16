@@ -9,7 +9,8 @@ import scrapy
 from sentry_sdk import capture_exception
 
 from crawler.item import Result
-from crawler.util import market_from_spider, sha256, PROXY_POOL, init_proxy_pool
+from crawler import util
+from crawler.util import market_from_spider, sha256, init_proxy_pool
 from crawler.spiders.util import PackageListSpider, normalize_rating
 sys.path.append("./gplaycrawler/playcrawler")
 sys.path.append("./gplaycrawler/playcrawler/googleplayapi")
@@ -96,7 +97,7 @@ class GooglePlaySpider(PackageListSpider):
             email = account.get("email", "")
             password = account.get("password", "")
             if email and password:
-                proxy = PROXY_POOL.get_proxy_as_dict()
+                proxy = util.PROXY_POOL.get_proxy_as_dict()
                 api = GooglePlayAPI(androidId=android_id, lang=lang, proxies=proxy)
                 api.login(email, password)
                 self.apis.append(api)
