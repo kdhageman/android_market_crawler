@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 from publicsuffixlist import PublicSuffixList
 from sentry_sdk import capture_exception
 from twisted.internet import defer
-from twisted.web._newclient import ResponseFailed
 
 from crawler.item import Result
 from crawler.util import get_directory, random_proxy, HttpClient, RequestException, response_has_content_type, \
@@ -67,8 +66,9 @@ class AdsPipeline:
                     f.write(content)
 
                 item['meta'][key] = fpath
-            except (RequestException, ResponseFailed) as e:
-                capture_exception(e)
             except ContentTypeError:
                 pass
+            except Exception as e:
+                capture_exception(e)
+
         defer.returnValue(item)
