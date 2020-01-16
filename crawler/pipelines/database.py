@@ -9,13 +9,13 @@ from crawler.util import market_from_spider
 _sqlite_tables = [
     ("apks", "sha256 text, path text"),
     ("packages", "pkg_name text, id text, market text, timestamp int, ads_status int, app_ads_status int, icon_success bool, privacy_policy_status int"),
-    ("versions", "pkg_name text, id text, version text, market text, sha256 text, success int"),
+    ("versions", "pkg_name text, id text, version text, market text, sha256 text, file_success int"),
 ]
 
 _postgres_tables = [
     ("apks", "sha256 char(256), path text"),
     ("packages", "pkg_name text, id text, market varchar(32), timestamp int, ads_status int, app_ads_status int, icon_success boolean, privacy_policy_status int"),
-    ("versions", "pkg_name text, id text, version text, market varchar(32), sha256 char(256), success int"),
+    ("versions", "pkg_name text, id text, version text, market varchar(32), sha256 char(256), file_success int"),
 ]
 
 _tables_from_dbtype = {
@@ -220,7 +220,7 @@ class PostDownloadPipeline(DatabasePipeline):
         for version, dat in versions.items():
             sha = dat.get("file_sha256", "")
             path = dat.get("file_path", "")
-            status = dat.get("file_success", None)
+            file_success = dat.get("file_success", None)
             if not sha:
                 continue
 
@@ -228,7 +228,7 @@ class PostDownloadPipeline(DatabasePipeline):
                 del dat['skip']
             else:
                 # we have not seen this version beforehand
-                self.create_version(pkg_name, identifier, version, market, sha, status)
+                self.create_version(pkg_name, identifier, version, market, sha, file_success)
 
             # check if another APK with same hash exists
             existing_path = self.path_by_sha(sha)
@@ -245,16 +245,16 @@ class PostDownloadPipeline(DatabasePipeline):
             item['versions'][version] = dat
         return item
 
-    def create_version(self, pkg_name, identifier, version, market, sha, status):
+    def create_version(self, pkg_name, identifier, version, market, sha, file_success):
         with self.engine.connect() as con:
-            qry = text("INSERT INTO versions VALUES (:pkg_name, :identifier, :version, :market, :sha, :status)")
+            qry = text("INSERT INTO versions VALUES (:pkg_name, :identifier, :version, :market, :sha, :file_success)")
             vals = dict(
                 pkg_name=pkg_name,
                 identifier=identifier,
                 version=version,
                 market=market,
                 sha=sha,
-                status=status
+                file_success=file_success
             )
             con.execute(qry, **vals)
 

@@ -41,7 +41,7 @@ class DownloadApksPipeline(FilesPipeline):
 
         for version, values in item['versions'].items():
             if values.get("skip", False):
-                item['versions'][version]['file_success'] = "skipped"
+                item['versions'][version]['file_success'] = -1
             download_url = values.get('download_url', None)
             if download_url:
                 yield scrapy.Request(download_url, meta={'meta': item['meta'], 'version': version}, priority=100)
@@ -53,7 +53,7 @@ class DownloadApksPipeline(FilesPipeline):
         for i in range(len(results)):
             success, resultdata = results[i]
             version, values = versions_list[i]
-            values['file_success'] = success
+            values['file_success'] = int(success)
 
             if success:  # True if download successful
                 path = os.path.join(self.outdir, resultdata['path'])
