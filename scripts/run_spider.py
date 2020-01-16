@@ -236,7 +236,8 @@ def main(config, spidername, logdir):
 if __name__ == "__main__":
     for namespace, level in [
         ("androguard", logging.ERROR),
-        ("scrapy.core.downloader.handlers.http11", logging.ERROR)
+        ("scrapy.core.downloader.handlers.http11", logging.ERROR),
+        ("scrapy.spidermiddlewares.httperror", logging.WARNING)
     ]:
         logger = logging.getLogger(namespace)
         logger.setLevel(level)
