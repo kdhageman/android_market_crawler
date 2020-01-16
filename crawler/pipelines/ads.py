@@ -5,9 +5,9 @@ from publicsuffixlist import PublicSuffixList
 from sentry_sdk import capture_exception
 from twisted.internet import defer
 
+from crawler import util
 from crawler.item import Result
-from crawler.util import get_directory, HttpClient, RequestException, response_has_content_type, \
-    ContentTypeError, PROXY_POOL
+from crawler.util import get_directory, HttpClient, RequestException, response_has_content_type, ContentTypeError
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 
@@ -49,7 +49,7 @@ class AdsPipeline:
             }
 
             try:
-                resp = yield self.client.get(ads_txt_url, timeout=5, headers=headers, proxies=PROXY_POOL.get_proxy_as_dict())
+                resp = yield self.client.get(ads_txt_url, timeout=5, headers=headers, proxies=util.PROXY_POOL.get_proxy_as_dict())
                 item['meta'][status_key] = resp.code
                 if resp.code >= 400:
                     raise RequestException

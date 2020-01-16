@@ -3,6 +3,7 @@ import os
 from sentry_sdk import capture_exception
 from twisted.internet import defer
 
+from crawler import util
 from crawler.item import Result
 from crawler.util import get_directory, random_proxy, HttpClient, RequestException
 
@@ -31,7 +32,7 @@ class PrivacyPolicyPipeline:
 
         if privacy_policy_url:
             try:
-                resp = yield self.client.get(privacy_policy_url, timeout=5, proxies=random_proxy())
+                resp = yield self.client.get(privacy_policy_url, timeout=5, proxies=util.PROXY_POOL.get_proxy_as_dict())
                 item['meta']['privacy_policy_status'] = resp.code
                 if resp.code >= 400:
                     raise RequestException

@@ -245,23 +245,6 @@ def sha256(f):
     return m.hexdigest()
 
 
-def random_proxy():
-    """
-    Assigns a random proxy dictionary to be used by requests or the GooglePlayApi
-    Returns: dict; example: {'http': ..., 'https': ...}
-    """
-
-    try:
-        selected = choice(_PROXIES)
-        full_url = f"http://{selected}"
-        return {
-            "http": full_url,
-            "https": full_url
-        }
-    except IndexError:
-        return {}
-
-
 def is_success(status_code):
     return 200 <= status_code < 400
 
