@@ -3,9 +3,10 @@ from json import JSONDecodeError
 
 from sentry_sdk import capture_exception
 from twisted.internet import defer
+from twisted.web._newclient import ResponseFailed
 
 from crawler.item import Result
-from crawler.util import random_proxy, HttpClient, RequestException
+from crawler.util import random_proxy, HttpClient, RequestException, response_has_content_type
 
 
 class AssetLinksPipeline:
@@ -39,11 +40,13 @@ class AssetLinksPipeline:
                         status = resp.code
                         if resp.code >= 400:
                             raise RequestException
-                        if "application/json" not in resp.headers.get("Content-Type", ["application/json"]):
+
+                        if response_has_content_type(resp, "application/json", default=True):
                             continue
-                        al = parse_result(resp.text)
+                        txt = yield resp.text()
+                        al = parse_result(txt)
                         self.seen[domain] = al
-                    except RequestException as e:
+                    except (RequestException, ResponseFailed) as e:
                         capture_exception(e)
                         continue
                     except JSONDecodeError:

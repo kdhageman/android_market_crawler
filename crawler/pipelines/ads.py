@@ -4,9 +4,11 @@ from urllib.parse import urlparse
 from publicsuffixlist import PublicSuffixList
 from sentry_sdk import capture_exception
 from twisted.internet import defer
+from twisted.web._newclient import ResponseFailed
 
 from crawler.item import Result
-from crawler.util import get_directory, random_proxy, HttpClient, RequestException
+from crawler.util import get_directory, random_proxy, HttpClient, RequestException, response_has_content_type, \
+    ContentTypeError
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 
@@ -52,8 +54,8 @@ class AdsPipeline:
                 item['meta'][status_key] = resp.code
                 if resp.code >= 400:
                     raise RequestException
-                if "text/plain" not in resp.headers.get("Content-Type", "").lower():
-                    return item
+                if response_has_content_type(resp, "text/plain", default=False):
+                    raise ContentTypeError
 
                 meta_dir = get_directory(item['meta'], spider)
                 fpath = os.path.join(self.outdir, meta_dir, fname)
@@ -61,9 +63,12 @@ class AdsPipeline:
                 os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
                 with open(fpath, "wb") as f:
-                    f.write(resp.content)
+                    content = yield resp.content()
+                    f.write(content)
 
                 item['meta'][key] = fpath
-            except RequestException as e:
+            except (RequestException, ResponseFailed) as e:
                 capture_exception(e)
+            except ContentTypeError:
+                pass
         defer.returnValue(item)

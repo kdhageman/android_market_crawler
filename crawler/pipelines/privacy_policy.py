@@ -2,6 +2,7 @@ import os
 
 from sentry_sdk import capture_exception
 from twisted.internet import defer
+from twisted.web._newclient import ResponseFailed
 
 from crawler.item import Result
 from crawler.util import get_directory, random_proxy, HttpClient, RequestException
@@ -42,9 +43,10 @@ class PrivacyPolicyPipeline:
                 os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
                 with open(fpath, "wb") as f:
-                    f.write(resp.content)
+                    content = yield resp.content()
+                    f.write(content)
 
                 item['meta']['privacy_policy_path'] = fpath
-            except RequestException as e:
+            except (RequestException, ResponseFailed) as e:
                 capture_exception(e)
         defer.returnValue(item)

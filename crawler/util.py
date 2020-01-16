@@ -98,6 +98,10 @@ class RequestException(Exception):
     pass
 
 
+class ContentTypeError(Exception):
+    pass
+
+
 class HttpClient:
     def __init__(self, crawler):
         self.crawler = crawler
@@ -110,7 +114,6 @@ class HttpClient:
         resp_codes[resp.code] = resp_codes.get(resp.code, 0) + 1
         self.crawler.stats.set_value("response_codes", resp_codes)
         defer.returnValue(resp)
-
 
 
 def sha256(f):
@@ -146,3 +149,20 @@ def random_proxy():
 
 def is_success(status_code):
     return 200 <= status_code < 400
+
+
+def response_has_content_type(resp, ct, default=False):
+    """
+    Returns if response contains a "Content-Type" header with the given 'ct' value
+    Args:
+        resp: twister.Response
+        ct: content type string
+        default: default result if header is empty
+        headerfunc: function to apply to each received header
+
+    Returns: bool
+    """
+    received_ctypes = resp.headers.getRawHeaders(ct)
+    if not received_ctypes:
+        return default
+    return ct in [n.lower() for n in received_ctypes]
