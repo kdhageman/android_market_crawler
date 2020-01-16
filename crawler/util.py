@@ -3,11 +3,11 @@ import os
 import re
 from random import choice
 
-import requests
 import scrapy
-from eventlet import Timeout
 from scrapy.settings import Settings
 from scrapy.statscollectors import MemoryStatsCollector
+from treq import get as treqget
+from twisted.internet import defer
 
 _PROXIES = []
 
@@ -94,43 +94,23 @@ class TestSpider(scrapy.Spider):
         pass
 
 
+class RequestException(Exception):
+    pass
+
+
 class HttpClient:
     def __init__(self, crawler):
         self.crawler = crawler
 
+    @defer.inlineCallbacks
     def get(self, url, **kwargs):
-        resp = requests.get(url, kwargs)
+        resp = yield treqget(url, kwargs)
 
         resp_codes = self.crawler.stats.get_value("response_codes", default={})
-        resp_codes[resp.status_code] = resp_codes.get(resp.status_code, 0) + 1
+        resp_codes[resp.code] = resp_codes.get(resp.code, 0) + 1
         self.crawler.stats.set_value("response_codes", resp_codes)
+        defer.returnValue(resp)
 
-        return resp
-
-
-def get(url, timeout):
-    """
-    Performs an HTTP GET request for the given URL, and ensures that the entire requests does not exceed the timeout value (in ms)
-    If the timeout is zero, request does not terminate on the usual timeout; however, internally it uses the requests timeout to terminate on bad connections
-
-    Args:
-        url: url to request
-        timeout: timeout for entire request
-
-    Returns: requests.Response
-    """
-    if timeout == 0:
-        return requests.get(url, allow_redirects=True, timeout=60)
-
-    r = None
-    with Timeout(timeout,
-                 False):  # ensure that APK downloading does not exceed timeout duration; TODO: is this preferred behaviour?
-        r = requests.get(url, allow_redirects=True, timeout=60)
-
-    if not r:
-        raise TimeoutError(f"request timeout for '{url}'")
-
-    return r
 
 
 def sha256(f):

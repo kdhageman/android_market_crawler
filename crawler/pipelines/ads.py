@@ -2,11 +2,11 @@ import os
 from urllib.parse import urlparse
 
 from publicsuffixlist import PublicSuffixList
-from requests import RequestException
 from sentry_sdk import capture_exception
+from twisted.internet import defer
 
 from crawler.item import Result
-from crawler.util import get_directory, random_proxy, HttpClient
+from crawler.util import get_directory, random_proxy, HttpClient, RequestException
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 
@@ -25,6 +25,7 @@ class AdsPipeline:
         self.outdir = outdir
         self.psl = PublicSuffixList()
 
+    @defer.inlineCallbacks
     def process_item(self, item, spider):
         if not isinstance(item, Result):
             return item
@@ -38,7 +39,7 @@ class AdsPipeline:
             return item
 
         # retrieve both app-ads.txt and ads.txt
-        for key, status_key, path, fname in [("app_ads_path", "app_ads_status", "/app-ads.txt", "app-ads.txt"), ("ads_path", "app_ads_status", "/ads.txt", "ads.txt")]:
+        for key, status_key, path, fname in [("app_ads_path", "app_ads_status", "/app-ads.txt", "app-ads.txt"), ("ads_path", "ads_status", "/ads.txt", "ads.txt")]:
             parsed_url = parsed_url._replace(netloc=root_domain, path=path)
 
             ads_txt_url = parsed_url.geturl()
@@ -47,11 +48,11 @@ class AdsPipeline:
             }
 
             try:
-                resp = self.client.get(ads_txt_url, timeout=5, headers=headers, proxies=random_proxy())
-                item['meta'][status_key] = resp.status_code
-                if resp.status_code != 404:
-                    resp.raise_for_status()
-                if not "text/plain" in resp.headers.get("Content-Type", "").lower():
+                resp = yield self.client.get(ads_txt_url, timeout=5, headers=headers, proxies=random_proxy())
+                item['meta'][status_key] = resp.code
+                if resp.code >= 400:
+                    raise RequestException
+                if "text/plain" not in resp.headers.get("Content-Type", "").lower():
                     return item
 
                 meta_dir = get_directory(item['meta'], spider)
@@ -65,4 +66,4 @@ class AdsPipeline:
                 item['meta'][key] = fpath
             except RequestException as e:
                 capture_exception(e)
-        return item
+        defer.returnValue(item)

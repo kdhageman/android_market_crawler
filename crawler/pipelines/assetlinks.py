@@ -1,11 +1,11 @@
 import json
 from json import JSONDecodeError
 
-from requests import RequestException
 from sentry_sdk import capture_exception
+from twisted.internet import defer
 
 from crawler.item import Result
-from crawler.util import random_proxy, HttpClient
+from crawler.util import random_proxy, HttpClient, RequestException
 
 
 class AssetLinksPipeline:
@@ -22,6 +22,7 @@ class AssetLinksPipeline:
         client = HttpClient(crawler)
         return cls(client)
 
+    @defer.inlineCallbacks
     def process_item(self, item, spider):
         if not isinstance(item, Result):
             return item
@@ -34,10 +35,10 @@ class AssetLinksPipeline:
                 except KeyError:
                     try:
                         url = f"https://{domain}/.well-known/assetlinks.json"
-                        resp = self.client.get(url, timeout=5, proxies=random_proxy())
-                        status = resp.status_code
-                        if resp.status_code != 404:
-                            resp.raise_for_status()
+                        resp = yield self.client.get(url, timeout=5, proxies=random_proxy())
+                        status = resp.code
+                        if resp.code >= 400:
+                            raise RequestException
                         if "application/json" not in resp.headers.get("Content-Type", ["application/json"]):
                             continue
                         al = parse_result(resp.text)
@@ -50,7 +51,7 @@ class AssetLinksPipeline:
                 dat['analysis']['assetlink_domains'][domain] = al
                 dat['analysis']['assetlink_status'][domain] = status
             item['versions'][version] = dat
-        return item
+        defer.returnValue(item)
 
 
 def parse_result(raw):

@@ -1,10 +1,10 @@
 import os
 
-from requests import RequestException
 from sentry_sdk import capture_exception
+from twisted.internet import defer
 
 from crawler.item import Result
-from crawler.util import get_directory, random_proxy, HttpClient
+from crawler.util import get_directory, random_proxy, HttpClient, RequestException
 
 FNAME = "privacy_policy.html"
 
@@ -22,6 +22,7 @@ class PrivacyPolicyPipeline:
         self.client = client
         self.outdir = outdir
 
+    @defer.inlineCallbacks
     def process_item(self, item, spider):
         if not isinstance(item, Result):
             return item
@@ -30,9 +31,10 @@ class PrivacyPolicyPipeline:
 
         if privacy_policy_url:
             try:
-                resp = self.client.get(privacy_policy_url, timeout=5, proxies=random_proxy())
-                item['meta']['privacy_policy_status'] = resp.status_code
-                resp.raise_for_status()
+                resp = yield self.client.get(privacy_policy_url, timeout=5, proxies=random_proxy())
+                item['meta']['privacy_policy_status'] = resp.code
+                if resp.code >= 400:
+                    raise RequestException
 
                 meta_dir = get_directory(item['meta'], spider)
                 fpath = os.path.join(self.outdir, meta_dir, FNAME)
@@ -45,4 +47,4 @@ class PrivacyPolicyPipeline:
                 item['meta']['privacy_policy_path'] = fpath
             except RequestException as e:
                 capture_exception(e)
-        return item
+        defer.returnValue(item)

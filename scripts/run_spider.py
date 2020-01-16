@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 
 import sentry_sdk
@@ -187,6 +188,7 @@ def get_settings(config, spidername, logdir):
         USER_AGENTS=user_agents,
         ITEM_PIPELINES=item_pipelines,
         CONCURRENT_REQUESTS=concurrent_requests,
+        CONCURRENT_REQUESTS_PER_DOMAIN=concurrent_requests,
         DEPTH_LIMIT=depth_limit,
         CLOSESPIDER_ITEMCOUNT=item_count,
         # AUTOTHROTTLE_ENABLED=True,
@@ -232,6 +234,13 @@ def main(config, spidername, logdir):
 
 
 if __name__ == "__main__":
+    for namespace, level in [
+        ("androguard", logging.ERROR),
+        ("scrapy.core.downloader.handlers.http11", logging.ERROR)
+    ]:
+        logger = logging.getLogger(namespace)
+        logger.setLevel(level)
+
     # parse CLI arguments
     parser = argparse.ArgumentParser(description='Android APK market crawler')
     parser.add_argument("--configs", help="Path to YAML configuration files", nargs="+",
