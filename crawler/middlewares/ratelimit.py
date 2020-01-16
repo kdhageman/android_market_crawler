@@ -1,13 +1,12 @@
-from enum import Enum
+import time
 
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 from scrapy.utils.response import response_status_message
 from sentry_sdk import capture_exception
 
+from crawler import util
 from crawler.middlewares import sentry
-
-import time
 
 from crawler.pipelines.util import InfluxDBClient
 from crawler.util import market_from_spider
@@ -47,18 +46,21 @@ class RatelimitMiddleware(RetryMiddleware):
     def process_response(self, request, response, spider):
         status_code = response.status
         market = market_from_spider(spider)
+
         if status_code in self.codes:
+            proxy = request.meta['proxy']
             backoff = float(response.headers.get("Retry-After", self.default_backoff))
 
             tags = {
                 'backoff': backoff,
                 'spider': spider.name,
-                'status': response.status
+                'status': response.status,
+                'proxy': proxy
             }
             sentry.capture(msg="hit rate limit", tags=tags)
             self.capture_influxdb(market, response.status, {"backoff": float(backoff)})
 
-            self.pause(backoff)
+            util.PROXY_POOL.backoff(proxy, seconds=backoff)
 
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response

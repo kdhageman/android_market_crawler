@@ -5,7 +5,7 @@ from sentry_sdk import capture_exception
 from twisted.internet import defer
 
 from crawler.item import Result
-from crawler.util import random_proxy, HttpClient, RequestException, response_has_content_type
+from crawler.util import HttpClient, RequestException, response_has_content_type, PROXY_POOL
 
 
 class AssetLinksPipeline:
@@ -35,7 +35,7 @@ class AssetLinksPipeline:
                 except KeyError:
                     try:
                         url = f"https://{domain}/.well-known/assetlinks.json"
-                        resp = yield self.client.get(url, timeout=5, proxies=random_proxy())
+                        resp = yield self.client.get(url, timeout=5, proxies=PROXY_POOL.get_proxy_as_dict())
                         status = resp.code
                         if resp.code >= 400:
                             raise RequestException
