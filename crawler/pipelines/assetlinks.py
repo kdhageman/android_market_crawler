@@ -28,12 +28,14 @@ class AssetLinksPipeline:
 
         for version, dat in item['versions'].items():
             for domain in dat.get("analysis", {}).get("assetlink_domains", {}):
+                status = 0
                 try:
                     al = self.seen[domain]
                 except KeyError:
                     try:
                         url = f"https://{domain}/.well-known/assetlinks.json"
                         resp = self.client.get(url, timeout=5, proxies=random_proxy())
+                        status = resp.status_code
                         if resp.status_code != 404:
                             resp.raise_for_status()
                         if "application/json" not in resp.headers.get("Content-Type", ["application/json"]):
@@ -45,8 +47,8 @@ class AssetLinksPipeline:
                         continue
                     except JSONDecodeError:
                         continue
-
                 dat['analysis']['assetlink_domains'][domain] = al
+                dat['analysis']['assetlink_status'][domain] = status
             item['versions'][version] = dat
         return item
 

@@ -36,6 +36,7 @@ class DownloadIconPipeline(FilesPipeline):
     def item_completed(self, results, item, info):
         if results:
             success, resultdata = results[0]
+            item['meta']['icon_success'] = success
             if success:
                 path = os.path.join(self.outdir, resultdata['path'])
                 item['meta']['icon_path'] = path
