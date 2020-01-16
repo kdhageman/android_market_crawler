@@ -84,16 +84,24 @@ class DatabasePipeline:
         tables = _tables_from_dbtype[dbtype]
         for table, fields in tables:
             qry = text(f"CREATE TABLE IF NOT EXISTS {table} ({fields})")
-            with self.engine.connect() as con:
-                con.execute(qry)
+            self.execute(qry)
 
     def path_by_sha(self, sha):
         qry = text("SELECT path FROM apks WHERE sha256 = :sha")
-        with self.engine.connect() as con:
-            res = con.execute(qry, sha=sha)
-            first = res.fetchone()
-            return first[0] if first else None
-        return None
+        res = self.execute(qry, dict(sha=sha))
+        first = res.fetchone()
+        return first[0] if first else None
+
+    def execute(self, qry, vals={}):
+        """
+        Executes a database query
+        Afterwards, cleans up the connection to the db
+        """
+        try:
+            with self.engine.connect() as con:
+                return con.execute(qry, **vals)
+        finally:
+            self.engine.dispose()
 
 
 class PreDownloadPackagePipeline(DatabasePipeline):
@@ -124,19 +132,19 @@ class PreDownloadPackagePipeline(DatabasePipeline):
         app_ads_status = meta.get("app_ads_status", None)
         icon_status = meta.get("icon_success", None)
         privacy_policy_status = meta.get("privacy_policy_status", None)
-        with self.engine.connect() as con:
-            qry = text("INSERT INTO packages VALUES (:pkg_name, :identifier, :market, :ts, :ads_status, :app_ads_status, :icon_status, :privacy_policy_status)")
-            vals = dict(
-                pkg_name=pkg_name,
-                identifier=identifier,
-                market=market,
-                ts=ts,
-                ads_status=ads_status,
-                app_ads_status=app_ads_status,
-                icon_status=icon_status,
-                privacy_policy_status=privacy_policy_status
-            )
-            con.execute(qry, **vals)
+
+        qry = text("INSERT INTO packages VALUES (:pkg_name, :identifier, :market, :ts, :ads_status, :app_ads_status, :icon_status, :privacy_policy_status)")
+        vals = dict(
+            pkg_name=pkg_name,
+            identifier=identifier,
+            market=market,
+            ts=ts,
+            ads_status=ads_status,
+            app_ads_status=app_ads_status,
+            icon_status=icon_status,
+            privacy_policy_status=privacy_policy_status
+        )
+        self.execute(qry, vals)
 
 
 class PreDownloadVersionPipeline(DatabasePipeline):
@@ -179,18 +187,16 @@ class PreDownloadVersionPipeline(DatabasePipeline):
         """
         Returns the SHA256 value of the apk for the given tuple of values
         """
-        with self.engine.connect() as con:
-            qry = text("SELECT sha256 FROM versions WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market")
-            vals = dict(
-                pkg_name=pkg_name,
-                identifier=identifier,
-                version=version,
-                market=market
-            )
-            res = con.execute(qry, **vals)
-            first = res.fetchone()
-            return first[0] if first else None
-        return None
+        qry = text("SELECT sha256 FROM versions WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market")
+        vals = dict(
+            pkg_name=pkg_name,
+            identifier=identifier,
+            version=version,
+            market=market
+        )
+        res = self.execute(qry, vals)
+        first = res.fetchone()
+        return first[0] if first else None
 
 
 class PostDownloadPipeline(DatabasePipeline):
@@ -256,22 +262,20 @@ class PostDownloadPipeline(DatabasePipeline):
                 sha=sha,
                 file_success=file_success
             )
-            con.execute(qry, **vals)
+            con.execute(qry, vals)
 
     def sha_exists(self, sha):
-        with self.engine.connect() as con:
-            qry = text("SELECT path FROM apks WHERE sha256 = :sha")
-            vals = dict(
-                sha=sha
-            )
-            res = con.execute(qry, **vals)
-            return res.fetchone()
+        qry = text("SELECT path FROM apks WHERE sha256 = :sha")
+        vals = dict(
+            sha=sha
+        )
+        res = self.execute(qry, vals)
+        return res.fetchone()
 
     def create_sha(self, sha, path):
-        with self.engine.connect() as con:
-            qry = text("INSERT INTO apks VALUES (:sha, :path)")
-            vals = dict(
-                sha=sha,
-                path=path
-            )
-            con.execute(qry, **vals)
+        qry = text("INSERT INTO apks VALUES (:sha, :path)")
+        vals = dict(
+            sha=sha,
+            path=path
+        )
+        self.execute(qry, vals)
