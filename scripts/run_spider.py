@@ -8,9 +8,8 @@ from scrapy.crawler import CrawlerProcess
 
 import sys
 
-from crawler.pipelines.util import InfluxDBClient
-
 sys.path.append(os.path.abspath('.'))
+from crawler.pipelines.util import InfluxDBClient
 from crawler.util import market_from_spider
 from crawler.spiders.apkmirror import ApkMirrorSpider
 from crawler.spiders.apkmonk import ApkMonkSpider
