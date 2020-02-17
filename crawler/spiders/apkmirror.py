@@ -22,16 +22,21 @@ class ApkMirrorSpider(scrapy.Spider):
 
         Returns:
         """
+        res = []
         # links to packages
         for link in response.css("a.fontBlack::attr(href)").getall():
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            yield scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            res.append(req)
 
         # follow pagination
         a_to_next = response.css("a.nextpostslink::attr(href)").get()
         if a_to_next:
             next_page = response.urljoin(a_to_next)
-            yield scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
+            res.append(req)
+
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -41,25 +46,31 @@ class ApkMirrorSpider(scrapy.Spider):
         Args:
             response:
         """
+        res = []
         # download a single variant
         variant_link = response.css("div.table.variants-table a::attr(href)").get() # get the first variants link, we don't care about the various variants
         if variant_link:
             full_link = response.urljoin(variant_link)
             # give higher priority to package download pages
-            yield scrapy.Request(full_link, callback=self.parse_download_page, priority=1)
+            req = scrapy.Request(full_link, callback=self.parse_download_page, priority=1)
+            res.append(req)
 
         list_of_other_versions = response.xpath("//div[@class='listWidget' and .//div[@class='widgetHeader' and (contains(text(), 'All Releases ') or contains(text(), 'All versions '))]]")
 
         # find all version links, list with 'All Versions ' or 'All Releases ' header
         for version_link in list_of_other_versions.xpath(".//div[@class='appRow']//a[@class='fontBlack']//@href").getall():
             full_link = response.urljoin(version_link)
-            yield scrapy.Request(full_link, callback=self.parse_versions_page)
+            req = scrapy.Request(full_link, callback=self.parse_versions_page)
+            res.append(req)
 
         # find 'more versions' link
         versions_page = list_of_other_versions.xpath(".//div[contains(@class, 'center')]//@href").get()
         if versions_page:
             full_link = response.urljoin(versions_page)
-            yield scrapy.Request(full_link, callback=self.parse_versions_page)
+            req = scrapy.Request(full_link, callback=self.parse_versions_page)
+            res.append(req)
+
+        return res
 
     def parse_download_page(self, response):
         """
@@ -117,15 +128,20 @@ class ApkMirrorSpider(scrapy.Spider):
             download_url=dl_link_full
         )
 
+        res = []
+
         if re.search(dl_link_pattern, dl_link):
             # in case this regex matches, the actual download link has been found
             # otherwise, we must visit another nested download page first, before yielding the Meta response
-            yield Result(
+            res.append(Result(
                 meta=meta,
                 versions=versions
-            )
+            ))
         else:
-            yield response.follow(dl_link, callback=self.download_url_from_button, meta=dict(meta=meta, versions=versions))
+            req = response.follow(dl_link, callback=self.download_url_from_button, meta=dict(meta=meta, versions=versions))
+            res.append(res)
+
+        return res
 
     def download_url_from_button(self, response):
         """
@@ -146,7 +162,7 @@ class ApkMirrorSpider(scrapy.Spider):
                 versions[version] = d
                 break
 
-        yield Result(
+        return Result(
             meta=meta,
             versions=versions
         )
@@ -159,13 +175,18 @@ class ApkMirrorSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
+        res = []
         # visit package page for all different versions
         for pkg_link in response.css("#primary h5.appRowTitle a::attr(href)").getall():
             full_link = response.urljoin(pkg_link)
-            yield scrapy.Request(full_link, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_link, callback=self.parse_pkg_page)
+            res.append(req)
 
         # pagination of versions page
         next_page_link = response.css("a.nextpostslink::attr(href)").get()
         if next_page_link:
             full_link = response.urljoin(next_page_link)
-            yield scrapy.Request(full_link, callback=self.parse_versions_page)
+            req = scrapy.Request(full_link, callback=self.parse_versions_page)
+            res.append(req)
+
+        return res

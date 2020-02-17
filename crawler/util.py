@@ -14,6 +14,10 @@ from twisted.internet import defer
 PROXY_POOL = None
 
 
+class NoProxiesError(Exception):
+    pass
+
+
 def init_proxy_pool(crawler, proxies):
     global PROXY_POOL
     if not PROXY_POOL:
@@ -31,6 +35,9 @@ class ProxyPool:
         """
         Returns the list of proxies that is currently available
         """
+        if not self.proxies:
+            raise NoProxiesError
+
         res = []
         for proxy, until in self.proxies.items():
             if not until:
@@ -53,30 +60,12 @@ class ProxyPool:
     def _get_proxy(self):
         """
         Returns a random proxy that is not rate limited
+        If none available, return the time until the next becomes available
         """
         available = self.available_proxies()
         if available:
             return choice(available), 0
         return None, self.time_until_next_available()
-        # available = []
-        # earliest_available = 0
-        # for proxy, until in self.proxies.items():
-        #     # find the earliest available proxy if all are currently backing off
-        #     if not earliest_available or (until and until < earliest_available):
-        #         earliest_available = until
-        #
-        #     # if the proxy is not backing off, its available
-        #     if not until:
-        #         available.append(proxy)
-        #
-        #     # reset the backoff status of a proxy when the 'until' has been passed
-        #     elif datetime.now() >= until:
-        #         available.append(proxy)
-        #         self.proxies[proxy] = None
-        #
-        # if available:
-        #     return choice(available), 0
-        # return None, earliest_available - datetime.now()
 
     def get_proxy(self):
         """
@@ -94,12 +83,15 @@ class ProxyPool:
         """
         Returns a proxy dictionary to be used by 'request' or 'treq' library
         """
-        proxy = self.get_proxy()
-        full_url = f"http://{proxy}"
-        return {
-            "http": full_url,
-            "https": full_url
-        }
+        try:
+            proxy = self.get_proxy()
+            full_url = f"http://{proxy}"
+            return {
+                "http": full_url,
+                "https": full_url
+            }
+        except NoProxiesError:
+            return {}
 
     def pause(self, t):
         """

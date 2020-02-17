@@ -13,6 +13,7 @@ pkg_tmpl = "http://zhushou.360.cn/detail/index/soft_id/%s"
 download_count_pattern = "下载：(.*)"
 id_pattern = "http://zhushou\.360\.cn/detail/index/soft_id/(\d+)"
 
+
 class ThreeSixtySpider(scrapy.Spider):
     name = "360_spider"
 
@@ -32,19 +33,26 @@ class ThreeSixtySpider(scrapy.Spider):
             response: scrapy.Response
         :return:
         """
+        res = []
         for pkg_page in response.css("div.ctcon.ctconw * a.sicon::attr(href)").getall():
             full_url = response.urljoin(pkg_page)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+            res.append(req)
+
+        return res
 
     def parse_index_page(self, response):
         """
         Crawls a paginated page of listed apps
         Example URL: http://zhushou.360.cn/list/index/cid/1
         """
+        res = []
         # visit all apps
         for pkg_page in response.css("#iconList h3 a::attr(href)").getall():
-            yield response.follow(pkg_page, callback=self.parse_pkg_page)
+            req = response.follow(pkg_page, callback=self.parse_pkg_page)
+            res.append(req)
 
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -90,22 +98,27 @@ class ThreeSixtySpider(scrapy.Spider):
             download_url=dl_link
         )
 
-        res = Result(
+        res = [Result(
             meta=meta,
             versions=versions
-        )
-
-        yield res
+        )]
 
         # try to find a set of related apps by performing request against API
         if meta['id']:
             for cid in range(21): # anecdotal evidence that cids up to 20 are allowed
                 related_url = related_tmpl % (meta['id'], cid)
-                yield scrapy.Request(related_url, callback=self.parse_related, priority=-10)
+                req = scrapy.Request(related_url, callback=self.parse_related, priority=-10)
+                res.append(req)
+
+        return res
 
     def parse_related(self, response):
+        res = []
         data = json.loads(response.body)
         if data:
             for appdata in data:
                 full_url = pkg_tmpl % appdata['soft_id']
-                yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+                req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+                res.append(req)
+
+        return res

@@ -25,12 +25,13 @@ class TencentSpider(PackageListSpider):
         Args:
             response: scrapy.Response
         """
+        res = []
         # find links to other apps
-        for link in response. \
-                css("a::attr(href)"). \
-                re("../myapp/detail.htm\?apkName=.+"):
+        for link in response.css("a::attr(href)").re("../myapp/detail.htm\?apkName=.+"):
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            yield scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            res.append(req)
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -78,15 +79,17 @@ class TencentSpider(PackageListSpider):
             download_url=dl_link
         )
 
-        res = Result(
-            meta=meta,
-            versions=versions
-        )
+        res = []
 
         if meta['developer_name']:
-            yield res
+            res.append(Result(
+                meta=meta,
+                versions=versions
+            ))
 
         # add related apps
         related_app_urls = response.css("a.appName::attr(href)").getall()
         for url in related_app_urls:
-            yield response.follow(url, self.parse_pkg_page)
+            res.append(response.follow(url, self.parse_pkg_page))
+
+        return res

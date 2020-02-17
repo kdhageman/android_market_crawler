@@ -1,14 +1,10 @@
 import time
 
-from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 from scrapy.utils.response import response_status_message
-from sentry_sdk import capture_exception
 
 from crawler import util
 from crawler.middlewares import sentry
-
-from crawler.pipelines.util import InfluxDBClient
 from crawler.util import market_from_spider
 
 
@@ -25,21 +21,21 @@ class RatelimitMiddleware(RetryMiddleware):
             the number of seconds to increment the backoff time on any requests
     """
 
-    def __init__(self, crawler, influxdb_params, default_backoff=600, codes=[429], interval=0):
+    def __init__(self, crawler, influxdb_client, default_backoff=600, codes=[429], interval=0):
         super(RatelimitMiddleware, self).__init__(crawler.settings)
         self.crawler = crawler
         self.default_backoff = default_backoff
         self.codes = codes
         self.interval = interval
 
-        self.c = InfluxDBClient(influxdb_params)
+        self.influxdb_client = influxdb_client
         self.reset_influxdb(crawler.spider)
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
             crawler,
-            crawler.settings.get("INFLUXDB_PARAMS", {}),
+            crawler.settings.get("INFLUXDB_CLIENT"),
             **crawler.settings.get("RATELIMIT_PARAMS", {})
         )
 
@@ -78,19 +74,15 @@ class RatelimitMiddleware(RetryMiddleware):
             self.crawler.engine.unpause()
 
     def capture_influxdb(self, market, status, fields):
-        points = [{
+        point = {
             "measurement": "rate_limiting",
             "tags": {
                 "market": market,
                 "status": status
             },
             "fields": fields
-        }]
-        try:
-            self.c.write_points(points)
-        except (InfluxDBClientError, InfluxDBServerError) as e:
-            print(e)
-            capture_exception(e)
+        }
+        self.influxdb_client.add_point(point)
 
     def reset_influxdb(self, spider):
         """

@@ -8,6 +8,8 @@ from scrapy.crawler import CrawlerProcess
 
 import sys
 
+from crawler.pipelines.util import InfluxDBClient
+
 sys.path.append(os.path.abspath('.'))
 from crawler.util import market_from_spider
 from crawler.spiders.apkmirror import ApkMirrorSpider
@@ -109,6 +111,9 @@ def get_settings(config, spidername, logdir):
     depth_limit = scrapy.get('depth_limit', 2)
     item_count = scrapy.get('item_count', 10)
     log_level = scrapy.get("log_level", "INFO")
+    telnet = scrapy.get("telnet", {})
+    telnet_user = telnet.get("username", None)
+    telnet_password = telnet.get("password", None)
 
     ratelimit = scrapy.get("ratelimit", None)
     if not ratelimit:
@@ -132,6 +137,7 @@ def get_settings(config, spidername, logdir):
     statsd = config.get("statsd", {})
 
     influxdb = config.get("influxdb", {})
+    influxdb_client = InfluxDBClient(influxdb)
 
     gplay = config.get("googleplay", {})
     if not gplay:
@@ -153,7 +159,7 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.database.PreDownloadVersionPipeline': 111 if apk_enabled else None,
         'crawler.pipelines.download_apks.DownloadApksPipeline': 200 if apk_enabled else None,
         'crawler.pipelines.download_icon.DownloadIconPipeline': 210 if icon_enabled else None,
-        'crawler.pipelines.influxdb.InfluxdbMiddleware': 300,
+        'crawler.pipelines.influxdb.InfluxdbPipeline': 300,
         'crawler.pipelines.ads.AdsPipeline': 500,
         'crawler.pipelines.privacy_policy.PrivacyPolicyPipeline': 501,
         'crawler.pipelines.database.PostDownloadPipeline': 600 if apk_enabled else None,
@@ -193,22 +199,29 @@ def get_settings(config, spidername, logdir):
         CLOSESPIDER_ITEMCOUNT=item_count,
         # AUTOTHROTTLE_ENABLED=True,
         # AUTOTHROTTLE_START_DELAY=0,
-        RETRY_TIMES=2,
+        RETRY_TIMES=1,
         RETRY_HTTP_CODES=[429],  # also retry rate limited requests
         MEDIA_ALLOW_REDIRECTS=True,
         HTTP_PROXIES=proxies,
+        DOWNLOAD_WARNSIZE=0,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
-        DOWNLOAD_TIMEOUT=10 * 60 * 1000,  # 10 minute timeout (in milliseconds)
+        DOWNLOAD_TIMEOUT=2 * 60,  # 2 minute timeout (in seconds)
         DOWNLOAD_MAXSIZE=0,
         RATELIMIT_PARAMS=ratelimit,
         PACKAGE_FILES=package_files,
         STATSD_PARAMS=statsd,
-        INFLUXDB_PARAMS=influxdb,
+        INFLUXDB_CLIENT=influxdb_client,
         GPLAY_PARAMS=gplay,
         DATABASE_PARAMS=database,
         JANUS_PARAMS=janus
     )
+
+    if telnet_user:
+        settings['TELNETCONSOLE_USERNAME'] = telnet_user
+
+    if telnet_password:
+        settings['TELNETCONSOLE_PASSWORD'] = telnet_password
 
     if scrapy.get("log_to_file", True):
         settings['LOG_FILE'] = log_file

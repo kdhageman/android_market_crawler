@@ -54,7 +54,10 @@ def _engine_from_params(params):
         engine = create_engine(dsn)
     elif dbtype == "postgres":
         dsn = _postgres_dsn_from_params(db_specific_params)
-        engine = create_engine(dsn, pool_size=1, max_overflow=0)
+        connect_args = {
+            "timeout": 3
+        }
+        engine = create_engine(dsn, pool_size=1, max_overflow=0, connect_args=connect_args)
     else:
         raise InvalidParametersError
 

@@ -1,5 +1,7 @@
+from urllib.parse import urlparse
+
 from crawler import util
-from crawler.util import init_proxy_pool
+from crawler.util import init_proxy_pool, NoProxiesError
 
 
 class HttpProxyMiddleware:
@@ -15,5 +17,11 @@ class HttpProxyMiddleware:
         )
 
     def process_request(self, request, spider):
-        proxy = util.PROXY_POOL.get_proxy()
-        request.meta['proxy'] = f"http://{proxy}"
+        try:
+            host = urlparse(request.url).hostname
+            proxy = util.PROXY_POOL.get_proxy()
+            # do not proxy towards localhost
+            if host not in ["127.0.0.1", "::1", "localhost"]:
+                request.meta['proxy'] = f"http://{proxy}"
+        except NoProxiesError:
+            pass

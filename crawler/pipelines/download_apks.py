@@ -44,9 +44,11 @@ class DownloadApksPipeline(FilesPipeline):
                 item['versions'][version]['file_success'] = -1
             download_url = values.get('download_url', None)
             if download_url:
+                info.spider.logger.debug(f"Scheduling download of '{download_url}'")
                 yield scrapy.Request(download_url, meta={'meta': item['meta'], 'version': version}, priority=100)
 
     def item_completed(self, results, item, info):
+        info.spider.logger.debug(f"Finished downloading")
         versions = item.get("versions", {})
         versions_list = list(versions.items())
 

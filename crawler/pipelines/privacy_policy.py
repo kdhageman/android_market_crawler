@@ -5,7 +5,7 @@ from twisted.internet import defer
 
 from crawler import util
 from crawler.item import Result
-from crawler.util import get_directory, random_proxy, HttpClient, RequestException
+from crawler.util import get_directory, HttpClient, RequestException
 
 FNAME = "privacy_policy.html"
 

@@ -1,15 +1,31 @@
+from scrapy import signals
+from twisted.internet import task
+
 from crawler.item import Result
-from crawler.pipelines.util import InfluxDBClient
 from crawler.util import market_from_spider
 
 
-class InfluxdbMiddleware(object):
-    def __init__(self, params):
-        self.c = InfluxDBClient(params)
+class InfluxdbPipeline:
+    def __init__(self, influxdb_client):
+        self.influxdb_client = influxdb_client
+        self.task = None
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(crawler.settings.get("INFLUXDB_PARAMS"))
+        o = cls(crawler.settings.get("INFLUXDB_CLIENT"))
+
+        crawler.signals.connect(o.spider_opened, signal=signals.spider_opened)
+        crawler.signals.connect(o.spider_closed, signal=signals.spider_closed)
+
+        return o
+
+    def spider_opened(self, spider):
+        self.task = task.LoopingCall(self.influxdb_client._send, spider)
+        self.task.start(5, now=False)  # send to influxdb every 30 secs
+
+    def spider_closed(self, spider, reason):
+        if self.task and self.task.running:
+            self.task.stop()
 
     def process_item(self, item, spider):
         market = market_from_spider(spider)
@@ -18,7 +34,7 @@ class InfluxdbMiddleware(object):
             apk_sizes = sum([d.get('file_size', 0) for d in item['versions'].values()])
             version_count = len(item['versions'])
 
-            points = [{
+            point = {
                 "measurement": "items",
                 "tags": {
                     "market": market
@@ -29,7 +45,7 @@ class InfluxdbMiddleware(object):
                     "apk_sizes": apk_sizes,
                     "versions": version_count
                 }
-            }]
-            self.c.write_points(points)
+            }
+            self.influxdb_client.add_point(point)
 
         return item

@@ -80,12 +80,13 @@ class SlideMeSpider(scrapy.Spider):
             download_url=full_url
         )
 
-        res = Result(
+        res = [Result(
             meta=meta,
             versions=versions
-        )
-
-        yield res
+        )]
 
         for pkg_url in np.unique(response.css("a::attr(href)").re("/application/.*")):
-            yield response.follow(pkg_url, callback=self.parse_pkg_page)
+            req = response.follow(pkg_url, callback=self.parse_pkg_page)
+            res.append(req)
+
+        return res
