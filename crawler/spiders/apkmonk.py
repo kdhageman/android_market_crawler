@@ -29,22 +29,31 @@ class ApkMonkSpider(PackageListSpider):
             response: scrapy.Response
         """
         # visit all individual category pages
+        res = []
         for category_url in response.css("a.waves-effect::attr(href)").getall():
             if category_url:
-                yield response.follow(category_url, callback=self.parse_category)
+                req = response.follow(category_url, callback=self.parse_category)
+                res.append(req)
+
+        return res
 
     def parse_category(self, response):
         """
         Crawls a paginated category page
         """
+        res = []
         # go to package pages
         for pkg in response.css("a::attr(href)").re("/app(?:/id)?/(.+)/"):
             pkg_url = f"/app/id/{pkg}/"
-            yield response.follow(pkg_url, callback=self.parse_pkg_page, priority=20)
+            req = response.follow(pkg_url, callback=self.parse_pkg_page, priority=20)
+            res.append(req)
 
         # pagination
         for category_url in response.css("div.selection a::attr(href)").getall():
-            yield response.follow(category_url, callback=self.parse_category)
+            req = response.follow(category_url, callback=self.parse_category)
+            res.append(req)
+
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -63,7 +72,8 @@ class ApkMonkSpider(PackageListSpider):
         trows = response.css("div.box")[1].css("table tr")
         meta['developer_name'] = trows[3].css("td > span::text").get()
         meta['pkg_name'] = trows[7].css("td::text").getall()[1]
-        meta['app_description'] = "\n".join(response.xpath("//div[@class='box' and .//div[@class='box-title']/text()='About this app']//p[@id='descr']//text()").getall())
+        meta['app_description'] = "\n".join(response.xpath(
+            "//div[@class='box' and .//div[@class='box-title']/text()='About this app']//p[@id='descr']//text()").getall())
 
         category = " ".join([i.strip() for i in trows[4].css("td")[1].css("::text").getall()])
         meta['categories'] = [category]
@@ -72,7 +82,8 @@ class ApkMonkSpider(PackageListSpider):
 
         # all versions
         versions = []
-        version_rows = response.xpath("//div[@class='box' and .//div[@class = 'box-title' and (contains(./text(),'Semua Versi') or contains(./text(),'All Versions'))]]//tr")
+        version_rows = response.xpath(
+            "//div[@class='box' and .//div[@class = 'box-title' and (contains(./text(),'Semua Versi') or contains(./text(),'All Versions'))]]//tr")
 
         remaining = []
         for r in version_rows:
@@ -96,7 +107,6 @@ class ApkMonkSpider(PackageListSpider):
 
             return scrapy.Request(next_version[0], callback=self.parse_download_link_page, meta=data, priority=30)
 
-
     def parse_download_link_page(self, response):
         dl_url = json.loads(response.body)['url']
         data = response.meta
@@ -115,4 +125,3 @@ class ApkMonkSpider(PackageListSpider):
         data['cur'] = next_version
 
         return scrapy.Request(next_version[0], callback=self.parse_download_link_page, meta=data, priority=50)
-

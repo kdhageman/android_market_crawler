@@ -42,7 +42,7 @@ influxdb:
   database: default
   ssl: false
 googleplay:
-  interval: 1 # in seconds
+  apiurl: http://localhost:5000
   lang: en_US
   android_id: # id
   accounts:

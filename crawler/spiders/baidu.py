@@ -51,6 +51,7 @@ class BaiduSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
+        res = []
         meta = dict(
             url=response.url
         )
@@ -68,7 +69,8 @@ class BaiduSpider(scrapy.Spider):
             id = int(m.group(2))
             meta["id"] = f"{type}-{id}"
             pkg_url = f"https://shouji.baidu.com/{type}/{id+1}.html"
-            yield scrapy.Request(pkg_url, callback=self.parse_pkg_page, priority=1)
+            req = scrapy.Request(pkg_url, callback=self.parse_pkg_page, priority=1)
+            res.append(req)
 
         meta['downloads'] = response.css("span.download-num::text").re("下载次数: (.*)")[0]
 
@@ -90,14 +92,12 @@ class BaiduSpider(scrapy.Spider):
                 download_url=dl_link
             )
 
-        res = Result(
-            meta=meta,
-            versions=versions
-        )
-
-        yield res
+        res.append(Result(meta=meta,versions=versions))
 
         # apps you might like
         for pkg_link in response.css("div.sec-favourite a.app-box::attr(href)").getall():
             full_url = response.urljoin(pkg_link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page, priority=2)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, priority=2)
+            res.append(req)
+
+        return res

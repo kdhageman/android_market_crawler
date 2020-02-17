@@ -1,15 +1,13 @@
 from scrapy import signals
 from scrapy.exceptions import NotConfigured
 from twisted.internet import task
-
-from crawler.pipelines.util import InfluxDBClient
 from crawler.util import market_from_spider
 
 
 class InfluxdbLogs(object):
     def __init__(self, crawler, influxdbclient, interval=60.0):
         self.crawler = crawler
-        self.c = influxdbclient
+        self.influxdb_client = influxdbclient
         self.interval = interval
         self.task = None
 
@@ -18,8 +16,8 @@ class InfluxdbLogs(object):
         interval = crawler.settings.getfloat('LOGSTATS_INTERVAL')
         if not interval:
             raise NotConfigured
-        c = InfluxDBClient(crawler.settings.get("INFLUXDB_PARAMS"))
-        o = cls(crawler, c, interval)
+        influxdb_client = crawler.settings.get("INFLUXDB_CLIENT")
+        o = cls(crawler, influxdb_client, interval)
 
         crawler.signals.connect(o.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(o.spider_closed, signal=signals.spider_closed)
@@ -47,7 +45,20 @@ class InfluxdbLogs(object):
                 }
             }
             points.append(point)
-        self.c.write_points(points)
+
+        # heartbeat
+        point = {
+            "measurement": "heartbeat",
+            "tags": {
+                "market": market,
+            },
+            "fields": {
+                "count": 1
+            }
+        }
+        points.append(point)
+
+        self.influxdb_client.add_points(points)
         self.crawler.stats.set_value("response_codes", {})
 
     def spider_closed(self, spider, reason):

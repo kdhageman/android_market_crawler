@@ -32,17 +32,25 @@ class HuaweiSpider(scrapy.Spider):
         Args:
            response: scrapy.Response
         """
+        res = []
         # find links to packages
         for pkg_link in np.unique(response.css("a::attr(href)").re("/app/.*")):
-            yield response.follow(pkg_link, callback=self.parse_pkg_page)
+            req = response.follow(pkg_link, callback=self.parse_pkg_page)
+            res.append(req)
+        return res
 
     def parse_topics(self, response):
         """
         Parses a page of topics
         Example URL: https://appstore.huawei.com/topics/
         """
+        res = []
+
         for topic_link in np.unique(response.css("a::attr(href)").re("/topic/.*")):
-            yield response.follow(topic_link, callback=self.parse)
+            req = response.follow(topic_link, callback=self.parse)
+            res.append(req)
+
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -88,15 +96,14 @@ class HuaweiSpider(scrapy.Spider):
             download_url=dl_link
         )
 
-        res = Result(
+        res = [Result(
             meta=meta,
             versions=versions
-        )
-
-        yield res
+        )]
 
         # sidebar on the right
         for pkg_link in response.css("div.lay-right a::attr(href)").getall():
-            yield response.follow(pkg_link, callback=self.parse_pkg_page)
+            req = response.follow(pkg_link, callback=self.parse_pkg_page)
+            res.append(req)
 
-
+        return res

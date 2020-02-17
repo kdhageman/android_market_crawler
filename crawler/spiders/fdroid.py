@@ -26,16 +26,21 @@ class FDroidSpider(PackageListSpider):
         Args:
             response: scrapy.Response
         """
+        res = []
         # follow pagination
         a_to_next = response.css("li.nav.next").css("a")
         if "href" in a_to_next.attrib:
             next_page = response.urljoin(a_to_next.attrib["href"])
-            yield scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
+            res.append(req)
 
         # links to packages
         for link in response.css("a.package-header::attr(href)").getall():
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            yield scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            res.append(req)
+
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -76,4 +81,4 @@ class FDroidSpider(PackageListSpider):
             versions=versions
         )
 
-        yield res
+        return res

@@ -41,9 +41,13 @@ class MiSpider(PackageListSpider):
 
         # TODO: by category
 
+        res = []
         # crawl the found package pages
         for link in pkg_links:
-            yield scrapy.Request(link, callback=self.parse_pkg_page)
+            req = scrapy.Request(link, callback=self.parse_pkg_page)
+            res.append(req)
+
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -87,17 +91,18 @@ class MiSpider(PackageListSpider):
             download_url=full_url
         )
 
-        res = Result(
+        res = [Result(
             meta=meta,
             versions=versions
-        )
-
-        yield res
+        )]
 
         # links to package pages
         for link in response.css("div.second-imgbox").css("h5").css("a::attr(href)").getall():
             full_url = response.urljoin(link)
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+            res.append(req)
+
+        return res
 
 def get_rating_from_css_class(css_class):
     """

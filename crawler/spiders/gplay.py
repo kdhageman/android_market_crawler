@@ -1,85 +1,14 @@
-import os
+import json
 import re
-import sys
 import time
-from random import choice
 
 import numpy as np
 import scrapy
-from sentry_sdk import capture_exception
 
 from crawler.item import Result
-from crawler import util
-from crawler.util import market_from_spider, sha256, init_proxy_pool
-from crawler.spiders.util import PackageListSpider, normalize_rating
-sys.path.append("./gplaycrawler/playcrawler")
-sys.path.append("./gplaycrawler/playcrawler/googleplayapi")
-from googleplayapi.googleplay import GooglePlayAPI
+from crawler.spiders.util import PackageListSpider
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
-
-
-def parse_details(details):
-    """
-    Parse the details from the Google Play api
-    Args:
-        details: dict
-    """
-    docv2 = details.get("docV2", {})
-    url = docv2.get("shareUrl", "")
-    pkg_name = docv2.get("docid", "")
-    app_name = docv2.get("title", "")
-    creator = docv2.get("creator", "")
-    description = docv2.get("descriptionHtml", "")
-    available = docv2.get("availability", {}).get("restriction", 0) == 1
-    user_rating = docv2.get("aggregateRating", {}).get("starRating", 0)
-    user_rating = normalize_rating(user_rating, 5)
-
-    ad = docv2.get("details", {}).get("appDetails", {})
-    developer_name = ad.get("developerName", "")
-    developer_email = ad.get("developerEmail", "")
-    developer_website = ad.get("developerWebsite", "")
-    downloads = ad.get("numDownloads", "")
-
-    ann = docv2.get("annotations", {})
-    privacy_policy_url = ann.get("privacyPolicyUrl", "")
-    contains_ads = "contains ads" in str(ann.get("badgeForDoc", "")).lower()
-
-    offer = str(docv2.get("offer", ""))
-    m = re.search('currencyCode: "(.*)"', offer)
-    currency = m[1] if m else ""
-    m = re.search('formattedAmount: "(.*)"', offer)
-    price = m[1] if m else ""
-
-    meta = dict(
-        url=url,
-        pkg_name=pkg_name,
-        app_name=app_name,
-        creator=creator,
-        description=description,
-        available=available,
-        user_rating=user_rating,
-        developer_name=developer_name,
-        developer_email=developer_email,
-        developer_website=developer_website,
-        downloads=downloads,
-        privacy_policy_url=privacy_policy_url,
-        contains_ads=contains_ads,
-        currency=currency,
-        price=price
-    )
-
-    version_code = ad.get("versionCode", "")
-    version_string = ad.get("versionString", "")
-    version_date = ad.get("uploadDate")
-
-    versions = {
-        version_string: {
-            "timestamp": version_date,
-            "code": version_code
-        }
-    }
-    return meta, versions
 
 
 class GooglePlaySpider(PackageListSpider):
@@ -89,28 +18,17 @@ class GooglePlaySpider(PackageListSpider):
 
     name = "googleplay_spider"
 
-    def __init__(self, crawler, outdir, proxies=[], interval=1, lang="", android_id="", accounts=[]):
+    def __init__(self, crawler, outdir, apiurl="http://localhost:5000"):
         super().__init__(crawler=crawler, settings=crawler.settings)
-        init_proxy_pool(crawler, proxies)
-        self.apis = []
-        for account in accounts:
-            email = account.get("email", "")
-            password = account.get("password", "")
-            if email and password:
-                proxy = util.PROXY_POOL.get_proxy_as_dict()
-                api = GooglePlayAPI(androidId=android_id, lang=lang, proxies=proxy)
-                api.login(email, password)
-                self.apis.append(api)
-        if len(self.apis) == 0:
-            raise Exception("cannot crawl Google Play without valid user accounts")
         self.outdir = outdir
-        self.interval = interval
+        self.apiurl = apiurl
 
     @classmethod
     def from_crawler(cls, crawler):
         outdir = crawler.settings.get("CRAWL_ROOTDIR", "/tmp/crawl")
-        proxies = crawler.settings.get("HTTP_PROXIES", [])
-        return cls(crawler, outdir, proxies, **crawler.settings.get("GPLAY_PARAMS"))
+        params = crawler.settings.get("GPLAY_PARAMS")
+        apiurl = params.get("apiurl")
+        return cls(crawler, outdir, apiurl=apiurl)
 
     def start_requests(self):
         for req in super().start_requests():
@@ -130,17 +48,21 @@ class GooglePlaySpider(PackageListSpider):
         # find all links to packages on the overview page
         # pkgs = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
 
+        res = []
+
         # follow 'See more' buttons on the home page
         see_more_links = response.xpath("//a[text() = 'See more']//@href").getall()
         for link in see_more_links:
             full_url = response.urljoin(link)
-            yield scrapy.Request(full_url, callback=self.parse_similar_apps)
+            req = scrapy.Request(full_url, callback=self.parse_similar_apps)
+            res.append(req)
 
         # follow categories on the home page
         category_links = response.css("#action-dropdown-children-Categories a::attr(href)").getall()
         for link in category_links:
             full_url = response.urljoin(link)
-            yield scrapy.Request(full_url, callback=self.parse)
+            req = scrapy.Request(full_url, callback=self.parse)
+            res.append(req)
 
         # find all links to packages
         packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
@@ -148,7 +70,10 @@ class GooglePlaySpider(PackageListSpider):
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+            res.append(req)
+
+        return res
 
     def parse_pkg_page(self, response):
         """
@@ -159,56 +84,50 @@ class GooglePlaySpider(PackageListSpider):
             response:
         """
 
+        res = []
+
         # find all links to packages
         packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
 
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+            res.append(req)
 
         # package name
         m = re.search(pkg_pattern, response.url)
         if m:
             pkg = m.group(1)
-            api = choice(self.apis)
-            details = api.toDict(api.details(pkg))
-            meta, versions = parse_details(details)
-
-            for version, dat in versions.items():
-                version_code = dat['code']
-                if version_code:
-                    try:
-                        apk = api.download(pkg, version_code)
-                    except Exception as e:
-                        # unreliable api, so catch ANY exception
-                        capture_exception(e)
-                        dat['file_success'] = 0
-                        continue
-                    self.pause(self.interval)
-
-                    market = market_from_spider(self)
-                    fpath = os.path.join(self.outdir, market, meta['pkg_name'], f"{version}.apk")
-
-                    os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
-
-                    with open(fpath, "wb") as f:
-                        f.write(apk)
-                    with open(fpath, "rb") as f:
-                        dat['file_sha256'] = sha256(f)
-                    dat['file_success'] = 1
-                    dat['file_size'] = len(apk)
-                    dat['file_path'] = fpath
-                    versions[version] = dat
-                else:
-                    self.logger.warn(f"failed to find 'version_code' for {pkg}")
-            yield Result(meta=meta, versions=versions)
+            full_url = f"{self.apiurl}/details?pkg={pkg}"
+            req = scrapy.Request(full_url, callback=self.parse_details, meta={'pkg': pkg}, priority=10)
+            res.append(req)
 
         # similar apps
         similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
         if similar_link:
             full_url = response.urljoin(similar_link)
-            yield scrapy.Request(full_url, callback=self.parse_similar_apps)
+            req = scrapy.Request(full_url, callback=self.parse_similar_apps)
+            res.append(req)
+
+        return res
+
+    def parse_details(self, response):
+        pkg = response.meta.get("pkg", None)
+        meta = json.loads(response.body_as_unicode())
+
+        for version, dat in meta.get('versions', {}).items():
+            version_code = dat['code']
+            if version_code:
+                url = f"{self.apiurl}/download?pkg={pkg}&version_code={version_code}"
+                dat['download_url'] = url
+                meta['versions'][version] = dat
+            else:
+                self.logger.warn(f"failed to find 'version_code' for {pkg} ({version})")
+        return Result(
+            meta=meta.get('meta', {}),
+            versions=meta.get('versions', {}),
+        )
 
     def parse_similar_apps(self, response):
         """
@@ -221,10 +140,15 @@ class GooglePlaySpider(PackageListSpider):
         # find all links to packages
         packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
 
+        res = []
+
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            yield scrapy.Request(full_url, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+            res.append(req)
+
+        return res
 
     def pause(self, t):
         """
