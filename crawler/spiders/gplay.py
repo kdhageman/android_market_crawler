@@ -18,17 +18,19 @@ class GooglePlaySpider(PackageListSpider):
 
     name = "googleplay_spider"
 
-    def __init__(self, crawler, outdir, apiurl="http://localhost:5000"):
+    def __init__(self, crawler, outdir, apiurl="http://localhost:5000", interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
         self.outdir = outdir
         self.apiurl = apiurl
+        self.interval = interval
 
     @classmethod
     def from_crawler(cls, crawler):
         outdir = crawler.settings.get("CRAWL_ROOTDIR", "/tmp/crawl")
         params = crawler.settings.get("GPLAY_PARAMS")
         apiurl = params.get("apiurl")
-        return cls(crawler, outdir, apiurl=apiurl)
+        interval = params.get("interval", 0.25)
+        return cls(crawler, outdir, apiurl=apiurl, interval=interval)
 
     def start_requests(self):
         for req in super().start_requests():
@@ -116,14 +118,19 @@ class GooglePlaySpider(PackageListSpider):
         pkg = response.meta.get("pkg", None)
         meta = json.loads(response.body_as_unicode())
 
+        self.pause(self.interval)
+
+        # we assume that there is only one version of the apk
         for version, dat in meta.get('versions', {}).items():
+            available = meta.get("meta", {}).get("available", False)
+            offer_type = meta.get("meta", {}).get("offer_type", 1)
             version_code = dat['code']
-            if version_code:
-                url = f"{self.apiurl}/download?pkg={pkg}&version_code={version_code}"
+            if available:
+                url = f"{self.apiurl}/download?pkg={pkg}&version_code={version_code}&offer_type={offer_type}"
                 dat['download_url'] = url
                 meta['versions'][version] = dat
             else:
-                self.logger.warn(f"failed to find 'version_code' for {pkg} ({version})")
+                self.logger.warn(f"package '{pkg}' is unavailable")
         return Result(
             meta=meta.get('meta', {}),
             versions=meta.get('versions', {}),

@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import traceback
 from random import choice
@@ -23,31 +22,31 @@ def parse_details(details):
     Args:
         details: dict
     """
-    docv2 = details.get("docV2", {})
-    url = docv2.get("shareUrl", "")
-    pkg_name = docv2.get("docid", "")
-    app_name = docv2.get("title", "")
-    creator = docv2.get("creator", "")
-    description = docv2.get("descriptionHtml", "")
-    available = docv2.get("availability", {}).get("restriction", 0) == 1
-    user_rating = docv2.get("aggregateRating", {}).get("starRating", 0)
+    docv2 = details.docV2
+    url = docv2.shareUrl
+    pkg_name = docv2.docid
+    app_name = docv2.title
+    creator = docv2.creator
+    description = docv2.descriptionHtml
+    restriction = docv2.availability.restriction
+    available = restriction == 1
+    user_rating = docv2.aggregateRating.starRating
     user_rating = normalize_rating(user_rating, 5)
 
-    ad = docv2.get("details", {}).get("appDetails", {})
-    developer_name = ad.get("developerName", "")
-    developer_email = ad.get("developerEmail", "")
-    developer_website = ad.get("developerWebsite", "")
-    downloads = ad.get("numDownloads", "")
+    ad = docv2.details.appDetails
+    developer_name = ad.developerName
+    developer_email = ad.developerEmail
+    developer_website = ad.developerWebsite
+    downloads = ad.numDownloads
 
-    ann = docv2.get("annotations", {})
-    privacy_policy_url = ann.get("privacyPolicyUrl", "")
-    contains_ads = "contains ads" in str(ann.get("badgeForDoc", "")).lower()
+    ann = docv2.annotations
+    privacy_policy_url = ann.privacyPolicyUrl
+    contains_ads = "contains ads" in ann.badgeForDoc
 
-    offer = str(docv2.get("offer", ""))
-    m = re.search('currencyCode: "(.*)"', offer)
-    currency = m[1] if m else ""
-    m = re.search('formattedAmount: "(.*)"', offer)
-    price = m[1] if m else ""
+    offer = docv2.offer
+    currency = offer[0].currencyCode
+    price = offer[0].formattedAmount
+    offer_type = offer[0].offerType
 
     meta = dict(
         url=url,
@@ -64,12 +63,14 @@ def parse_details(details):
         privacy_policy_url=privacy_policy_url,
         contains_ads=contains_ads,
         currency=currency,
-        price=price
+        price=price,
+        offer_type=offer_type,
+        restriction=restriction
     )
 
-    version_code = ad.get("versionCode", "")
-    version_string = ad.get("versionString", "")
-    version_date = ad.get("uploadDate")
+    version_code = ad.versionCode
+    version_string = ad.versionString
+    version_date = ad.uploadDate
 
     versions = {
         version_string: {
@@ -116,7 +117,7 @@ def details():
 
     api = choice(_apis)
     try:
-        details = api.toDict(api.details(pkg))
+        details = api.details(pkg)
     except Exception:
         traceback.print_exc()
         abort(500)
@@ -130,16 +131,17 @@ def details():
 def download():
     pkg = request.args.get("pkg", None)
     try:
-        version_code = int(request.args.get("version_code", "throws-ValueError"))
+        version_code = int(request.args.get("version_code", "error"))
+        offer_type = int(request.args.get("offer_type", "error"))
     except ValueError:
         abort(400)
-    if not pkg or not version_code:
+    if not pkg:
         abort(400)
 
     api = choice(_apis)
     # TODO: stream response back to improve performance
     try:
-        apk = api.download(pkg, version_code)
+        apk = api.download(pkg, version_code, offerType=offer_type)
     except Exception:
         traceback.print_exc()
         abort(500)
