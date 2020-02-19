@@ -67,9 +67,9 @@ def parse_details(details):
         price = offer[0].formattedAmount
         offer_type = offer[0].offerType
 
-        meta["currency"] = currency,
-        meta["price"] = price,
-        meta["offer_type"] = offer_type,
+        meta["currency"] = currency
+        meta["price"] = price
+        meta["offer_type"] = offer_type
     except IndexError:
         pass
 
