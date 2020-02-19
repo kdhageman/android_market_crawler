@@ -44,9 +44,6 @@ def parse_details(details):
     contains_ads = "contains ads" in ann.badgeForDoc
 
     offer = docv2.offer
-    currency = offer[0].currencyCode
-    price = offer[0].formattedAmount
-    offer_type = offer[0].offerType
 
     meta = dict(
         url=url,
@@ -62,11 +59,19 @@ def parse_details(details):
         downloads=downloads,
         privacy_policy_url=privacy_policy_url,
         contains_ads=contains_ads,
-        currency=currency,
-        price=price,
-        offer_type=offer_type,
         restriction=restriction
     )
+
+    try:
+        currency = offer[0].currencyCode
+        price = offer[0].formattedAmount
+        offer_type = offer[0].offerType
+
+        meta["currency"] = currency,
+        meta["price"] = price,
+        meta["offer_type"] = offer_type,
+    except IndexError:
+        pass
 
     version_code = ad.versionCode
     version_string = ad.versionString
