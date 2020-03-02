@@ -8,6 +8,8 @@ from scrapy.crawler import CrawlerProcess
 
 import sys
 
+from crawler.spiders.nine_game import NineGameSpider
+
 sys.path.append(os.path.abspath('.'))
 from crawler.pipelines.util import InfluxDBClient
 from crawler.util import market_from_spider
@@ -33,7 +35,8 @@ ALL_SPIDERS = [
     SlideMeSpider,
     TencentSpider,
     ThreeSixtySpider,
-    GooglePlaySpider
+    GooglePlaySpider,
+    NineGameSpider
 ]
 
 
