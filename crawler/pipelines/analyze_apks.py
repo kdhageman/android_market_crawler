@@ -16,12 +16,25 @@ class AnalyzeApkPipeline:
         if not isinstance(item, Result):
             return item
 
+        meta = item['meta']
+
         for version, dat in item['versions'].items():
             filepath = dat.get('file_path', "")
             if filepath:
                 try:
-                    dat['analysis'] = analyse(filepath)
+                    analysis = analyse(filepath)
+                    dat['analysis'] = analysis
+
+                    # obtain pkg_name
+                    pkg_name = analysis.get("pkg_name", None)
+                    existing_pkg_name = meta.get("pkg_name", None)
+                    if pkg_name and not existing_pkg_name:
+                        meta['pkg_name'] = pkg_name
+                    elif pkg_name and existing_pkg_name and pkg_name != existing_pkg_name:
+                        spider.logger.warning(f"pkg name in APK ({pkg_name}) does not match pkg name declared on market ({existing_pkg_name})")
+
                     item['versions'][version] = dat
+                    item['meta'] = meta
                 except:
                     pass
         return item

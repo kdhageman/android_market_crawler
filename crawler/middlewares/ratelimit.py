@@ -44,7 +44,7 @@ class RatelimitMiddleware(RetryMiddleware):
         market = market_from_spider(spider)
 
         if status_code in self.codes:
-            proxy = request.meta['proxy']
+            proxy = request.meta.get('proxy', None)
             backoff = float(response.headers.get("Retry-After", self.default_backoff))
 
             tags = {

@@ -18,8 +18,14 @@ class DownloadApksPipeline(FilesPipeline):
     """
 
     def __init__(self, settings):
-        self.outdir = settings.get('CRAWL_ROOTDIR', "/tmp/crawl")
-        super().__init__(self.outdir, settings=settings)
+        self.root_dir = settings.get('CRAWL_ROOTDIR', "/tmp/crawl")
+        self.dst_dir = os.path.join(self.root_dir, "apks")
+        try:
+            os.mkdir(self.dst_dir)
+        except FileExistsError:
+            pass
+
+        super().__init__(self.root_dir , settings=settings)
 
     @classmethod
     def from_settings(cls, settings):
@@ -58,12 +64,18 @@ class DownloadApksPipeline(FilesPipeline):
             values['file_success'] = int(success)
 
             if success:  # True if download successful
-                path = os.path.join(self.outdir, resultdata['path'])
-                values['file_path'] = path
-                values['file_md5'] = resultdata['checksum']
-                values['file_size'] = os.path.getsize(path)
+                src_path = os.path.join(self.root_dir, resultdata['path'])
+                with open(src_path, 'rb') as f:
+                    digest = sha256(f)
 
-                with open(path, 'rb') as f:
-                    values['file_sha256'] = sha256(f)
+                # move file to the correct location, based on its hash
+                dst_path = os.path.join(self.dst_dir, f"{digest}.apk")
+                os.rename(src_path, dst_path)
+
+                values['file_path'] = dst_path
+                values['file_md5'] = resultdata['checksum']
+                values['file_size'] = os.path.getsize(dst_path)
+                values['file_sha256'] = digest
+
             item['versions'][version] = values
         return item

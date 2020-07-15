@@ -1,21 +1,24 @@
+import json
 import os
+from datetime import datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
 from crawler.item import Result
-from crawler.util import market_from_spider
+
+_version_table = "versions_new"
 
 _sqlite_tables = [
     ("apks", "sha256 text, path text"),
-    ("packages", "pkg_name text, id text, market text, timestamp int, ads_status int, app_ads_status int, icon_success bool, privacy_policy_status int"),
-    ("versions", "pkg_name text, id text, version text, market text, sha256 text, file_success int"),
+    ("packages", "pkg_name text, id text, market text"),
+    (_version_table, "pkg_name text, id text, version text, market text, sha256 text, timestamp timestamp, meta json"),
 ]
 
 _postgres_tables = [
     ("apks", "sha256 char(256), path text"),
-    ("packages", "pkg_name text, id text, market varchar(32), timestamp int, ads_status int, app_ads_status int, icon_success boolean, privacy_policy_status int"),
-    ("versions", "pkg_name text, id text, version text, market varchar(32), sha256 char(256), file_success int"),
+    ("packages", "pkg_name text, id text, market varchar(32)"),
+    (_version_table, "pkg_name text, id text, version text, market varchar(32), sha256 varchar(64), timestamp timestamp, meta json"),
 ]
 
 _tables_from_dbtype = {
@@ -80,9 +83,14 @@ class _DatabaseConnection:
 
 
 class DatabasePipeline:
-    def __init__(self, engine, dbtype):
+    def __init__(self, crawler):
+        rootdir = crawler.settings.get('CRAWL_ROOTDIR', "/tmp/crawl")
+        params = crawler.settings.get("DATABASE_PARAMS")
+        engine, dbtype = _engine_from_params(params)
+
         self.engine = engine
         self.dbtype = dbtype
+        self.outdir = os.path.join(rootdir, "apks")
 
         tables = _tables_from_dbtype[dbtype]
         for table, fields in tables:
@@ -91,7 +99,10 @@ class DatabasePipeline:
 
     def path_by_sha(self, sha):
         qry = text("SELECT path FROM apks WHERE sha256 = :sha")
-        res = self.execute(qry, dict(sha=sha))
+        vals = dict(
+            sha=sha
+        )
+        res = self.execute(qry, vals)
         first = res.fetchone()
         return first[0] if first else None
 
@@ -107,15 +118,13 @@ class DatabasePipeline:
             self.engine.dispose()
 
 
-class PreDownloadPackagePipeline(DatabasePipeline):
-    def __init__(self, engine, dbtype):
-        super().__init__(engine, dbtype)
+class PostDownloadPackagePipeline(DatabasePipeline):
+    def __init__(self, crawler):
+        super().__init__(crawler)
 
     @classmethod
     def from_crawler(cls, crawler):
-        params = crawler.settings.get("DATABASE_PARAMS")
-        engine, dbtype = _engine_from_params(params)
-        return cls(engine, dbtype)
+        return cls(crawler)
 
     def process_item(self, item, spider):
         if not isinstance(item, Result):
@@ -127,27 +136,33 @@ class PreDownloadPackagePipeline(DatabasePipeline):
 
     def create_package(self, item):
         meta = item.get("meta", {})
-        market = meta.get('market', "unknown")
-        identifier = meta.get("id", None)
-        pkg_name = meta.get("pkg_name", None)
-        ts = meta.get('timestamp', 0)
-        ads_status = meta.get("ads_status", None)
-        app_ads_status = meta.get("app_ads_status", None)
-        icon_status = meta.get("icon_success", None)
-        privacy_policy_status = meta.get("privacy_policy_status", None)
 
-        qry = text("INSERT INTO packages VALUES (:pkg_name, :identifier, :market, :ts, :ads_status, :app_ads_status, :icon_status, :privacy_policy_status)")
+        pkg_name = meta.get("pkg_name", None)
+        identifier = meta.get("id", None)
+        market = meta.get('market', "unknown")
+
+        if not self.pkg_exists(pkg_name, identifier, market):
+            qry = text("INSERT INTO packages VALUES (:pkg_name, :identifier, :market)")
+            vals = dict(
+                pkg_name=pkg_name,
+                identifier=identifier,
+                market=market
+            )
+            self.execute(qry, vals)
+
+    def pkg_exists(self, pkg_name, identifier, market):
+        """
+        Returns whether the given package exists or not
+        """
+        qry = text("SELECT * FROM packages WHERE (pkg_name = :pkg_name OR id = :identifier) AND market = :market")
         vals = dict(
             pkg_name=pkg_name,
             identifier=identifier,
-            market=market,
-            ts=ts,
-            ads_status=ads_status,
-            app_ads_status=app_ads_status,
-            icon_status=icon_status,
-            privacy_policy_status=privacy_policy_status
+            market=market
         )
-        self.execute(qry, vals)
+        res = self.execute(qry, vals)
+        first = res.fetchone()
+        return first[0] if first else None
 
 
 class PreDownloadVersionPipeline(DatabasePipeline):
@@ -155,14 +170,12 @@ class PreDownloadVersionPipeline(DatabasePipeline):
     Checks if the APK for a specific version has already been downloaded or not
     """
 
-    def __init__(self, engine, dbtype):
-        super().__init__(engine, dbtype)
+    def __init__(self, crawler):
+        super().__init__(crawler)
 
     @classmethod
     def from_crawler(cls, crawler):
-        params = crawler.settings.get("DATABASE_PARAMS")
-        engine, dbtype = _engine_from_params(params)
-        return cls(engine, dbtype)
+        return cls(crawler)
 
     def process_item(self, item, spider):
         if not isinstance(item, Result):
@@ -173,16 +186,21 @@ class PreDownloadVersionPipeline(DatabasePipeline):
 
         pkg_name = meta.get("pkg_name", None)
         identifier = meta.get("id", None)
-        market = market_from_spider(spider)
+        market = meta.get('market', "unknown")
+
         for version, dat in versions.items():
-            existing_sha = self.version_exists(pkg_name, identifier, version, market)
+            # if version exists, skip downloading it
+            existing_sha, existing_meta = self.version_exists(pkg_name, identifier, version, market)
             if existing_sha:
                 spider.logger.info(f"seen version '{version}' of '{pkg_name if pkg_name else identifier}' before")
                 path = self.path_by_sha(existing_sha)
-                dat['skip'] = True
+                dat['skip'] = True  # marks that downloading is being skipped in other pipelines
                 dat['file_sha256'] = existing_sha
                 dat['file_path'] = path
+                dat['analysis'] = existing_meta['versions'][version]['analysis']
+                meta['pkg_name'] = existing_meta['meta'].get('pkg_name', None)
                 versions[version] = dat
+
         item['versions'] = versions
         return item
 
@@ -190,7 +208,8 @@ class PreDownloadVersionPipeline(DatabasePipeline):
         """
         Returns the SHA256 value of the apk for the given tuple of values
         """
-        qry = text("SELECT sha256 FROM versions WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market")
+        qry = text(
+            f"SELECT sha256, meta FROM {_version_table} WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market")
         vals = dict(
             pkg_name=pkg_name,
             identifier=identifier,
@@ -199,7 +218,7 @@ class PreDownloadVersionPipeline(DatabasePipeline):
         )
         res = self.execute(qry, vals)
         first = res.fetchone()
-        return first[0] if first else None
+        return first if first else (None, None)
 
 
 class PostDownloadPipeline(DatabasePipeline):
@@ -207,14 +226,12 @@ class PostDownloadPipeline(DatabasePipeline):
     Ensures that (1) duplicate APKs cleaned up and (2) crawls are logged in the database
     """
 
-    def __init__(self, engine, dbtype):
-        super().__init__(engine, dbtype)
+    def __init__(self, crawler):
+        super().__init__(crawler)
 
     @classmethod
     def from_crawler(cls, crawler):
-        params = crawler.settings.get("DATABASE_PARAMS")
-        engine, dbtype = _engine_from_params(params)
-        return cls(engine, dbtype)
+        return cls(crawler)
 
     def process_item(self, item, spider):
         if not isinstance(item, Result):
@@ -225,45 +242,35 @@ class PostDownloadPipeline(DatabasePipeline):
 
         pkg_name = meta.get("pkg_name")
         identifier = meta.get("id")
-        market = market_from_spider(spider)
+        market = meta.get("market")
+        ts = datetime.fromtimestamp(meta.get("timestamp"))
+
         for version, dat in versions.items():
-            sha = dat.get("file_sha256", "")
-            path = dat.get("file_path", "")
-            file_success = dat.get("file_success", None)
-            if not sha:
-                continue
+            sha = dat.get("file_sha256", None)
+            if not dat.get("skip", False):
+                # we must have downloaded the file
+                path = dat.get("file_path", None)
 
-            if "skip" in dat:
-                del dat['skip']
-            else:
-                # we have not seen this version beforehand
-                self.create_version(pkg_name, identifier, version, market, sha, file_success)
+                # create new row in 'apks' table if never seen SHA before
+                if not self.path_by_sha(sha):
+                    self.create_sha(sha, path)
 
-            # check if another APK with same hash exists
-            existing_path = self.path_by_sha(sha)
-            if not existing_path:
-                spider.logger.info(f"creating unseen path for '{sha}'")
-                self.create_sha(sha, path)
-            else:
-                spider.logger.info(f"seen '{sha}' before")
-                if existing_path != path:
-                    # there exists an APK on a different path, so delete the one we just downloaded
-                    dat['file_path'] = existing_path[0]
-                    os.remove(path)
-
-            item['versions'][version] = dat
+            # create version in database
+            jsonstr = json.dumps(dict(item))
+            self.create_version(pkg_name, identifier, version, market, sha, ts, jsonstr)
         return item
 
-    def create_version(self, pkg_name, identifier, version, market, sha, file_success):
+    def create_version(self, pkg_name, identifier, version, market, sha, ts, jsonstr):
         with self.engine.connect() as con:
-            qry = text("INSERT INTO versions VALUES (:pkg_name, :identifier, :version, :market, :sha, :file_success)")
+            qry = text(f"INSERT INTO {_version_table} VALUES (:pkg_name, :identifier, :version, :market, :sha, :ts, :jsonstr)")
             vals = dict(
                 pkg_name=pkg_name,
                 identifier=identifier,
                 version=version,
                 market=market,
                 sha=sha,
-                file_success=file_success
+                ts=ts,
+                jsonstr=jsonstr
             )
             con.execute(qry, vals)
 
