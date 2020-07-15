@@ -139,7 +139,7 @@ class ApkMirrorSpider(scrapy.Spider):
             ))
         else:
             req = response.follow(dl_link, callback=self.download_url_from_button, meta=dict(meta=meta, versions=versions))
-            res.append(res)
+            res.append(req)
 
         return res
 
