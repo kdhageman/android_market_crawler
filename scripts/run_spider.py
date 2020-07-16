@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import re
 
 import sentry_sdk
 import yaml
@@ -167,7 +168,8 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.database.PostDownloadPipeline': 900,
         'crawler.pipelines.database.PostDownloadPackagePipeline': 901,
         # 'crawler.pipelines.output_meta.WriteMetaFilePipeline': 1000,
-        'crawler.pipelines.output_meta.StorePipeline': 1001 if janus.get("enabled", False) else None
+        'crawler.pipelines.output_meta.StorePipeline': 1001 if janus.get("enabled", False) else None,
+        'crawler.pipelines.log.LogPipeline': 1100
     }
 
     downloader_middlewares = {
@@ -189,7 +191,7 @@ def get_settings(config, spidername, logdir):
 
     settings = dict(
         LOG_LEVEL=log_level,
-        LOGSTATS_INTERVAL=10.0,
+        LOGSTATS_INTERVAL=5.0,
         DOWNLOADER_MIDDLEWARES=downloader_middlewares,
         EXTENSIONS=extensions,
         USER_AGENTS=user_agents,
@@ -247,14 +249,31 @@ def main(config, spidername, logdir):
     process.start()  # the script will block here until the crawling is finished
 
 
+class ItemMessageFilter(logging.Filter):
+    def filter(self, record):
+        # The message that logs the item actually has raw % operators in it,
+        # which Scrapy presumably formats later on
+        match = re.search(r'(Scraped from %\(src\)s)\n%\(item\)s', record.msg)
+        if match:
+            # Make the message everything but the item itself
+            record.msg = match.group(1)
+        # Don't actually want to filter out this record, so always return 1
+        return 1
+
+
 if __name__ == "__main__":
     for namespace, level in [
         ("androguard", logging.ERROR),
         ("scrapy.core.downloader.handlers.http11", logging.ERROR),
-        ("scrapy.spidermiddlewares.httperror", logging.WARNING)
+        ("scrapy.spidermiddlewares.httperror", logging.WARNING),
+        ("urllib3.connectionpool", logging.INFO),
+        ("scrapy.downloadermiddlewares.redirect", logging.INFO)
     ]:
         logger = logging.getLogger(namespace)
         logger.setLevel(level)
+
+    logging.getLogger('scrapy.core.scraper').addFilter(ItemMessageFilter())
+
 
     # parse CLI arguments
     parser = argparse.ArgumentParser(description='Android APK market crawler')

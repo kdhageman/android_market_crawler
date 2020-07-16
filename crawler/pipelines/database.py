@@ -252,7 +252,7 @@ class PostDownloadPipeline(DatabasePipeline):
                 path = dat.get("file_path", None)
 
                 # create new row in 'apks' table if never seen SHA before
-                if not self.path_by_sha(sha):
+                if sha and not self.path_by_sha(sha):
                     self.create_sha(sha, path)
 
             # create version in database
@@ -273,14 +273,6 @@ class PostDownloadPipeline(DatabasePipeline):
                 jsonstr=jsonstr
             )
             con.execute(qry, vals)
-
-    def sha_exists(self, sha):
-        qry = text("SELECT path FROM apks WHERE sha256 = :sha")
-        vals = dict(
-            sha=sha
-        )
-        res = self.execute(qry, vals)
-        return res.fetchone()
 
     def create_sha(self, sha, path):
         qry = text("INSERT INTO apks VALUES (:sha, :path)")

@@ -45,16 +45,25 @@ class DownloadApksPipeline(FilesPipeline):
         if not isinstance(item, Result):
             return
 
+        pkg_name = item['meta']['pkg_name']
+
         for version, values in item['versions'].items():
             if values.get("skip", False):
                 item['versions'][version]['file_success'] = -1
+                continue
             download_url = values.get('download_url', None)
             if download_url:
-                info.spider.logger.debug(f"Scheduling download of '{download_url}'")
+                info.spider.logger.debug(f"scheduling download for '{pkg_name}' from '{download_url}'")
                 yield scrapy.Request(download_url, meta={'meta': item['meta'], 'version': version}, priority=100)
 
     def item_completed(self, results, item, info):
-        info.spider.logger.debug(f"Finished downloading")
+        pkg_name = item['meta']['pkg_name']
+
+        if len(results) == 0:
+            info.spider.logger.debug(f"had no APKs to download for '{pkg_name}'")
+            return item
+
+        info.spider.logger.debug(f"finished APK downloading for '{pkg_name}'")
         versions = item.get("versions", {})
         versions_list = list(versions.items())
 
@@ -76,6 +85,8 @@ class DownloadApksPipeline(FilesPipeline):
                 values['file_md5'] = resultdata['checksum']
                 values['file_size'] = os.path.getsize(dst_path)
                 values['file_sha256'] = digest
-
+            else:
+                info.spider.logger.debug(f"failed to download APK for '{pkg_name}'")
             item['versions'][version] = values
+
         return item

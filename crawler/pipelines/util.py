@@ -25,7 +25,7 @@ class InfluxDBClient:
         for point in points:
             self._add_point(point, t)
 
-    def _send(self, spider):
+    def send(self, spider):
         if self.c:
             try:
                 self.c.write_points(self.points)

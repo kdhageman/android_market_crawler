@@ -8,7 +8,7 @@ from crawler.util import market_from_spider
 class InfluxdbPipeline:
     def __init__(self, influxdb_client):
         self.influxdb_client = influxdb_client
-        self.task = None
+        self.tasks = []
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -20,12 +20,22 @@ class InfluxdbPipeline:
         return o
 
     def spider_opened(self, spider):
-        self.task = task.LoopingCall(self.influxdb_client._send, spider)
-        self.task.start(5, now=False)  # send to influxdb every 30 secs
+        tasks = []
+        t = task.LoopingCall(self.influxdb_client.send, spider)  # send to influxdb every 5 secs
+        t.start(5, now=False)
+        tasks.append(t)
+
+        t = task.LoopingCall(self.write_active_downloads, spider)
+        t.start(0.5, now=False)  # probe active download ever 500ms
+
+        tasks.append(t)
+
+        self.tasks = tasks
 
     def spider_closed(self, spider, reason):
-        if self.task and self.task.running:
-            self.task.stop()
+        for t in self.tasks:
+            if t.running:
+                t.stop()
 
     def process_item(self, item, spider):
         market = market_from_spider(spider)
@@ -49,3 +59,17 @@ class InfluxdbPipeline:
             self.influxdb_client.add_point(point)
 
         return item
+
+    def write_active_downloads(self, spider):
+        market = market_from_spider(spider)
+        point = {
+            "measurement": "items",
+            "tags": {
+                "market": market
+            },
+            "fields": {
+                "count": 1,
+                "active_downloads": len(spider.crawler.engine.downloader.active)
+            }
+        }
+        self.influxdb_client.add_point(point)
