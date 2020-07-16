@@ -33,7 +33,6 @@ def parse_arguments():
     parser.add_argument("--android-id", help="ID of Android device", required=True)
     parser.add_argument("--sqlite-file", help="Path to sqlite database", default="accounts.db")
     parser.add_argument("--config", help="Path to YAML configuration file", default="../config/config.yml")
-    parser.add_argument("--proxies_file", help="Path to file of proxy addresses", default="../config/proxies.txt")
     return parser.parse_args()
 
 

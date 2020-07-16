@@ -108,10 +108,16 @@ def load_apis():
         api = GooglePlayAPI(android_id, proxies=proxy_pool.get_proxy_as_dict())
         api.login(email=email, authSubToken=auth_sub_token)
         apis.append(api)
+    print("[*] Successfully logged in all Google Play accounts")
     return apis
 
 
 _apis = load_apis()
+
+
+@app.route('/ping')
+def ping():
+    return "pong"
 
 
 @app.route('/details')

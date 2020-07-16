@@ -3,12 +3,18 @@ import re
 import time
 
 import numpy as np
+import requests
 import scrapy
 
 from crawler.item import Result
 from crawler.spiders.util import PackageListSpider
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
+
+
+class ApiUnavailableError(Exception):
+    def __init__(self):
+        super().__init__("API is unavailable, start the API first (check README)")
 
 
 class GooglePlaySpider(PackageListSpider):
@@ -30,12 +36,20 @@ class GooglePlaySpider(PackageListSpider):
         params = crawler.settings.get("GPLAY_PARAMS")
         apiurl = params.get("apiurl")
         interval = params.get("interval", 0.25)
+
+        # check if the api is available
+        url = f"{apiurl}/ping"
+        try:
+            requests.get(url)
+        except requests.exceptions.ConnectionError:
+            raise ApiUnavailableError
+
         return cls(crawler, outdir, apiurl=apiurl, interval=interval)
 
     def start_requests(self):
+        yield scrapy.Request('https://play.google.com/store/apps', self.parse)
         for req in super().start_requests():
             yield req
-        yield scrapy.Request('https://play.google.com/store/apps', self.parse)
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"
@@ -52,6 +66,15 @@ class GooglePlaySpider(PackageListSpider):
 
         res = []
 
+        # find all links to packages
+        packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
+
+        # visit page of each package
+        for pkg in packages:
+            full_url = f"https://play.google.com/store/apps/details?id={pkg}"
+            req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page)
+            res.append(req)
+
         # follow 'See more' buttons on the home page
         see_more_links = response.xpath("//a[text() = 'See more']//@href").getall()
         for link in see_more_links:
@@ -64,15 +87,6 @@ class GooglePlaySpider(PackageListSpider):
         for link in category_links:
             full_url = response.urljoin(link)
             req = scrapy.Request(full_url, callback=self.parse)
-            res.append(req)
-
-        # find all links to packages
-        packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
-
-        # visit page of each package
-        for pkg in packages:
-            full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
             res.append(req)
 
         return res
@@ -115,6 +129,13 @@ class GooglePlaySpider(PackageListSpider):
         return res
 
     def parse_details(self, response):
+        """
+        Parses the retrieved details from a locally running API
+        Example URL: localhost:5000/details?pkg=com.quizlet.quizletandroid
+
+        Args:
+            response:
+        """
         pkg = response.meta.get("pkg", None)
         meta = json.loads(response.body_as_unicode())
 
