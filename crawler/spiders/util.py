@@ -1,11 +1,31 @@
 import scrapy
 
+from crawler.pipelines.database import _engine_from_params
+
 
 class PackageListSpider(scrapy.Spider):
     """
-    A superclass that reads
+    A superclass that starts with feeding the URL list with packages from (1) a file list and (2) the packages in the database
     """
     def start_requests(self):
+        # read from packages database table
+        params = self.settings.get("DATABASE_PARAMS")
+        engine, _ = _engine_from_params(params)
+
+        qry = "SELECT distinct pkg_name FROM packages WHERE pkg_name is not null and pkg_name != ''"
+        try:
+            with engine.connect() as con:
+                res = con.execute(qry)
+        finally:
+            engine.dispose()
+        rows = res.fetchall()
+
+        for row in rows:
+            url = self.url_by_package(row.pkg_name.strip())
+            meta = {'dont_redirect': True}
+            yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+
+        # read from package files
         pkg_files = self.settings.get("PACKAGE_FILES", [])
         for pkg_file in pkg_files:
 
@@ -16,6 +36,7 @@ class PackageListSpider(scrapy.Spider):
                     meta = {'dont_redirect': True}
                     yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
                     line = f.readline()
+
         return True
 
     def parse(self, response):

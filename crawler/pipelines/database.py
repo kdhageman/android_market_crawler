@@ -7,7 +7,7 @@ from sqlalchemy.sql import text
 
 from crawler.item import Result
 
-_version_table = "versions_new"
+_version_table = "versions"
 
 _sqlite_tables = [
     ("apks", "sha256 text, path text"),
@@ -16,7 +16,7 @@ _sqlite_tables = [
 ]
 
 _postgres_tables = [
-    ("apks", "sha256 char(256), path text"),
+    ("apks", "sha256 varchar(256), path text"),
     ("packages", "pkg_name text, id text, market varchar(32)"),
     (_version_table, "pkg_name text, id text, version text, market varchar(32), sha256 varchar(64), timestamp timestamp, meta json"),
 ]
