@@ -245,6 +245,16 @@ class PostDownloadPipeline(DatabasePipeline):
         market = meta.get("market")
         ts = datetime.fromtimestamp(meta.get("timestamp"))
 
+        # remove potentially senstive data from item
+        for version, dat in versions.items():
+            for sensitive_field in ["headers", "cookies"]:
+                try:
+                    del(dat[sensitive_field])
+                except KeyError:
+                    pass
+            versions[version] = dat
+
+        # create row for every version, and write ALL versions data to the database
         for version, dat in versions.items():
             sha = dat.get("file_sha256", None)
             if not dat.get("skip", False):
