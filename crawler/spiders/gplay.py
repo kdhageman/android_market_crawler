@@ -361,13 +361,18 @@ class GooglePlaySpider(PackageListSpider):
 
         return res
 
-    @api_response
     def parse_api_details(self, response):
         """
         Parses the retrieved details from the API
         Example URL: https://android.clients.google.com/fdfe/details?doc=com.whatsapp"
         """
         res = []
+
+        if response.status != 200:
+            err_msg = ResponseWrapper.FromString(response.content).commands.displayErrorMessage
+            if err_msg == _INCOMPATIBLE_DEVICE_MSG:
+                raise IncompatibleDeviceError
+            raise RequestFailedError(err_msg)
 
         details = ResponseWrapper.FromString(response.body).payload.detailsResponse
         meta, versions = parse_details(details)
@@ -381,13 +386,18 @@ class GooglePlaySpider(PackageListSpider):
 
         return res
 
-    @api_response
     def parse_api_purchase(self, response):
         """
         Parses the response when purchasing an app
         Example URL: https://android.clients.google.com/fdfe/purchase?ot=1&doc=com.whatsapp&vc=1
         """
+        if response.status != 200:
+            err_msg = ResponseWrapper.FromString(response.content).commands.displayErrorMessage
+            if err_msg == _INCOMPATIBLE_DEVICE_MSG:
+                raise IncompatibleDeviceError
+            raise RequestFailedError(err_msg)
         body = ResponseWrapper.FromString(response.body)
+
         url = body.payload.buyResponse.purchaseStatusResponse.appDeliveryData.downloadUrl
         resp_cookies = body.payload.buyResponse.purchaseStatusResponse.appDeliveryData.downloadAuthCookie
         if len(resp_cookies) == 0:
