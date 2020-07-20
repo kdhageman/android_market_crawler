@@ -58,7 +58,7 @@ def _engine_from_params(params):
     elif dbtype == "postgres":
         dsn = _postgres_dsn_from_params(db_specific_params)
         connect_args = {
-            "timeout": 3
+            "timeout": 300  # 5 minutes
         }
         engine = create_engine(dsn, pool_size=1, max_overflow=0, connect_args=connect_args)
     else:
