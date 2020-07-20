@@ -41,8 +41,9 @@ influxdb:
   password: passwd
   database: default
   ssl: false
+  verify_ssl: false
 googleplay:
-  apiurl: http://localhost:5000
+  accounts_db_path: ... # path to sqlite3 db where accounts are being stored (not used right now)
   lang: en_US
   android_id: # id
   accounts:
