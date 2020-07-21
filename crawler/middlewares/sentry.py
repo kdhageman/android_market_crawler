@@ -16,7 +16,7 @@ class SentryMiddleware(object):
 def _tags(response, spider):
     return {
         "url": response.url,
-        "status_code": response.status_code,
+        "status_code": response.status,
         "spider": spider.name
     }
 
