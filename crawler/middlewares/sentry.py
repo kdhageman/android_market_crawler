@@ -1,12 +1,26 @@
+from google.protobuf.message import DecodeError
 from sentry_sdk import capture_message, configure_scope, capture_exception
 
 from crawler.util import is_success
+from protobuf.proto.googleplay_pb2 import ResponseWrapper
 
 
 class SentryMiddleware(object):
     def process_spider_input(self, response, spider):
         if not is_success(response.status):  # all 2xx and 3xx responses are accepted
-            capture(msg="failed request", tags=_tags(response, spider))
+            tags = _tags(response, spider)
+
+            # handle protobuf responses specifically, as they return an error message in the body of a 500 response
+            if response.status == 500:
+                try:
+                    err_msg = ResponseWrapper.FromString(response.body).commands.displayErrorMessage
+                    e = Exception(err_msg)
+                    capture(exception=e, tags=tags)
+                    return
+                except (DecodeError, AttributeError):
+                    pass
+
+            capture(msg="failed request", tags=tags)
 
     def process_spider_exception(self, response, exception, spider):
         if not is_success(response.status):  # all 2xx and 3xx responses are accepted
