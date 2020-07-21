@@ -14,7 +14,9 @@ class SentryMiddleware(object):
 
 
 def _tags(response, spider):
+    pkg_name = response.meta.get("meta", {}).get('pkg_name', None)
     return {
+        "pkg_name": pkg_name,
         "url": response.url,
         "status_code": response.status,
         "spider": spider.name
