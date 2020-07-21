@@ -18,8 +18,6 @@ Note that not all spiders are able to respect this list of package, as their mar
 Those crawlers simply ignore the lists and have their own package discovery mechanisms builtin.       
 
 ##### Running 
-In order to crawl Google's Play Store, a local API must be running (see [README](api/README.md) for more info) 
-
 Run the following commands from the root of the project directory:
 ```bash
 $ pip3 install -r requirements.txt
@@ -56,7 +54,7 @@ A diverse set of markets is being crawled, both from the west and China.
 - F-Droid
 - APKMirror
 - APKMonk
-- Google Play (only package detection, not meta-data and APK crawling)
+- Google Play
 
 ##### Chinese
 - Tencent

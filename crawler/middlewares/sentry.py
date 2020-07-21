@@ -5,7 +5,7 @@ from crawler.util import is_success
 from protobuf.proto.googleplay_pb2 import ResponseWrapper
 
 
-class SentryMiddleware(object):
+class SentryMiddleware:
     def process_spider_input(self, response, spider):
         if not is_success(response.status):  # all 2xx and 3xx responses are accepted
             tags = _tags(response, spider)
