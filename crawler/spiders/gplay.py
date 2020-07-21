@@ -94,30 +94,6 @@ def parse_details(details):
     return meta, versions
 
 
-# decorator for checking if user is logged in or not
-def logged_in(func):
-    def f(*args, **kwargs):
-        obj = args[0]
-        if not obj.auth_sub_token:
-            raise NotLoggedInError
-        return func(*args, **kwargs)
-
-    return f
-
-
-# decorator for basic handling of API responses
-def api_response(func):
-    def f(spider, response):
-        if response.status != 200:
-            err_msg = ResponseWrapper.FromString(response.content).commands.displayErrorMessage
-            if err_msg == _INCOMPATIBLE_DEVICE_MSG:
-                raise IncompatibleDeviceError
-            raise RequestFailedError(err_msg)
-        return func(spider, response)
-
-    return f
-
-
 class ApiUnavailableError(Exception):
     def __init__(self):
         super().__init__("API is unavailable, start the API first (check README)")
@@ -421,6 +397,8 @@ class GooglePlaySpider(PackageListSpider):
         version_data['headers'] = headers
         version_data['download_url'] = url
         versions[version] = version_data
+
+        self.pause(self.interval)
 
         return Result(
             meta=meta,
