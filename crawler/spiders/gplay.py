@@ -264,8 +264,7 @@ class GooglePlaySpider(PackageListSpider):
 
         Returns: scrapy.Request
         """
-        path = "purchase"
-        url = f"https://android.clients.google.com/fdfe/{path}"
+        url = f"https://android.clients.google.com/fdfe/purchase"
         body = f"ot={offer_type}&doc={requests.utils.quote(pkg_name)}&vc={version}"
         headers = self._get_headers(post_content_type="application/x-www-form-urlencoded; charset=UTF-8")
 
