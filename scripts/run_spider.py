@@ -176,10 +176,14 @@ def get_settings(config, spidername, logdir):
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
-        'crawler.middlewares.sentry.SentryMiddleware': 110,
         'crawler.middlewares.stats.StatsMiddleware': 120,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
         'crawler.middlewares.ratelimit.RatelimitMiddleware': 543
+    }
+
+    spider_middlewares = {
+        'crawler.middlewares.sentry.SentryMiddleware': 1,
+        'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 2
     }
 
     extensions = {
@@ -193,6 +197,7 @@ def get_settings(config, spidername, logdir):
         LOG_LEVEL=log_level,
         LOGSTATS_INTERVAL=5.0,
         DOWNLOADER_MIDDLEWARES=downloader_middlewares,
+        SPIDER_MIDDLEWARES=spider_middlewares,
         EXTENSIONS=extensions,
         USER_AGENTS=user_agents,
         ITEM_PIPELINES=item_pipelines,

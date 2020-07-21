@@ -18,8 +18,6 @@ Note that not all spiders are able to respect this list of package, as their mar
 Those crawlers simply ignore the lists and have their own package discovery mechanisms builtin.       
 
 ##### Running 
-In order to crawl Google's Play Store, a local API must be running (see [README](api/README.md) for more info) 
-
 Run the following commands from the root of the project directory:
 ```bash
 $ pip3 install -r requirements.txt
@@ -43,48 +41,10 @@ optional arguments:
 ```
 Alternatively, you can run all spiders as separate processes by running `./run_all.sh`.
 
-After having downloaded a set of APKs and their associated meta data, the following scripts can be run:
-```bash
-$ python scripts/combine_json.py --help
-usage: combine_json.py [-h] [--dir DIR] [--outfile OUTFILE]
-                       [--spidertxt SPIDERTXT]
-
-Aggregates JSON outputs from "run_spider.py" scripts
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --dir DIR             Directory to traverse
-  --outfile OUTFILE     Name of output file
-  --spidertxt SPIDERTXT
-                        File which contains names of spiders
-```
-and 
-```bash
-$ python scripts/analyze_apks.py --help
-usage: analyze_apks.py [-h] [--dir DIR] [--spidertxt SPIDERTXT]
-                       [--outfile OUTFILE]
-
-Analyze all APKs
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --dir DIR             Directory to traverse
-  --spidertxt SPIDERTXT
-                        File which contains names of spiders
-  --outfile OUTFILE     Name of output file
-```
-The following depends on the apk analysis script
-```bash
-$ python scripts/download_assetlinks.py  --help
-usage: download_assetlinks.py [-h] [--infile INFILE] [--outfile OUTFILE]
-
-Downloads the asset-links.json for the output file of "analyze_apks.py"
-
-optional arguments:
-  -h, --help         show this help message and exit
-  --infile INFILE    path of input file
-  --outfile OUTFILE  path of output file
-```
+##### NOTE
+Right now, the `idna` library used by `Twisted` is too strict in handling internationalized domain names (IDNs), i.e. is too generous in raising errors.
+This is a significant problem for the Play Store, in which the URL of downloading an APK is an invalid IDN, but which is accepted by `cURL` and browsers regardless.
+To circumvent this problem temporarily (until a better solution is found), we manually disable the first if-check in the `check_hyphen_ok(label)` function in the library, located in `core.py` in the `idna` library. 
 
 #### Supported markets
 A diverse set of markets is being crawled, both from the west and China. 
@@ -94,7 +54,7 @@ A diverse set of markets is being crawled, both from the west and China.
 - F-Droid
 - APKMirror
 - APKMonk
-- Google Play (only package detection, not meta-data and APK crawling)
+- Google Play
 
 ##### Chinese
 - Tencent

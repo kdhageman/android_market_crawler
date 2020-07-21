@@ -58,7 +58,7 @@ def _engine_from_params(params):
     elif dbtype == "postgres":
         dsn = _postgres_dsn_from_params(db_specific_params)
         connect_args = {
-            "timeout": 3
+            "timeout": 300  # 5 minutes
         }
         engine = create_engine(dsn, pool_size=1, max_overflow=0, connect_args=connect_args)
     else:
@@ -197,7 +197,9 @@ class PreDownloadVersionPipeline(DatabasePipeline):
                 dat['skip'] = True  # marks that downloading is being skipped in other pipelines
                 dat['file_sha256'] = existing_sha
                 dat['file_path'] = path
-                dat['analysis'] = existing_meta['versions'][version]['analysis']
+                existing_analysis = existing_meta['versions'][version].get('analysis', None)
+                if existing_analysis:
+                    dat['analysis'] = existing_analysis
                 meta['pkg_name'] = existing_meta['meta'].get('pkg_name', None)
                 versions[version] = dat
 
@@ -245,6 +247,16 @@ class PostDownloadPipeline(DatabasePipeline):
         market = meta.get("market")
         ts = datetime.fromtimestamp(meta.get("timestamp"))
 
+        # remove potentially senstive data from item
+        for version, dat in versions.items():
+            for sensitive_field in ["headers", "cookies"]:
+                try:
+                    del(dat[sensitive_field])
+                except KeyError:
+                    pass
+            versions[version] = dat
+
+        # create row for every version, and write ALL versions data to the database
         for version, dat in versions.items():
             sha = dat.get("file_sha256", None)
             if not dat.get("skip", False):
