@@ -197,7 +197,7 @@ class PreDownloadVersionPipeline(DatabasePipeline):
                 dat['skip'] = True  # marks that downloading is being skipped in other pipelines
                 dat['file_sha256'] = existing_sha
                 dat['file_path'] = path
-                existing_analysis = existing_meta['versions'][version].get('analysis', None)
+                existing_analysis = existing_meta['versions'].get(version, {}).get('analysis', None)
                 if existing_analysis:
                     dat['analysis'] = existing_analysis
                 meta['pkg_name'] = existing_meta['meta'].get('pkg_name', None)

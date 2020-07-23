@@ -13,13 +13,16 @@ _namespaces = {
 
 class AnalyzeApkPipeline:
     def process_item(self, item, spider):
+        """
+        Will perform an analysis on the APK defined in the filepath
+        """
         if not isinstance(item, Result):
             return item
 
         meta = item['meta']
 
         for version, dat in item['versions'].items():
-            filepath = dat.get('file_path', "")
+            filepath = dat.get('file_path', None)
             if filepath:
                 try:
                     analysis = analyse(filepath)
