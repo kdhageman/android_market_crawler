@@ -197,21 +197,24 @@ class PreDownloadVersionPipeline(DatabasePipeline):
                 dat['skip'] = True  # marks that downloading is being skipped in other pipelines
                 dat['file_sha256'] = existing_sha
                 dat['file_path'] = path
+            if existing_meta:
                 existing_analysis = existing_meta['versions'].get(version, {}).get('analysis', None)
                 if existing_analysis:
                     dat['analysis'] = existing_analysis
                 meta['pkg_name'] = existing_meta['meta'].get('pkg_name', None)
-                versions[version] = dat
+            versions[version] = dat
 
         item['versions'] = versions
+        item['meta'] = meta
         return item
 
     def version_exists(self, pkg_name, identifier, version, market):
         """
-        Returns the SHA256 value of the apk for the given tuple of values
+        Returns the SHA256 value and meta information of the apk for the given tuple of values
+        In case of multiple entries in the database, use the most recent information
         """
         qry = text(
-            f"SELECT sha256, meta FROM {_version_table} WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market")
+            f"SELECT sha256, meta FROM {_version_table} WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market ORDER BY timestamp DESC")
         vals = dict(
             pkg_name=pkg_name,
             identifier=identifier,
@@ -219,8 +222,18 @@ class PreDownloadVersionPipeline(DatabasePipeline):
             market=market
         )
         res = self.execute(qry, vals)
-        first = res.fetchone()
-        return first if first else (None, None)
+        res_sha256 = None
+        res_meta = None
+        while not res_sha256 and not res_meta:
+            record = res.fetchone()
+            if not record:
+                break
+            sha256, meta = record
+            if not res_sha256 and sha256:
+                res_sha256 = sha256
+            if not res_meta and meta:
+                res_meta = meta
+        return res_sha256, res_meta
 
 
 class PostDownloadPipeline(DatabasePipeline):
