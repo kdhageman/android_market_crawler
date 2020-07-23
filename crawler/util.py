@@ -1,3 +1,4 @@
+import io
 import time
 from datetime import datetime, timedelta
 import hashlib
@@ -208,6 +209,10 @@ class ContentTypeError(Exception):
     pass
 
 
+class UnknownInputError(Exception):
+    pass
+
+
 class HttpClient:
     def __init__(self, crawler):
         self.crawler = crawler
@@ -226,14 +231,19 @@ def sha256(f):
     """
     Returns the lowercase hex representation of the SHA 256 digest of the data
     Args:
-        f: file
+        f: bytes or io.BufferedReader
 
     Returns: str
         Hex representation of SHA 256 digest of data
     """
     m = hashlib.sha256()
-    for byte_block in iter(lambda: f.read(4096), b""):
-        m.update(byte_block)
+    if type(f) == bytes:
+        m.update(f)
+    elif type(f) == io.BufferedReader:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            m.update(byte_block)
+    else:
+        raise UnknownInputError()
     return m.hexdigest()
 
 
@@ -241,18 +251,17 @@ def is_success(status_code):
     return 200 <= status_code < 400
 
 
-def response_has_content_type(resp, ct, default=False):
+def response_has_content_type(resp, ct):
     """
     Returns if response contains a "Content-Type" header with the given 'ct' value
     Args:
         resp: twister.Response
         ct: content type string
         default: default result if header is empty
-        headerfunc: function to apply to each received header
 
     Returns: bool
     """
-    received_ctypes = resp.headers.getRawHeaders(ct)
+    received_ctypes = resp.headers.getRawHeaders("Content-Type")
     if not received_ctypes:
-        return default
-    return ct in [n.lower() for n in received_ctypes]
+        return False
+    return ct.lower() in [n.lower() for n in received_ctypes]

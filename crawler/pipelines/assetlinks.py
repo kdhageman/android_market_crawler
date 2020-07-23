@@ -25,6 +25,13 @@ class AssetLinksPipeline:
 
     @defer.inlineCallbacks
     def process_item(self, item, spider):
+        """
+        Fetches the assetlink.json from the domains extracted from the Manifest.xml from the .apk.
+        Example URL:
+        - https://money.yandex.ru/.well-known/assetlinks.json (successful)
+        - https://example.org/.well-known/assetlinks.json (404 not found)
+        - https://{domain}/.well-known/assetlinks.json (wrong response type) # TODO: find an example link that returns the wrong response type
+        """
         if not isinstance(item, Result):
             return item
 
@@ -38,10 +45,10 @@ class AssetLinksPipeline:
                         url = f"https://{domain}/.well-known/assetlinks.json"
                         resp = yield self.client.get(url, timeout=5, proxies=util.PROXY_POOL.get_proxy_as_dict())
                         status = resp.code
-                        if resp.code >= 400:
+                        if status >= 400:
                             raise RequestException
 
-                        if response_has_content_type(resp, "application/json", default=True):
+                        if not response_has_content_type(resp, "application/json"):
                             continue
                         txt = yield resp.text()
                         al = parse_result(txt)

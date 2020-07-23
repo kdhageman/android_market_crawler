@@ -7,7 +7,8 @@ from twisted.internet import defer
 
 from crawler import util
 from crawler.item import Result
-from crawler.util import get_directory, HttpClient, RequestException, response_has_content_type, ContentTypeError
+from crawler.util import get_directory, HttpClient, RequestException, response_has_content_type, ContentTypeError, \
+    sha256
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 
@@ -28,6 +29,13 @@ class AdsPipeline:
 
     @defer.inlineCallbacks
     def process_item(self, item, spider):
+        """
+        Fetches the /app-ads.txt and /ads.txt from the developer website of a given package
+        Example URL:
+        - http://whisperarts.com/app-ads.txt (successful)
+        - https://example.org/app-ads.txt (404 not found)
+        """
+        # TODO: test this implementation!
         if not isinstance(item, Result):
             return item
 
@@ -40,7 +48,10 @@ class AdsPipeline:
             return item
 
         # retrieve both app-ads.txt and ads.txt
-        for key, status_key, path, fname in [("app_ads_path", "app_ads_status", "/app-ads.txt", "app-ads.txt"), ("ads_path", "ads_status", "/ads.txt", "ads.txt")]:
+        for key, status_key, path, fname_prefix in [
+            ("app_ads_path", "app_ads_status", "/app-ads.txt", "app_ads"),
+            ("ads_path", "ads_status", "/ads.txt", "ads")
+        ]:
             parsed_url = parsed_url._replace(netloc=root_domain, path=path)
 
             ads_txt_url = parsed_url.geturl()
@@ -53,16 +64,20 @@ class AdsPipeline:
                 item['meta'][status_key] = resp.code
                 if resp.code >= 400:
                     raise RequestException
-                if response_has_content_type(resp, "text/plain", default=False):
+                if not response_has_content_type(resp, "text/plain"):
                     raise ContentTypeError
 
                 meta_dir = get_directory(item['meta'], spider)
+
+                content = yield resp.content()
+                digest = sha256(content)
+
+                fname = f"{fname_prefix}.{digest}.txt"
                 fpath = os.path.join(self.outdir, meta_dir, fname)
 
                 os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
                 with open(fpath, "wb") as f:
-                    content = yield resp.content()
                     f.write(content)
 
                 item['meta'][key] = fpath

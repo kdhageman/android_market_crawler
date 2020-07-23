@@ -71,7 +71,7 @@ def parse_app_links(man):
     for uh in unique_man_hosts:
         ald = _assetlinks_domain(uh)
         if ald not in assetlink_domains:
-            assetlink_domains[ald] = ""
+            assetlink_domains[ald] = None
     return assetlink_domains
 
 
