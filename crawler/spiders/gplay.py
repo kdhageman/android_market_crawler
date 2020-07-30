@@ -105,8 +105,11 @@ class MissingCookieError(Exception):
 
 
 class AuthFailedError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
     def __str__(self):
-        return "authentication failed"
+        return f"authentication failed: {self.msg}"
 
 
 class RequestFailedError(Exception):
@@ -195,6 +198,9 @@ class GooglePlaySpider(PackageListSpider):
             raise CredsError
 
         master_login = gpsoauth.perform_master_login(email, password, self.android_id)
+        err = master_login.get("Error", None)
+        if err:
+            raise AuthFailedError(f"master login: {err}")
         oauth_login = gpsoauth.perform_oauth(
             email,
             master_login.get('Token', ''),
@@ -203,9 +209,12 @@ class GooglePlaySpider(PackageListSpider):
             _GOOGLE_LOGIN_APP,
             _GOOGLE_LOGIN_CLIENT_SIG
         )
+        err = oauth_login.get("Error", None)
+        if err:
+            raise AuthFailedError(f"oauth login: {err}")
         ast = oauth_login.get('Auth', None)
         if not ast:
-            raise AuthFailedError
+            raise AuthFailedError("'Auth' is missing in oauth response")
         return ast
 
     def _get_headers(self, post_content_type=None):
