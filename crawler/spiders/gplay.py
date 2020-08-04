@@ -200,7 +200,8 @@ class GooglePlaySpider(PackageListSpider):
         master_login = gpsoauth.perform_master_login(email, password, self.android_id)
         err = master_login.get("Error", None)
         if err:
-            raise AuthFailedError(f"master login: {err}")
+            errdetail = master_login.get("ErrorDetail", None)
+            raise AuthFailedError(f"master login: {err}: {errdetail}")
         oauth_login = gpsoauth.perform_oauth(
             email,
             master_login.get('Token', ''),
@@ -211,7 +212,8 @@ class GooglePlaySpider(PackageListSpider):
         )
         err = oauth_login.get("Error", None)
         if err:
-            raise AuthFailedError(f"oauth login: {err}")
+            errdetail = master_login.get("ErrorDetail", None)
+            raise AuthFailedError(f"oauth login: {err}: {errdetail}")
         ast = oauth_login.get('Auth', None)
         if not ast:
             raise AuthFailedError("'Auth' is missing in oauth response")
