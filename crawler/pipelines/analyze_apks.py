@@ -1,4 +1,4 @@
-from zipfile import BadZipFile
+from asn1crypto import cms, x509
 
 import numpy as np
 from androguard.core.bytecodes.apk import APK
@@ -142,6 +142,50 @@ def _uses_permissions_sdk_m(apk):
     return res
 
 
+def get_signers(apk):
+    res = dict(
+        v1=[],
+        v2=[],
+        v3=[]
+    )
+
+    # figure out signers for v1
+    sig_names = apk.get_signature_names()
+    certs = apk.get_certificates()
+
+    for sig_name in sig_names:
+        # extract signer information
+        pkcs7msg = apk.get_file(sig_name)
+        pkcs7obj = cms.ContentInfo.load(pkcs7msg)
+        signer_issuer = pkcs7obj['content']['signer_infos'][0]['sid'].chosen['issuer'].native
+        signer_serial = pkcs7obj['content']['signer_infos'][0]['sid'].chosen['serial_number'].native
+
+        for cert in certs:
+            cert_issuer = cert['tbs_certificate']['issuer'].native
+            cert_serial = cert['tbs_certificate']['serial_number'].native
+
+            if signer_issuer == cert_issuer and signer_serial == cert_serial:
+                # print(f"Found v1 certificate '{cert.sha256.hex()[:8]}' for signature file '{sig_name}'")
+                res['v1'].append(parse_cert(cert))
+
+    # v2 and v3
+    apk.parse_v2_signing_block()
+
+    for signer in apk._v2_signing_data:
+        # get first cert in chain, since it is the leaf
+        cert_der = signer.signed_data.certificates[0]
+        cert = x509.Certificate.load(cert_der)
+        # print(f"Found v2 certificate '{cert.sha256.hex()[:8]}' for signature '{signer.signatures[0][1].hex()[:16]}..'")
+        res['v2'].append(parse_cert(cert))
+
+    for signer in apk._v3_signing_data:
+        cert_der = signer.signed_data.certificates[0]
+        cert = x509.Certificate.load(cert_der)
+        # print(f"Found v3 certificate '{cert.sha256.hex()[:8]}' for signature '{signer.signatures[0][1].hex()[:16]}..'")
+        res['v3'].append(parse_cert(cert))
+
+    return res
+
 def analyse(path):
     """
     Analyses the APK at the given path
@@ -153,7 +197,7 @@ def analyse(path):
     """
     try:
         apk = APK(path, testzip=False)
-    except BadZipFile as e:
+    except Exception as e:
         capture_exception(e)
         return dict(
             path=path
@@ -162,6 +206,7 @@ def analyse(path):
     res = dict(
         path=path,
         certs=get_certs(apk),
+        signers=get_signers(apk),
         pkg_name=apk.package,
         permissions=dict(
             uses=apk.uses_permissions,

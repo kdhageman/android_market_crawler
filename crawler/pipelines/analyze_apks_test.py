@@ -11,9 +11,12 @@ class AnalyzeApkPipelineTest(unittest.TestCase):
     def test_process_item(self):
         pipeline = AnalyzeApkPipeline()
         item = Result(
+            meta={
+                "pkg_name": "com.apple.test"
+            },
             versions={
                 '1.0.0': {
-                    "file_path": "/work/git/test_project/app/build/outputs/apk/debug/app-debug.apk"
+                    "file_path": "/Volumes/Samsung_T5/data/apps/pystorecrawler/apks/3e1886c02c744716fb7d9381b82cc6a8c86e800ec0e2b4a0656609df7b3bb4ab.apk"
                 }
             }
         )
