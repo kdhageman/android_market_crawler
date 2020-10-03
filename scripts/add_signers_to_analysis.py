@@ -2,9 +2,12 @@ import argparse
 import json
 import logging
 import math
+import os
+import sys
 
 from sqlalchemy import create_engine, text
 
+sys.path.append(os.path.abspath('.'))
 from crawler.pipelines.analyze_apks import analyse
 
 _version_table = "versions"
@@ -12,6 +15,10 @@ _column = "meta_new"
 
 
 def main(args):
+    """
+    Adds signer information (i.e. the certificates that actually signed the .apk, not *all* certificates in the .apk) to every row in the 'versions' table.
+    Reads the current information from the 'meta' column, and create a 'meta_new' column, as to keep the old column as a backup
+    """
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
         level=logging.INFO
