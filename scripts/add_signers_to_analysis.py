@@ -28,9 +28,11 @@ def main(args):
     db_string = f"postgres://{args.postgres_user}:{args.postgres_password}@{args.postgres_host}:{args.postgres_port}/{args.postgres_db}"
     engine = create_engine(db_string)
 
+    log.info("Fetching from database..")
     with engine.connect() as conn:
         qry = f"SELECT id, meta FROM versions WHERE meta is not null AND {_column} is null"
         result_set = conn.execute(qry)
+    log.info("Fetched from database!")
 
     rowcount = result_set.rowcount
     perc_limit = math.ceil(rowcount / 1000)
