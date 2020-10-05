@@ -28,7 +28,8 @@ class TestAnalysis(unittest.TestCase):
     def test_assetlinks_domain(self):
         cases = [
             ("*money.yandex.ru", "money.yandex.ru"),
-            ("*.example.com", "example.com")
+            ("*.example.com", "example.com"),
+            (".", None)
         ]
         for inp, expected in cases:
             actual = _assetlinks_domain(inp)
@@ -37,6 +38,10 @@ class TestAnalysis(unittest.TestCase):
     def test_parse_app_links(self):
         manxml = etree.parse("resources/AndroidManifest.xml")
         parsed = parse_app_links(manxml)
+        expected = {
+            'money.yandex.ru': None
+        }
+        self.assertEqual(parsed, expected)
 
 
 if __name__ == '__main__':

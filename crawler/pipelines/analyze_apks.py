@@ -53,8 +53,12 @@ def _assetlinks_domain(host):
 
     Returns: str
     """
-    while host[0] in ["*", "."]:
-        host = host[1:]
+    try:
+        while host[0] in ["*", "."]:
+            host = host[1:]
+    except IndexError:
+        # For edge cases such as the domain "."
+        return None
     return host
 
 
@@ -73,7 +77,7 @@ def parse_app_links(man):
     assetlink_domains = {}
     for uh in unique_man_hosts:
         ald = _assetlinks_domain(uh)
-        if ald not in assetlink_domains:
+        if ald and ald not in assetlink_domains:
             assetlink_domains[ald] = None
     return assetlink_domains
 

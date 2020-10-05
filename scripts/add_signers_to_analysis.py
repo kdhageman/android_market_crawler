@@ -29,7 +29,7 @@ def main(args):
     engine = create_engine(db_string)
 
     with engine.connect() as conn:
-        qry = "SELECT id, meta FROM versions WHERE meta is not null"
+        qry = f"SELECT id, meta FROM versions WHERE meta is not null AND {_column} is null"
         result_set = conn.execute(qry)
 
     rowcount = result_set.rowcount
