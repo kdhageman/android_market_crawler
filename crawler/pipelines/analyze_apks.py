@@ -89,7 +89,10 @@ def parse_cert(cert):
     not_after = int(cert.not_valid_after.timestamp())
     sha256 = cert.sha256.hex()
     pkey_algo = cert.public_key.algorithm
-    pkey_size = cert.public_key.bit_size
+    try:
+        pkey_size = cert.public_key.bit_size
+    except ValueError:
+        pkey_size = 0
     pkey_sha256 = cert.public_key.sha256.hex()
 
     return dict(
