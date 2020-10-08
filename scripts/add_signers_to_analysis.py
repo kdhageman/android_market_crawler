@@ -19,8 +19,14 @@ def main(args):
     Adds signer information (i.e. the certificates that actually signed the .apk, not *all* certificates in the .apk) to every row in the 'versions' table.
     Reads the current information from the 'meta' column, and create a 'meta_new' column, as to keep the old column as a backup
     """
+    for namespace, level in [
+        ("androguard", logging.ERROR)
+    ]:
+        logger = logging.getLogger(namespace)
+        logger.setLevel(level)
+
     logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(message)s',
+        format='%(asctime)s - %(name)s-10s - %(levelname)-8s %(message)s',
         level=logging.INFO
     )
     log = logging.getLogger("main")
