@@ -11,6 +11,21 @@ _namespaces = {
 }
 
 
+def except_default(default_val):
+    """
+    Decorator that returns a default value in case of ANY exception
+    """
+
+    def wrapped(f):
+        def func(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except Exception:
+                return default_val
+
+        return func
+    return wrapped
+
 class AnalyzeApkPipeline:
     def process_item(self, item, spider):
         """
@@ -193,6 +208,37 @@ def get_signers(apk):
 
     return res
 
+
+@except_default("unknown")
+def _get_android_version_name(apk):
+    return apk.get_androidversion_name()
+
+
+@except_default(-1)
+def _get_android_version_code(apk):
+    return apk.get_androidversion_code() if apk.get_androidversion_code() else -1
+
+
+@except_default(-1)
+def _get_min_sdk_version(apk):
+    return apk.get_min_sdk_version()
+
+
+@except_default(-1)
+def _get_max_sdk_version(apk):
+    return apk.get_max_sdk_version()
+
+
+@except_default(-1)
+def _get_target_sdk_version(apk):
+    return apk.get_target_sdk_version()
+
+
+@except_default(-1)
+def _get_effective_sdk_version(apk):
+    return apk.get_effective_target_sdk_version()
+
+
 def analyse(path):
     """
     Analyses the APK at the given path
@@ -222,14 +268,14 @@ def analyse(path):
             declared=apk.declared_permissions
         ),
         sdk_version=dict(
-            min=apk.get_min_sdk_version(),
-            max=apk.get_max_sdk_version(),
-            target=apk.get_target_sdk_version(),
-            effective=apk.get_effective_target_sdk_version()
+            min=_get_min_sdk_version(apk),
+            max=_get_max_sdk_version(apk),
+            target=_get_target_sdk_version(apk),
+            effective=_get_effective_sdk_version(apk)
         ),
         android_version=dict(
-            name=apk.get_androidversion_name(),
-            code=apk.get_androidversion_code() if apk.get_androidversion_code() else -1
+            name=_get_android_version_name(apk),
+            code=_get_android_version_code(apk)
         ),
         assetlink_domains=parse_app_links(apk.get_android_manifest_xml()),
         assetlink_status={}

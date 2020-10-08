@@ -3,7 +3,8 @@ import unittest
 from lxml import etree
 
 from crawler.item import Result
-from crawler.pipelines.analyze_apks import AnalyzeApkPipeline, parse_app_links, _assetlinks_domain
+from crawler.pipelines.analyze_apks import AnalyzeApkPipeline, parse_app_links, _assetlinks_domain, \
+    _get_android_version_name
 
 
 # TODO: remote test
@@ -42,6 +43,27 @@ class TestAnalysis(unittest.TestCase):
             'money.yandex.ru': None
         }
         self.assertEqual(parsed, expected)
+
+    def test_android_get_version_name(self):
+        class _Apk:
+            def __init__(self, raise_exc):
+                self.raise_exc = raise_exc
+
+            def get_androidversion_name(self):
+                if self.raise_exc:
+                    raise Exception("Exception!")
+                else:
+                    return "version_name"
+
+        testcases = [
+            (False, "version_name"),
+            (True, "unknown")
+        ]
+
+        for apk_param, expected in testcases:
+            apk = _Apk(apk_param)
+            actual = _get_android_version_name(apk)
+            self.assertEqual(expected, actual)
 
 
 if __name__ == '__main__':
