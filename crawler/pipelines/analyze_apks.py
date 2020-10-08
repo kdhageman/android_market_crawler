@@ -77,6 +77,7 @@ def _assetlinks_domain(host):
     return host
 
 
+@except_default({})
 def parse_app_links(man):
     """
     Parse the manifest.xml document for app links
