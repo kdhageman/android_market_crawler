@@ -5,6 +5,7 @@ import math
 import os
 import queue
 import sys
+from datetime import datetime
 from multiprocessing import Queue, Process
 
 from sqlalchemy import create_engine, text
@@ -61,7 +62,8 @@ def progress(q, rowcount):
 
         if i % perc_limit == 0:
             perc = i / rowcount * 100
-            msg = f"{perc:.2f}%"
+            ts = datetime.now()
+            msg = f"[{ts}] {perc:.2f}%"
             print(msg)
 
 
@@ -88,8 +90,8 @@ def main(args):
 
     log.info("Fetching from database..")
     with engine.connect() as conn:
-        # qry = f"SELECT id, meta FROM versions WHERE meta is not null AND {_column} is null"
-        qry = f"SELECT id, meta FROM versions WHERE meta is not null LIMIT 10"
+        qry = f"SELECT id, meta FROM versions WHERE meta is not null AND {_column} is null"
+        # qry = f"SELECT id, meta FROM versions WHERE meta is not null LIMIT 10"
         result_set = conn.execute(qry)
     log.info("Fetched from database!")
 
