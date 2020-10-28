@@ -132,17 +132,17 @@ def get_certs(apk):
         v3=[]
     )
 
-    for cert in apk.get_certificates_v1():
-        parsed = parse_cert(cert)
-        res['v1'].append(parsed)
-
-    for cert in apk.get_certificates_v2():
-        parsed = parse_cert(cert)
-        res['v2'].append(parsed)
-
-    for cert in apk.get_certificates_v3():
-        parsed = parse_cert(cert)
-        res['v3'].append(parsed)
+    for cert_version, func in [
+        ('v1', apk.get_certificates_v1),
+        ('v2', apk.get_certificates_v2),
+        ('v3', apk.get_certificates_v3),
+    ]:
+        try:
+            for cert in func():
+                parsed = parse_cert(cert)
+                res[cert_version].append(parsed)
+        except Exception:
+            pass
 
     return res
 
