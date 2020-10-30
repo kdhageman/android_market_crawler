@@ -192,7 +192,10 @@ def get_signers(apk):
                 res['v1'].append(parse_cert(cert))
 
     # v2 and v3
-    apk.parse_v2_signing_block()
+    try:
+        apk.parse_v2_signing_block()
+    except Exception:
+        pass
 
     for signer in apk._v2_signing_data:
         # get first cert in chain, since it is the leaf
