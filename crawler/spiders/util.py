@@ -18,12 +18,8 @@ class PackageListSpider(scrapy.Spider):
                 res = con.execute(qry)
         finally:
             engine.dispose()
-        rows = res.fetchall()
 
-        for row in rows:
-            url = self.url_by_package(row.pkg_name.strip())
-            meta = {'dont_redirect': True}
-            yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+        rows = res.fetchall()
 
         # read from package files
         pkg_files = self.settings.get("PACKAGE_FILES", [])
@@ -36,6 +32,11 @@ class PackageListSpider(scrapy.Spider):
                     meta = {'dont_redirect': True}
                     yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
                     line = f.readline()
+
+        for row in rows:
+            url = self.url_by_package(row.pkg_name.strip())
+            meta = {'dont_redirect': True}
+            yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
 
         return True
 

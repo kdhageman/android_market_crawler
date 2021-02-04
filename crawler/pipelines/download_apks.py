@@ -21,7 +21,7 @@ class DownloadApksPipeline(FilesPipeline):
         self.root_dir = settings.get('CRAWL_ROOTDIR', "/tmp/crawl")
         self.dst_dir = os.path.join(self.root_dir, "apks")
         try:
-            os.mkdir(self.dst_dir)
+            os.makedirs(self.dst_dir, exist_ok=True)
         except FileExistsError:
             pass
 

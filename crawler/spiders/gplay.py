@@ -245,9 +245,9 @@ class GooglePlaySpider(PackageListSpider):
     # Scrapy methods
 
     def start_requests(self):
-        yield scrapy.Request('https://play.google.com/store/apps', self.parse)
         for req in super().start_requests():
             yield req
+        yield scrapy.Request('https://play.google.com/store/apps', self.parse)
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"
