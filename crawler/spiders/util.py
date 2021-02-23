@@ -1,6 +1,7 @@
 import scrapy
 
 from crawler.pipelines.database import _engine_from_params
+from crawler.util import market_from_spider
 
 
 class PackageListSpider(scrapy.Spider):
@@ -12,7 +13,8 @@ class PackageListSpider(scrapy.Spider):
         params = self.settings.get("DATABASE_PARAMS")
         engine, _ = _engine_from_params(params)
 
-        qry = "SELECT distinct pkg_name FROM packages WHERE pkg_name is not null and pkg_name != ''"
+        market = market_from_spider(self)
+        qry = f"SELECT distinct pkg_name FROM packages WHERE pkg_name is not null and pkg_name != '' AND market = '{market}'"
         try:
             with engine.connect() as con:
                 res = con.execute(qry)
@@ -20,6 +22,12 @@ class PackageListSpider(scrapy.Spider):
             engine.dispose()
 
         rows = res.fetchall()
+
+        # read from database
+        for row in rows:
+            url = self.url_by_package(row.pkg_name.strip())
+            meta = {'dont_redirect': True}
+            yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
 
         # read from package files
         pkg_files = self.settings.get("PACKAGE_FILES", [])
@@ -32,11 +40,6 @@ class PackageListSpider(scrapy.Spider):
                     meta = {'dont_redirect': True}
                     yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
                     line = f.readline()
-
-        for row in rows:
-            url = self.url_by_package(row.pkg_name.strip())
-            meta = {'dont_redirect': True}
-            yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
 
         return True
 
