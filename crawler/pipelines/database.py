@@ -287,7 +287,7 @@ class PostDownloadPipeline(DatabasePipeline):
 
     def create_version(self, pkg_name, identifier, version, market, sha, ts, jsonstr):
         with self.engine.connect() as con:
-            qry = text(f"INSERT INTO {_version_table} VALUES (:pkg_name, :identifier, :version, :market, :sha, :ts, :jsonstr)")
+            qry = text(f"INSERT INTO {_version_table} (pkg_name, market_id, version, market, sha256, timestamp, meta) VALUES (:pkg_name, :identifier, :version, :market, :sha, :ts, :jsonstr)")
             vals = dict(
                 pkg_name=pkg_name,
                 identifier=identifier,
