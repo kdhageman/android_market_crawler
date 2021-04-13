@@ -327,11 +327,17 @@ class GooglePlaySpider(PackageListSpider):
         # find all links to packages
         packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
 
+        # icon url
+        icon_url = response.xpath("//img[contains(@alt, 'Cover art')]/@src").get()
+
         # package name
         m = re.search(pkg_pattern, response.url)
         if m:
             pkg = m.group(1)
             req = self._craft_details_req(pkg)
+            req.meta['meta'] = {
+                    "icon_url": icon_url,
+                }
             res.append(req)
 
         # only search for apps recursively if enabled
@@ -365,7 +371,11 @@ class GooglePlaySpider(PackageListSpider):
             raise RequestFailedError(err_msg)
 
         details = ResponseWrapper.FromString(response.body).payload.detailsResponse
+
         meta, versions = parse_details(details)
+        icon_url = response.meta.get('meta', {}).get('icon_url', None)
+        if icon_url:
+            meta['icon_url'] = icon_url
 
         pkg_name = meta.get('pkg_name')
         offer_type = meta.get('offer_type', 1)

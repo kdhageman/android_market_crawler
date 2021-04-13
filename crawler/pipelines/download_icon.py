@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
@@ -23,7 +25,9 @@ class DownloadIconPipeline(FilesPipeline):
     def file_path(self, request, response=None, info=None):
         item = request.meta
         dir = get_directory(item['meta'], info.spider)
-        return os.path.join(dir, "icon.ico")
+        ts = datetime.now().strftime("%s")
+        fname = f"icon.{ts}.ico"
+        return os.path.join(dir, fname)
 
     def get_media_requests(self, item, info):
         if not isinstance(item, Result):
