@@ -15,7 +15,9 @@ class ApkMonkSpider(PackageListSpider):
     def start_requests(self):
         for req in super().start_requests():
             yield req
-        yield scrapy.Request('https://www.apkmonk.com/categories/', self.parse)
+
+    def base_requests(self):
+        return [scrapy.Request('https://www.apkmonk.com/categories/', self.parse)]
 
     def url_by_package(self, pkg):
         return f"https://www.apkmonk.com/app/{pkg}/"

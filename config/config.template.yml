@@ -3,7 +3,9 @@ output:
 input:
   package_files:
   - androzoo.txt
+  package_files_only: true
 scrapy:
+  recursive: false
   concurrent_requests: 1
   depth_limit: 2
   item_count: 10

@@ -104,6 +104,7 @@ def get_settings(config, spidername, logdir):
         raise YamlException("input")
 
     package_files = input.get("package_files", [])
+    package_files_only = input.get("package_files_only", False)
 
     scrapy = config.get("scrapy", None)
     if not scrapy:
@@ -116,6 +117,7 @@ def get_settings(config, spidername, logdir):
     telnet = scrapy.get("telnet", {})
     telnet_user = telnet.get("username", None)
     telnet_password = telnet.get("password", None)
+    recursive = scrapy.get("recursive", False)
 
     ratelimit = scrapy.get("ratelimit", None)
     if not ratelimit:
@@ -217,12 +219,14 @@ def get_settings(config, spidername, logdir):
         DOWNLOAD_TIMEOUT=2 * 60,  # 2 minute timeout (in seconds)
         DOWNLOAD_MAXSIZE=0,
         RATELIMIT_PARAMS=ratelimit,
+        PACKAGE_FILES_ONLY=package_files_only,
         PACKAGE_FILES=package_files,
         STATSD_PARAMS=statsd,
         INFLUXDB_CLIENT=influxdb_client,
         GPLAY_PARAMS=gplay,
         DATABASE_PARAMS=database,
-        JANUS_PARAMS=janus
+        JANUS_PARAMS=janus,
+        RECURSIVE=recursive
     )
 
     if telnet_user:

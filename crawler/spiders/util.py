@@ -8,26 +8,33 @@ class PackageListSpider(scrapy.Spider):
     """
     A superclass that starts with feeding the URL list with packages from (1) a file list and (2) the packages in the database
     """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.package_files_only = False
+        self.recursive = self.crawler.settings.get("RECURSIVE", False)
+
     def start_requests(self):
-        # read from packages database table
-        params = self.settings.get("DATABASE_PARAMS")
-        engine, _ = _engine_from_params(params)
+        self.package_files_only = self.settings.get("PACKAGE_FILES_ONLY", False)
 
-        market = market_from_spider(self)
-        qry = f"SELECT distinct pkg_name FROM packages WHERE pkg_name is not null and pkg_name != '' AND market = '{market}'"
-        try:
-            with engine.connect() as con:
-                res = con.execute(qry)
-        finally:
-            engine.dispose()
+        # re-crawl packages from database
+        if not self.package_files_only:
+            params = self.settings.get("DATABASE_PARAMS")
+            engine, _ = _engine_from_params(params)
 
-        rows = res.fetchall()
+            market = market_from_spider(self)
+            qry = f"SELECT distinct pkg_name FROM packages WHERE pkg_name is not null and pkg_name != '' AND market = '{market}'"
+            try:
+                with engine.connect() as con:
+                    res = con.execute(qry)
+            finally:
+                engine.dispose()
 
-        # read from database
-        for row in rows:
-            url = self.url_by_package(row.pkg_name.strip())
-            meta = {'dont_redirect': True}
-            yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+            rows = res.fetchall()
+            for row in rows:
+                url = self.url_by_package(row.pkg_name.strip())
+                meta = {'dont_redirect': True}
+                yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
 
         # read from package files
         pkg_files = self.settings.get("PACKAGE_FILES", [])
@@ -41,7 +48,13 @@ class PackageListSpider(scrapy.Spider):
                     yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
                     line = f.readline()
 
-        return True
+        # crawl the store as usual
+        if not self.package_files_only:
+            for req in self.base_requests():
+                yield req
+
+    def base_requests(self):
+        raise NotImplementedError()
 
     def parse(self, response):
         raise NotImplementedError()

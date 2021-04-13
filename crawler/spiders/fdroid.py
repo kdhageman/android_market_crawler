@@ -13,7 +13,9 @@ class FDroidSpider(PackageListSpider):
     def start_requests(self):
         for req in super().start_requests():
             yield req
-        yield scrapy.Request('https://f-droid.org/en/packages/', self.parse)
+
+    def base_requests(self):
+        return [scrapy.Request('https://f-droid.org/en/packages/', self.parse)]
 
     def url_by_package(self, pkg):
         return f"https://f-droid.org/en/packages/{pkg}/"

@@ -13,7 +13,9 @@ class MiSpider(PackageListSpider):
     def start_requests(self):
         for req in super().start_requests():
             yield req
-        yield scrapy.Request('http://app.mi.com/', self.parse)
+
+    def base_requests(self):
+        return [scrapy.Request('http://app.mi.com/', self.parse)]
 
     def url_by_package(self, pkg):
         return f"http://app.mi.com/details?id={pkg}"

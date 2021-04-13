@@ -247,7 +247,9 @@ class GooglePlaySpider(PackageListSpider):
     def start_requests(self):
         for req in super().start_requests():
             yield req
-        yield scrapy.Request('https://play.google.com/store/apps', self.parse)
+
+    def base_requests(self):
+        return [scrapy.Request('https://play.google.com/store/apps', self.parse)]
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"
@@ -332,18 +334,20 @@ class GooglePlaySpider(PackageListSpider):
             req = self._craft_details_req(pkg)
             res.append(req)
 
-        # visit page of each package
-        for pkg in packages:
-            full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
-            res.append(req)
+        # only search for apps recursively if enabled
+        if self.recursive:
+            # visit page of each package
+            for pkg in packages:
+                full_url = f"https://play.google.com/store/apps/details?id={pkg}"
+                req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+                res.append(req)
 
-        # similar apps
-        similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
-        if similar_link:
-            full_url = response.urljoin(similar_link)
-            req = scrapy.Request(full_url, callback=self.parse_similar_apps)
-            res.append(req)
+            # similar apps
+            similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
+            if similar_link:
+                full_url = response.urljoin(similar_link)
+                req = scrapy.Request(full_url, callback=self.parse_similar_apps)
+                res.append(req)
 
         return res
 
