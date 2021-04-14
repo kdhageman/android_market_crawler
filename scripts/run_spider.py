@@ -217,7 +217,7 @@ def get_settings(config, spidername, logdir):
         DOWNLOAD_WARNSIZE=0,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
-        DOWNLOAD_TIMEOUT=2 * 60,  # 2 minute timeout (in seconds)
+        DOWNLOAD_TIMEOUT=5,
         DOWNLOAD_MAXSIZE=0,
         RATELIMIT_PARAMS=ratelimit,
         PACKAGE_FILES_ONLY=package_files_only,
