@@ -57,7 +57,7 @@ class ProxyPool:
         for until in self.proxies.values():
             if not earliest_available or (until and until < earliest_available):
                 earliest_available = until
-        return earliest_available - datetime.now()
+        return (earliest_available - datetime.now()).total_seconds()
 
     def _get_proxy(self):
         """
