@@ -72,6 +72,9 @@ class ProxyPool:
         """
         Returns a valid proxy
         """
+        if len(self.proxies) == 0:
+            return None
+
         proxy = None
         while not proxy:
             proxy, waittime = self._get_proxy()
@@ -86,6 +89,8 @@ class ProxyPool:
         """
         try:
             proxy = self.get_proxy()
+            if not proxy:
+                raise NoProxiesError
             full_url = f"http://{proxy}"
             return {
                 "http": full_url,
