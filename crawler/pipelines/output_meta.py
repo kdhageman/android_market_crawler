@@ -33,9 +33,6 @@ class WriteMetaFilePipeline:
             item: dict of download URLs and store meta data
             spider: spider that crawled the market
         """
-        if not isinstance(item, Result):
-            return item
-
         meta_dir = get_directory(item['meta'], spider)
         fpath = os.path.join(self.outdir, meta_dir, FNAME)
 
@@ -59,9 +56,6 @@ class StorePipeline:
         self.store = Store(**params)
 
     def process_item(self, item, spider):
-        if not isinstance(item, Result):
-            return item
-
         try:
             self.store.store_result(item)
         except Exception as e:

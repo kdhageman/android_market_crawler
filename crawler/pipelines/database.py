@@ -127,9 +127,6 @@ class PostDownloadPackagePipeline(DatabasePipeline):
         return cls(crawler)
 
     def process_item(self, item, spider):
-        if not isinstance(item, Result):
-            return item
-
         self.create_package(item)
 
         return item
@@ -178,9 +175,6 @@ class PreDownloadVersionPipeline(DatabasePipeline):
         return cls(crawler)
 
     def process_item(self, item, spider):
-        if not isinstance(item, Result):
-            return item
-
         meta = item.get("meta", {})
         versions = item.get("versions", {})
 
@@ -249,11 +243,9 @@ class PostDownloadPipeline(DatabasePipeline):
         return cls(crawler)
 
     def process_item(self, item, spider):
-        if not isinstance(item, Result):
-            return item
-
         meta = item.get("meta", {})
         versions = item.get("versions", {})
+        store_item = {'meta': meta, 'versions': versions}
 
         pkg_name = meta.get("pkg_name")
         identifier = meta.get("id")
@@ -281,7 +273,7 @@ class PostDownloadPipeline(DatabasePipeline):
                     self.create_sha(sha, path)
 
             # create version in database
-            jsonstr = json.dumps(dict(item))
+            jsonstr = json.dumps(store_item)
             self.create_version(pkg_name, identifier, version, market, sha, ts, jsonstr)
         return item
 

@@ -35,9 +35,6 @@ class AdsPipeline:
         - http://whisperarts.com/app-ads.txt (successful)
         - https://example.org/app-ads.txt (404 not found)
         """
-        # TODO: test this implementation!
-        if not isinstance(item, Result):
-            return item
 
         developer_website = item.get("meta", {}).get("developer_website", "")
         if not developer_website:

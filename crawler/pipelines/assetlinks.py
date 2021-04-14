@@ -32,8 +32,6 @@ class AssetLinksPipeline:
         - https://example.org/.well-known/assetlinks.json (404 not found)
         - https://{domain}/.well-known/assetlinks.json (wrong response type) # TODO: find an example link that returns the wrong response type
         """
-        if not isinstance(item, Result):
-            return item
 
         for version, dat in item['versions'].items():
             for domain in dat.get("analysis", {}).get("assetlink_domains", {}):

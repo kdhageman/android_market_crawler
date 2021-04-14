@@ -14,7 +14,6 @@ def report_endtime(request, spider, exception=None):
 class DurationMiddleware:
     def process_request(self, request, spider):
         request.meta['__request_start_time'] = datetime.now()
-        return request
 
     def process_response(self, request, response, spider):
         report_endtime(request, spider)

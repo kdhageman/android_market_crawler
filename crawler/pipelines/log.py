@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 
 class LogPipeline:
@@ -8,6 +9,7 @@ class LogPipeline:
         if start_time:
             elapsed = datetime.now() - start_time
             spider.logger.info(f"processed '{pkg_name}' in {elapsed}")
+            del item['__pkg_start_time']
         else:
             spider.logger.info(f"processed '{pkg_name}'")
         return item

@@ -31,9 +31,6 @@ class AnalyzeApkPipeline:
         """
         Will perform an analysis on the APK defined in the filepath
         """
-        if not isinstance(item, Result):
-            return item
-
         meta = item['meta']
 
         for version, dat in item['versions'].items():

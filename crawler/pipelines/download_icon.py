@@ -30,9 +30,6 @@ class DownloadIconPipeline(FilesPipeline):
         return os.path.join(dir, fname)
 
     def get_media_requests(self, item, info):
-        if not isinstance(item, Result):
-            return
-
         icon_url = item['meta'].get('icon_url', None)
         if icon_url:
             yield scrapy.Request(icon_url, meta={'meta': item['meta']}, priority=100)

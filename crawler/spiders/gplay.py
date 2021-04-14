@@ -130,10 +130,6 @@ class NotLoggedInError(Exception):
 
 
 class GooglePlaySpider(PackageListSpider):
-    """
-    This Spider returns spider.tem.PackageName instead of meta data and versions
-    """
-
     name = "googleplay_spider"
 
     def __init__(self, crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=1):

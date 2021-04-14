@@ -42,9 +42,6 @@ class DownloadApksPipeline(FilesPipeline):
         return os.path.join(dir, fname)
 
     def get_media_requests(self, item, info):
-        if not isinstance(item, Result):
-            return
-
         pkg_name = item['meta']['pkg_name']
 
         for version, values in item['versions'].items():

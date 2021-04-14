@@ -25,9 +25,6 @@ class PrivacyPolicyPipeline:
 
     @defer.inlineCallbacks
     def process_item(self, item, spider):
-        if not isinstance(item, Result):
-            return item
-
         privacy_policy_url = item['meta'].get("privacy_policy_url", "")
 
         if privacy_policy_url:
