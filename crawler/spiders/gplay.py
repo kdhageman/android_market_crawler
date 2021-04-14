@@ -94,11 +94,6 @@ def parse_details(details):
     return meta, versions
 
 
-class ApiUnavailableError(Exception):
-    def __init__(self):
-        super().__init__("API is unavailable, start the API first (check README)")
-
-
 class MissingCookieError(Exception):
     def __str__(self):
         return "response does not contain a cookie"
@@ -121,10 +116,6 @@ class RequestFailedError(Exception):
 
 
 class IncompatibleDeviceError(Exception):
-    pass
-
-
-class InputError(Exception):
     pass
 
 
@@ -336,8 +327,9 @@ class GooglePlaySpider(PackageListSpider):
             pkg = m.group(1)
             req = self._craft_details_req(pkg)
             req.meta['meta'] = {
-                    "icon_url": icon_url,
-                }
+                "icon_url": icon_url,
+            }
+            req.meta["__pkg_start_time"] = response.meta['__pkg_start_time']
             res.append(req)
 
         # only search for apps recursively if enabled
@@ -381,7 +373,12 @@ class GooglePlaySpider(PackageListSpider):
         offer_type = meta.get('offer_type', 1)
         for version, dat in versions.items():
             version_code = dat.get("code")
-            req = self._craft_purchase_req(pkg_name, version_code, offer_type, meta={'version': version, "meta": meta, "versions": versions})
+            req = self._craft_purchase_req(pkg_name, version_code, offer_type, meta={
+                'version': version,
+                "meta": meta,
+                "versions": versions,
+                '__pkg_start_time': response.meta['__pkg_start_time']
+            })
             res.append(req)
 
         return res
@@ -424,10 +421,11 @@ class GooglePlaySpider(PackageListSpider):
 
         self.pause(self.interval)
 
-        return Result(
-            meta=meta,
-            versions=versions
-        )
+        return {
+            '__pkg_start_time': response.meta['__pkg_start_time'],
+            'meta': meta,
+            'versions': versions,
+        }
 
     def parse_similar_apps(self, response):
         """

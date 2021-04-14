@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import scrapy
 
 from crawler.pipelines.database import _engine_from_params
@@ -17,6 +19,11 @@ class PackageListSpider(scrapy.Spider):
     def start_requests(self):
         self.package_files_only = self.settings.get("PACKAGE_FILES_ONLY", False)
 
+        meta = {
+            'dont_redirect': True,
+            '__pkg_start_time': datetime.now()
+        }
+
         # re-crawl packages from database
         if not self.package_files_only:
             params = self.settings.get("DATABASE_PARAMS")
@@ -33,7 +40,6 @@ class PackageListSpider(scrapy.Spider):
             rows = res.fetchall()
             for row in rows:
                 url = self.url_by_package(row.pkg_name.strip())
-                meta = {'dont_redirect': True}
                 yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
 
         # read from package files
@@ -44,7 +50,6 @@ class PackageListSpider(scrapy.Spider):
                 line = f.readline()
                 while line:
                     url = self.url_by_package(line.strip())
-                    meta = {'dont_redirect': True}
                     yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
                     line = f.readline()
 
