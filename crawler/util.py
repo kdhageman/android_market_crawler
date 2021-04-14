@@ -31,6 +31,7 @@ class ProxyPool:
         self.proxies = {}
         for proxy in proxies:
             self.proxies[proxy] = None
+        crawler.spider.logger.debug(f"initialized {len(proxies)} proxies")
 
     def available_proxies(self):
         """
