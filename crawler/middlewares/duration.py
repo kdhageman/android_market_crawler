@@ -2,7 +2,10 @@ from datetime import datetime
 
 
 def report_endtime(request, spider, exception=None):
-    start_time = request.meta['__request_start_time']
+    start_time = request.meta.get('__request_start_time', None)
+    if not start_time:
+        spider.logger.debug(f"Failed to find start time of request {request.url}")
+        return
     end_time = datetime.now()
     passed = end_time - start_time
     if exception:
