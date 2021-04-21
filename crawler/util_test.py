@@ -2,7 +2,7 @@ import random
 import time
 import unittest
 
-from crawler.util import ProxyPool, TestCrawler
+from crawler.util import BackoffProxyPool, TestCrawler
 
 
 class TestProxyPool(unittest.TestCase):
@@ -12,23 +12,23 @@ class TestProxyPool(unittest.TestCase):
             "proxy2"
         ]
         crawler = TestCrawler()
-        pp = ProxyPool(crawler, proxies)
+        pp = BackoffProxyPool(crawler, proxies)
 
-        available = pp.available_proxies()
+        available = pp._available_proxies()
         self.assertEqual(["proxy1", "proxy2"], available)
 
         pp.backoff("proxy1", milliseconds=10)
         pp.backoff("proxy2", milliseconds=20)
 
-        available = pp.available_proxies()
+        available = pp._available_proxies()
         self.assertEqual([], available)
 
         time.sleep(0.015)  # sleep 15 ms
-        available = pp.available_proxies()
+        available = pp._available_proxies()
         self.assertEqual(["proxy1"], available)
 
         time.sleep(0.01)  # sleep another 10 ms
-        available = pp.available_proxies()
+        available = pp._available_proxies()
         self.assertEqual(["proxy1", "proxy2"], available)
 
     def test_get_proxy(self):
@@ -37,7 +37,7 @@ class TestProxyPool(unittest.TestCase):
             "proxy2"
         ]
         crawler = TestCrawler()
-        pp = ProxyPool(crawler, proxies)
+        pp = BackoffProxyPool(crawler, proxies)
 
         # both should be seen
         expected_vals = ["proxy1", "proxy1", "proxy2"]

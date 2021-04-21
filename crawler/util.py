@@ -22,94 +22,95 @@ class NoProxiesError(Exception):
 def init_proxy_pool(crawler, proxies):
     global PROXY_POOL
     if not PROXY_POOL:
-        PROXY_POOL = ProxyPool(crawler, proxies)
+        PROXY_POOL = BackoffProxyPool(crawler, proxies)
 
 
-class ProxyPool:
+class BackoffProxyPool:
     def __init__(self, crawler, proxies):
         self.crawler = crawler
         self.proxies = {}
         for proxy in proxies:
             self.proxies[proxy] = None
+
+        self.use_proxies = len(proxies) > 0
+        self.non_proxy_until = datetime.now()
+
         crawler.spider.logger.debug(f"initialized {len(proxies)} proxies")
 
-    def available_proxies(self):
+    def _available_proxies(self):
         """
         Returns the list of proxies that is currently available
         """
-        if not self.proxies:
-            raise NoProxiesError
-
         res = []
-        for proxy, until in self.proxies.items():
-            if not until:
+
+        now = datetime.now()
+        for proxy, blocked_until in self.proxies.items():
+            if not blocked_until:
                 res.append(proxy)
-            elif datetime.now() >= until:
+            elif now >= blocked_until:
                 res.append(proxy)
                 self.proxies[proxy] = None
         return res
 
-    def time_until_next_available(self):
+    def _time_until_next_available(self):
         """
         Returns the time until the first proxy becomes available
         """
-        earliest_available = 0
-        for until in self.proxies.values():
-            if not earliest_available or (until and until < earliest_available):
-                earliest_available = until
-        return (earliest_available - datetime.now()).total_seconds()
+        if not self.use_proxies:
+            res = (self.non_proxy_until - datetime.now()).total_seconds()
+            res = max(res, 0)
+            return res
+        else:
+            earliest_available = None
+            for until in self.proxies.values():
+                if not earliest_available or (until and until < earliest_available):
+                    earliest_available = until
+            if not earliest_available:
+                return 0
+            res = (earliest_available - datetime.now()).total_seconds()
+            res = max(res, 0)
+            return res
 
-    def _get_proxy(self):
-        """
-        Returns a random proxy that is not rate limited
-        If none available, return the time until the next becomes available
-        """
-        available = self.available_proxies()
-        if available:
-            return choice(available), 0
-        return None, self.time_until_next_available()
-
-    def get_proxy(self):
-        """
-        Returns a valid proxy
-        """
-        if len(self.proxies) == 0:
-            return None
-
-        proxy = None
-        while not proxy:
-            proxy, waittime = self._get_proxy()
-
-            if not proxy:
-                self.pause(waittime)
-        return proxy
-
-    def get_proxy_as_dict(self):
-        """
-        Returns a proxy dictionary to be used by 'request' or 'treq' library
-        """
-        try:
-            proxy = self.get_proxy()
-            if not proxy:
-                raise NoProxiesError
-            full_url = f"http://{proxy}"
-            return {
-                "http": full_url,
-                "https": full_url
-            }
-        except NoProxiesError:
-            return {}
-
-    def pause(self, t):
+    def _pause(self, t):
         """
         Pause the crawler 't' seconds
         """
         try:
             self.crawler.engine.pause()
-
             time.sleep(t)
         finally:
             self.crawler.engine.unpause()
+
+    def get_proxy(self):
+        """
+        Returns a random proxy that is not rate limited
+        If none available, return the time until the next becomes available
+        """
+        wait_time = self._time_until_next_available()
+        if wait_time:
+            self.crawler.spider.logger.debug(f"backing off for {wait_time:.2f} seconds")
+        self._pause(wait_time)
+
+        if not self.use_proxies:
+            return {}
+        else:
+            available = self._available_proxies()
+            if available:
+                return choice(available)
+            return Exception("should never happen!")
+
+    def get_proxy_as_dict(self):
+        """
+        Returns a proxy dictionary to be used by 'request' or 'treq' library
+        """
+        proxy = self.get_proxy()
+        if not proxy:
+            return {}
+        full_url = f"http://{proxy}"
+        return {
+            "http": full_url,
+            "https": full_url
+        }
 
     def backoff(self, proxy, **kwargs):
         """
@@ -122,7 +123,10 @@ class ProxyPool:
 
         """
         until = datetime.now() + timedelta(**kwargs)
-        self.proxies[proxy] = until
+        if not proxy:
+            self.non_proxy_until = until
+        else:
+            self.proxies[proxy] = until
 
 
 def get_identifier(meta):

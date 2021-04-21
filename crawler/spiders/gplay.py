@@ -6,12 +6,12 @@ import numpy as np
 import requests
 import scrapy
 
-from crawler.item import Result
 from crawler.spiders.util import PackageListSpider, normalize_rating
 from protobuf.proto.googleplay_pb2 import ResponseWrapper
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
 
+_APP_LISTING_PAGE = 'https://play.google.com/store/apps'
 _SERVICE = "androidmarket"
 _URL_LOGIN = "https://android.clients.google.com/auth"
 _ACCOUNT_TYPE_GOOGLE = "GOOGLE"
@@ -236,7 +236,7 @@ class GooglePlaySpider(PackageListSpider):
             yield req
 
     def base_requests(self):
-        return [scrapy.Request('https://play.google.com/store/apps', self.parse)]
+        return [scrapy.Request(_APP_LISTING_PAGE, self.parse)]
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"
@@ -268,7 +268,8 @@ class GooglePlaySpider(PackageListSpider):
         body = f"ot={offer_type}&doc={requests.utils.quote(pkg_name)}&vc={version}"
         headers = self._get_headers(post_content_type="application/x-www-form-urlencoded; charset=UTF-8")
 
-        return scrapy.Request(url, method='POST', body=body, headers=headers, priority=20, callback=self.parse_api_purchase, meta=meta)
+        return scrapy.Request(url, method='POST', body=body, headers=headers, priority=20,
+                              callback=self.parse_api_purchase, meta=meta)
 
     def parse(self, response):
         """

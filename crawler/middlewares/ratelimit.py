@@ -26,7 +26,7 @@ class RatelimitMiddleware(RetryMiddleware):
         self.crawler = crawler
         self.default_backoff = default_backoff
         self.codes = codes
-        self.interval = interval
+        # self.interval = interval
 
         self.influxdb_client = influxdb_client
         self.reset_influxdb(crawler.spider)
@@ -60,7 +60,7 @@ class RatelimitMiddleware(RetryMiddleware):
 
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response
-        self.pause(self.interval)
+        # self.pause(self.interval)
         return response
 
     def pause(self, t):

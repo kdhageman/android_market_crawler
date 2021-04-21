@@ -5,8 +5,8 @@ import scrapy
 from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
-
 identifier_pattern = "http:\/\/www\.9game\.com\/(.*)\.html.*"
+
 
 class NineGameSpider(scrapy.Spider):
     name = "9game_spider"
@@ -43,7 +43,6 @@ class NineGameSpider(scrapy.Spider):
         icon_url = response.css("div.main-info div.pic img::attr(dataimg)").get()
         user_rating = response.css("span.rate::text").get()
         user_rating = normalize_rating(user_rating, 5)
-
 
         category = response.css("a.category::text").get().replace("\"", "", -1).strip()
         app_description = response.css("p.text").get()
