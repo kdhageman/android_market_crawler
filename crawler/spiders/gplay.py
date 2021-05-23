@@ -186,6 +186,11 @@ class GooglePlaySpider(PackageListSpider):
 
         master_login = gpsoauth.perform_master_login(email, password, self.android_id)
         err = master_login.get("Error", None)
+        if err == 'NeedsBrowser':
+            errdetail = master_login.get("ErrorDetail", None)
+            raise AuthFailedError(f"Failed display captcha: {err}: {errdetail}. "
+                                  f"To access your account, you must sign in on the web."
+                                  f"Follow this link: https://accounts.google.com/b/0/DisplayUnlockCaptcha")
         if err:
             errdetail = master_login.get("ErrorDetail", None)
             raise AuthFailedError(f"master login: {err}: {errdetail}")
