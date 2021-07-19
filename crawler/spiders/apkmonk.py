@@ -12,6 +12,13 @@ dl_url_tmpl = "https://www.apkmonk.com/down_file/?pkg=%s&key=%s"
 class ApkMonkSpider(PackageListSpider):
     name = "apkmonk_spider"
 
+    def __init__(self, crawler):
+        super().__init__(crawler=crawler)
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(crawler)
+
     def start_requests(self):
         for req in super().start_requests():
             yield req

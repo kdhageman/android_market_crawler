@@ -10,6 +10,13 @@ pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 class FDroidSpider(PackageListSpider):
     name = "fdroid_spider"
 
+    def __init__(self, crawler):
+        super().__init__(crawler=crawler)
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(crawler)
+
     def start_requests(self):
         for req in super().start_requests():
             yield req
