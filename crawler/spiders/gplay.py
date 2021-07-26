@@ -339,14 +339,14 @@ class GooglePlaySpider(PackageListSpider):
             # visit page of each package
             for pkg in packages:
                 full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-                req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+                req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
                 res.append(req)
 
             # similar apps
             similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
             if similar_link:
                 full_url = response.urljoin(similar_link)
-                req = scrapy.Request(full_url, callback=self.parse_similar_apps)
+                req = scrapy.Request(full_url, callback=self.parse_similar_apps, meta=response.meta)
                 res.append(req)
 
         return res
@@ -445,7 +445,7 @@ class GooglePlaySpider(PackageListSpider):
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            req = scrapy.Request(full_url, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
             res.append(req)
 
         return res
