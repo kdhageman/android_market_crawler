@@ -10,7 +10,7 @@ class TencentSpider(PackageListSpider):
     name = "tencent_spider"
 
     def __init__(self, crawler):
-        super().__init__(crawler=crawler)
+        super().__init__(crawler=crawler, settings=crawler.settings)
 
     @classmethod
     def from_crawler(cls, crawler):
