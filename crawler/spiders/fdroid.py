@@ -6,7 +6,6 @@ from crawler.spiders.util import PackageListSpider
 
 pkg_pattern = "https://f-droid\.org/en/packages/(.*)/"
 
-
 class FDroidSpider(PackageListSpider):
     name = "fdroid_spider"
 
@@ -73,6 +72,30 @@ class FDroidSpider(PackageListSpider):
             meta['pkg_name'] = m.group(1)
 
         versions = dict()
+
+        # get website
+        # TODO: this is ugly, improve!
+        developer_website = None
+        links = response.css("ul.package-links > .package-link > a")
+        for link in links:
+            text = link.css("a::text").get()
+            if text == 'Website':
+                developer_website = link.css("a::attr('href')").get()
+        meta['developer_website'] = developer_website
+
+        # get developer name + email address
+        developer_name = None
+        developer_email = None
+        developer_el = response.css("ul.package-links > div.package-link")
+        if developer_el:
+            matched_emails = developer_el.css("a::attr('href')").re("mailto:(.*)\?")
+            if matched_emails:
+                developer_email = matched_emails[0]
+            developer_texts = developer_el.css("::text").getall()
+            if len(developer_texts) == 3:
+                developer_name = developer_texts[1]
+        meta['developer_name'] = developer_name
+        meta['developer_email'] = developer_email
 
         package_versions = response.css("li.package-version")
         for pv in package_versions:
