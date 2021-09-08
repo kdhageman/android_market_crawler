@@ -70,15 +70,11 @@ class MiSpider(PackageListSpider):
             url=response.url
         )
 
-        m = re.search(pkg_pattern, response.url)
-        if m:
-            meta["pkg_name"] = m.group(1)
-
         intro_titles = response.css("div.app-info").css("div.intro-titles")
-        meta["app_name"] = intro_titles.css("h3::text").get()
-        meta["developer_name"] = intro_titles.css("p::text").get()
+        meta["app_name"] = intro_titles.css("h3::text").get().strip()
+        meta["developer_name"] = response.css("div.container.cf .float-right div[style*='float:right']::text")[1].get().strip()
         app_text = response.css("div.app-text")
-        meta["app_description"] = "\n".join(app_text.css("p")[0].css("::text").getall())
+        meta["app_description"] = "\n".join(app_text.css("p")[0].css("::text").getall()).strip()
         user_rating_css_class = response.css("div.star1-empty > div::attr(class)").re("star1-hover (.*)")[0]
         user_rating = get_rating_from_css_class(user_rating_css_class)
         meta["user_rating"] = user_rating
@@ -90,10 +86,12 @@ class MiSpider(PackageListSpider):
 
         # find download link
         versions=dict()
-        details = response.css("div.details ul.cf li:not(.weight-font)::text").getall()
-        version, date = details[1:3]
+        details = response.css("div.container.cf .float-left div[style*='float:right']::text").getall()
+        version, date, pkg_name = [e.strip() for e in details[1:4]]
         dl_link = response.css("a.download::attr(href)").get()
-        full_url = response.urljoin(dl_link)
+        full_url = response.urljoin(dl_link) if dl_link != 'javascript:void(0)' else None
+
+        meta["pkg_name"] = pkg_name
 
         versions[version] = dict(
             timestamp=date,
