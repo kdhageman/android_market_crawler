@@ -6,6 +6,7 @@ from crawler.item import Result
 from crawler.spiders.util import normalize_rating, PackageListSpider
 
 
+# TODO: handle redirects to "https://a.app.qq.com/error_pages/noApp.jsp" that will fail parsing apps
 class TencentSpider(PackageListSpider):
     name = "tencent_spider"
 
