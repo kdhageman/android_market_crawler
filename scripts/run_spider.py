@@ -284,7 +284,6 @@ if __name__ == "__main__":
 
     logging.getLogger('scrapy.core.scraper').addFilter(ItemMessageFilter())
 
-
     # parse CLI arguments
     parser = argparse.ArgumentParser(description='Android APK market crawler')
     parser.add_argument("--configs", help="Path to YAML configuration files", nargs="+",
