@@ -9,7 +9,7 @@ try:
 except ImportError:
     from io import BytesIO
 
-from crawler.util import get_directory, sha256
+from crawler.util import get_directory, sha256, get_identifier
 
 
 class DownloadApksPipeline(FilesPipeline):
@@ -42,7 +42,7 @@ class DownloadApksPipeline(FilesPipeline):
         return os.path.join(dir, fname)
 
     def get_media_requests(self, item, info):
-        pkg_name = item['meta']['pkg_name']
+        identifier = get_identifier(item['meta'])
 
         for version, values in item['versions'].items():
             if values.get("skip", False):
@@ -52,17 +52,17 @@ class DownloadApksPipeline(FilesPipeline):
             headers = values.get("headers", None)
             cookies = values.get("cookies", None)
             if download_url:
-                info.spider.logger.debug(f"scheduling download for '{pkg_name}' from '{download_url}'")
+                info.spider.logger.debug(f"scheduling download for '{identifier}' from '{download_url}'")
                 yield scrapy.Request(download_url, headers=headers, cookies=cookies, meta={'meta': item['meta'], 'version': version}, priority=100)
 
     def item_completed(self, results, item, info):
-        pkg_name = item['meta']['pkg_name']
+        identifier = get_identifier(item['meta'])
 
         if len(results) == 0:
-            info.spider.logger.debug(f"had no APKs to download for '{pkg_name}'")
+            info.spider.logger.debug(f"had no APKs to download for '{identifier}'")
             return item
 
-        info.spider.logger.debug(f"finished APK downloading for '{pkg_name}'")
+        info.spider.logger.debug(f"finished APK downloading for '{identifier}'")
         versions = item.get("versions", {})
         versions_list = list(versions.items())
 
@@ -85,7 +85,7 @@ class DownloadApksPipeline(FilesPipeline):
                 values['file_size'] = os.path.getsize(dst_path)
                 values['file_sha256'] = digest
             else:
-                info.spider.logger.debug(f"failed to download APK for '{pkg_name}'")
+                info.spider.logger.debug(f"failed to download APK for '{identifier}'")
             item['versions'][version] = values
 
         return item

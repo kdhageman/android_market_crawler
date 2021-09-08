@@ -208,7 +208,7 @@ class PreDownloadVersionPipeline(DatabasePipeline):
         In case of multiple entries in the database, use the most recent information
         """
         qry = text(
-            f"SELECT sha256, meta FROM {_version_table} WHERE (pkg_name = :pkg_name OR id = :identifier) AND version = :version and market = :market ORDER BY timestamp DESC")
+            f"SELECT sha256, meta FROM {_version_table} WHERE (pkg_name = :pkg_name OR market_id = :identifier) AND version = :version and market = :market ORDER BY timestamp DESC")
         vals = dict(
             pkg_name=pkg_name,
             identifier=identifier,
