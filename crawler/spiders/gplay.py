@@ -19,10 +19,51 @@ _ACCOUNT_TYPE_HOSTED = "HOSTED"
 _ACCOUNT_TYPE_HOSTED_OR_GOOGLE = "HOSTED_OR_GOOGLE"
 _GOOGLE_LOGIN_APP = 'com.android.vending'
 _GOOGLE_LOGIN_CLIENT_SIG = '321187995bc7cdc2b5fc91b11a96e2baa8602c62'
-_USERAGENT_SEARCH = "Android-Finsky/8.0.0 (api=3,versionCode=8016014,sdk=26,device=sailfish,hardware=sailfish,product=sailfish)"
 _USERAGENT_DOWNLOAD = "AndroidDownloadManager/6.0 (Linux; U; Android 8.0.0; Pixel Build/OPR3.170623.013)"
 _INCOMPATIBLE_DEVICE_MSG = "Your device is not compatible with this item."
-
+_DFE_TARGETS = "CAEScFfqlIEG6gUYogFWrAISK1WDAg+hAZoCDgIU1gYEOIACFkLMAeQBnASLATlASUuyAyqCAjY5igOMBQzfA" \
+               "/IClwFbApUC4ANbtgKVAS7OAX8YswHFBhgDwAOPAmGEBt4OfKkB5weSB5AFASkiN68akgMaxAMSAQEBA9kBO7" \
+               "UBFE1KVwIDBGs3go6BBgEBAgMECQgJAQIEAQMEAQMBBQEBBAUEFQYCBgUEAwMBDwIBAgOrARwBEwMEAg0mrwE" \
+               "SfTEcAQEKG4EBMxghChMBDwYGASI3hAEODEwXCVh/EREZA4sBYwEdFAgIIwkQcGQRDzQ2fTC2AjfVAQIBAYoB" \
+               "GRg2FhYFBwEqNzACJShzFFblAo0CFxpFNBzaAd0DHjIRI4sBJZcBPdwBCQGhAUd2A7kBLBVPngEECHl0UEUMt" \
+               "QETigHMAgUFCc0BBUUlTywdHDgBiAJ+vgKhAU0uAcYCAWQ/5ALUAw1UwQHUBpIBCdQDhgL4AY4CBQICjARbGF" \
+               "BGWzA1CAEMOQH+BRAOCAZywAIDyQZ2MgM3BxsoAgUEBwcHFia3AgcGTBwHBYwBAlcBggFxSGgIrAEEBw4QEqU" \
+               "CASsWadsHCgUCBQMD7QICA3tXCUw7ugJZAwGyAUwpIwM5AwkDBQMJA5sBCw8BNxBVVBwVKhebARkBAwsQEAgE" \
+               "AhESAgQJEBCZATMdzgEBBwG8AQQYKSMUkAEDAwY/CTs4/wEaAUt1AwEDAQUBAgIEAwYEDx1dB2wGeBFgTQ "
+_version_string = "0.0.2"
+_version_code = "16"
+_sdk = "29"
+_device = "OnePlus6"
+_hardware = "qcom"
+_product = "OnePlus6"
+_platform_v = "10"
+_model = "ONEPLUS A6003"
+_build_id = "QQ3A.200805.001"
+_supported_abis = "arm64-v8a,armeabi-v7a,armeabi"
+_USERAGENT_SEARCH = "Android-Finsky/{version_string} (" + \
+                    "api=3" + \
+                    ",versionCode={version_code}" + \
+                    ",sdk={sdk}" + \
+                    ",device={device}" + \
+                    ",hardware={hardware}" + \
+                    ",product={product}" + \
+                    ",platformVersionRelease={platform_v}" + \
+                    ",model={model}" + \
+                    ",buildId={build_id}" + \
+                    ",isWideScreen=0" + \
+                    ",supportedAbis={supported_abis}" + \
+                    ")".format(
+                        _version_string=_version_string,
+                        _version_code=_version_code,
+                        _sdk=_sdk,
+                        _device=_device,
+                        _hardware=_hardware,
+                        _product=_product,
+                        _platform_v=_platform_v,
+                        _model=_model,
+                        _build_id=_build_id,
+                        _supported_abis_=_supported_abis.replace(",", ";")
+                    )
 
 def parse_details(details):
     """
@@ -151,7 +192,7 @@ class GooglePlaySpider(PackageListSpider):
         accounts_db_path = params.get("accounts_db_path")
         accounts = params.get("accounts")
 
-        return cls(crawler, android_id, accounts_db_path, accounts, interval=interval)
+        return cls(crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=interval)
 
     # Methods for interacting with Google Play API
 
@@ -195,12 +236,15 @@ class GooglePlaySpider(PackageListSpider):
             errdetail = master_login.get("ErrorDetail", None)
             raise AuthFailedError(f"master login: {err}: {errdetail}")
         oauth_login = gpsoauth.perform_oauth(
-            email,
-            master_login.get('Token', ''),
-            self.android_id,
-            _SERVICE,
-            _GOOGLE_LOGIN_APP,
-            _GOOGLE_LOGIN_CLIENT_SIG
+            email=email,
+            master_token=master_login.get('Token', ''),
+            android_id=self.android_id,
+            service=_SERVICE,
+            app=_GOOGLE_LOGIN_APP,
+            client_sig=_GOOGLE_LOGIN_CLIENT_SIG,
+            device_country='dk',
+            operator_country='us',
+            sdk_version=_sdk
         )
         err = oauth_login.get("Error", None)
         if err:
@@ -218,17 +262,25 @@ class GooglePlaySpider(PackageListSpider):
         ast = np.random.choice(self.auth_sub_tokens)
 
         res = {
-            "Accept-Language": self.lang,
-            "Authorization": f"GoogleLogin auth={ast}",
-            "X-DFE-Enabled-Experiments": "cl:billing.select_add_instrument_by_default",
-            "X-DFE-Unsupported-Experiments": "nocache:billing.use_charging_poller,market_emails,buyer_currency,prod_baseline,checkin.set_asset_paid_app_field,shekel_test,content_ratings,buyer_currency_in_app,nocache:encrypted_apk,recent_changes",
-            "X-DFE-Device-Id": self.android_id,
-            "X-DFE-Client-Id": "am-android-google",
-            "User-Agent": _USERAGENT_SEARCH,
-            "X-DFE-SmallestScreenWidthDp": "335",
-            "X-DFE-Filter-Level": "3",
-            "Accept-Encoding": "",
-            "Host": "android.clients.google.com"
+            "Accept-Language": self.lang.replace("_", "-"),  # Y
+            "Authorization": f"GoogleLogin auth={ast}",  # Y
+            "X-DFE-Device-Id": self.android_id,  # Y
+            "X-DFE-Client-Id": "am-android-google",  # Y
+            "User-Agent": _USERAGENT_SEARCH,  # Y
+            "X-DFE-Enabled-Experiments": "cl:billing.select_add_instrument_by_default",  # maybe
+            "X-DFE-Unsupported-Experiments": "nocache:billing.use_charging_poller,market_emails,buyer_currency,prod_baseline,checkin.set_asset_paid_app_field,shekel_test,content_ratings,buyer_currency_in_app,nocache:encrypted_apk,recent_changes", # maybe
+            "X-DFE-SmallestScreenWidthDp": "320",  # maybe
+            "X-DFE-Filter-Level": "3",  # maybe
+            # "Accept-Encoding": "", # N
+            # "Host": "android.clients.google.com", # N
+            "X-DFE-Encoded-Targets": _DFE_TARGETS,
+            "X-DFE-MCCMNC": 310260,  # from NExus 5X (api27) ???
+            "X-DFE-Network-Type": "4",
+            "X-DFE-Content-Filters": "",
+            "X-DFE-Request-Params": "timeoutMs=4000",
+            # "X-DFE-Device-Config-Token": self.device_config_token, # M
+            # "X-DFE-Device-Checkin-Consistency-Token": self.deviceCheckinConsistencyToken, # M
+            # "X-DFE-Cookie": self.dfeCookie, # M
         }
         if post_content_type:
             res["Content-Type"] = post_content_type
@@ -240,8 +292,8 @@ class GooglePlaySpider(PackageListSpider):
         for req in super().start_requests():
             yield req
 
-    def base_requests(self):
-        return [scrapy.Request(_APP_LISTING_PAGE, self.parse)]
+    def base_requests(self, meta={}):
+        return [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, meta=meta)]
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"

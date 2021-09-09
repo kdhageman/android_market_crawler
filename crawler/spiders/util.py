@@ -55,10 +55,10 @@ class PackageListSpider(scrapy.Spider):
 
         # crawl the store as usual
         if not self.package_files_only:
-            for req in self.base_requests():
+            for req in self.base_requests(meta=meta):
                 yield req
 
-    def base_requests(self):
+    def base_requests(self, meta={}):
         raise NotImplementedError()
 
     def parse(self, response):
