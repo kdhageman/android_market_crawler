@@ -1,3 +1,4 @@
+import concurrent.futures
 import re
 import time
 
@@ -5,6 +6,7 @@ import gpsoauth
 import numpy as np
 import requests
 import scrapy
+import sqlite3
 
 from crawler.spiders.util import PackageListSpider, normalize_rating
 from protobuf.proto.googleplay_pb2 import ResponseWrapper
@@ -129,6 +131,31 @@ class NotLoggedInError(Exception):
         return "must login before performing action"
 
 
+class AuthDb:
+    def __init__(self, path):
+        self.conn = sqlite3.connect(path)
+        cur = self.conn.cursor()
+        cur.execute("CREATE TABLE IF NOT EXISTS logins (email TEXT, ast TEXT)")
+
+    def get_ast(self, email):
+        cur = self.conn.cursor()
+        qry = f"SELECT ast FROM logins WHERE email = :email"
+        cur.execute(qry, {"email": email})
+        return cur.fetchone()
+
+    def create_ast(self, email, ast):
+        cur = self.conn.cursor()
+        # remove all
+        qry = "DELETE FROM logins WHERE email = :email"
+        cur.execute(qry, {"email": email})
+
+        # insert new
+        qry = "INSERT INTO logins VALUES (:email, :ast)"
+        cur.execute(qry, {"email": email, "ast": ast})
+
+        self.conn.commit()
+
+
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
@@ -160,20 +187,24 @@ class GooglePlaySpider(PackageListSpider):
         Returns: the sub auth tokens for a given set of accounts.
         Fetches the sub auth tokens from a local sqlite3 database
         """
-        # TODO: fetch existing ASTs from database
         self.logger.debug("getting auth sub tokens")
+
+        auth_db = AuthDb(db_path)
 
         res = []
         for account in accounts:
             email = account['email']
             password = account['password']
-            try:
-                ast = self.login(email, password)
-                res.append(ast)
-                # TODO: insert ast in database
-            except (CredsError, AuthFailedError) as e:
-                self.logger.warn(f"failed to login Google Play user '{email}': {e}")
 
+            ast = auth_db.get_ast(email)
+            if not ast:
+                try:
+                    ast = self.login(email, password)
+                    auth_db.create_ast(email, ast)
+                except (CredsError, AuthFailedError) as e:
+                    self.logger.warn(f"failed to login Google Play user '{email}': {e}")
+                    continue
+            res.append(ast)
         self.logger.debug(f"logged in {len(res)} / {len(accounts)} accounts")
         return res
 
