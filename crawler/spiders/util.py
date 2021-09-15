@@ -1,3 +1,4 @@
+import struct
 from datetime import datetime
 
 import scrapy
@@ -116,3 +117,15 @@ def normalize_rating(rating, maxval):
         # rating is not a float value
         return -1
 
+
+def read_int(byte_array, start):
+    return struct.unpack("!L", byte_array[start:][0:4])[0]
+
+
+def to_big_int(byte_array):
+    array = byte_array[::-1]  # reverse array
+    out = 0
+    for key, value in enumerate(array):
+        decoded = struct.unpack("B", bytes([value]))[0]
+        out = out | decoded << key * 8
+    return out

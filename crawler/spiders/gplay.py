@@ -1,12 +1,21 @@
 import re
 import time
+from base64 import b64decode, urlsafe_b64encode
 
-import gpsoauth
 import numpy as np
 import requests
 import scrapy
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+from cryptography.hazmat.primitives.serialization import load_der_public_key
 
-from crawler.spiders.util import PackageListSpider, normalize_rating
+import ssl
+from urllib3.poolmanager import PoolManager
+from urllib3.util import ssl_
+
+from crawler.spiders.util import PackageListSpider, normalize_rating, read_int, to_big_int
 from protobuf.proto.googleplay_pb2 import ResponseWrapper
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
@@ -14,13 +23,14 @@ pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
 _APP_LISTING_PAGE = 'https://play.google.com/store/apps'
 _SERVICE = "androidmarket"
 _URL_LOGIN = "https://android.clients.google.com/auth"
-_ACCOUNT_TYPE_GOOGLE = "GOOGLE"
-_ACCOUNT_TYPE_HOSTED = "HOSTED"
 _ACCOUNT_TYPE_HOSTED_OR_GOOGLE = "HOSTED_OR_GOOGLE"
 _GOOGLE_LOGIN_APP = 'com.android.vending'
 _GOOGLE_LOGIN_CLIENT_SIG = '321187995bc7cdc2b5fc91b11a96e2baa8602c62'
 _USERAGENT_DOWNLOAD = "AndroidDownloadManager/6.0 (Linux; U; Android 8.0.0; Pixel Build/OPR3.170623.013)"
 _INCOMPATIBLE_DEVICE_MSG = "Your device is not compatible with this item."
+_GOOGLE_PUBKEY = "AAAAgMom/1a/v0lblO2Ubrt60J2gcuXSljGFQXgcyZWveWLEwo6prwgi3iJIZdodyhKZQrNWp5nKJ3srRXc" \
+                 "UW+F1BD3baEVGcmEgqaLZUNBjm057pKRI16kB0YppeGx5qIQ5QjKzsR8ETQbKLNWgRY0QRNVz34kMJR3P/L" \
+                 "gHax/6rmf5AAAAAwEAAQ=="
 _DFE_TARGETS = "CAEScFfqlIEG6gUYogFWrAISK1WDAg+hAZoCDgIU1gYEOIACFkLMAeQBnASLATlASUuyAyqCAjY5igOMBQzfA" \
                "/IClwFbApUC4ANbtgKVAS7OAX8YswHFBhgDwAOPAmGEBt4OfKkB5weSB5AFASkiN68akgMaxAMSAQEBA9kBO7" \
                "UBFE1KVwIDBGs3go6BBgEBAgMECQgJAQIEAQMEAQMBBQEBBAUEFQYCBgUEAwMBDwIBAgOrARwBEwMEAg0mrwE" \
@@ -40,6 +50,8 @@ _platform_v = "10"
 _model = "ONEPLUS A6003"
 _build_id = "QQ3A.200805.001"
 _supported_abis = "arm64-v8a,armeabi-v7a,armeabi"
+_gsf_version = "203315024"
+_locale = "en_US"
 _USERAGENT_SEARCH = "Android-Finsky/{version_string} (" + \
                     "api=3" + \
                     ",versionCode={version_code}" + \
@@ -64,6 +76,7 @@ _USERAGENT_SEARCH = "Android-Finsky/{version_string} (" + \
                         _build_id=_build_id,
                         _supported_abis_=_supported_abis.replace(",", ";")
                     )
+
 
 def parse_details(details):
     """
@@ -170,16 +183,41 @@ class NotLoggedInError(Exception):
         return "must login before performing action"
 
 
+class SSLContext(ssl.SSLContext):
+    def set_alpn_protocols(self, protocols):
+        """
+        ALPN headers cause Google to return 403 Bad Authentication.
+        """
+        pass
+
+
+class AuthHTTPAdapter(requests.adapters.HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        """
+        Secure settings from ssl.create_default_context(), but without
+        ssl.OP_NO_TICKET which causes Google to return 403 Bad
+        Authentication.
+        """
+        context = SSLContext()
+        context.set_ciphers(ssl_.DEFAULT_CIPHERS)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.options &= ~ssl_.OP_NO_TICKET
+        self.poolmanager = PoolManager(*args, ssl_context=context, **kwargs)
+
+
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
     def __init__(self, crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
+        self.session = requests.session()
+        self.session.mount('https://', AuthHTTPAdapter())
 
         self.android_id = android_id
         self.interval = interval
         self.lang = lang
         self.auth_sub_tokens = self.get_auth_sub_tokens(accounts_db_path, accounts)
+
         if len(self.auth_sub_tokens) == 0:
             raise NotLoggedInError
 
@@ -224,36 +262,21 @@ class GooglePlaySpider(PackageListSpider):
         """
         if not (email and password):
             raise CredsError
+        encrypted_password = encrypt_password(email, password).decode('utf-8')
+        params = get_login_params(email, encrypted_password)
+        params['service'] = 'ac2dm'
+        params['add_account'] = '1'
+        params['callerPkg'] = 'com.google.android.gms'
+        headers = get_auth_headers()
+        headers['app'] = 'com.google.android.gsm'
+        resp = self.session.post(_URL_LOGIN, data=params)
 
-        master_login = gpsoauth.perform_master_login(email, password, self.android_id)
-        err = master_login.get("Error", None)
-        if err == 'NeedsBrowser':
-            errdetail = master_login.get("ErrorDetail", None)
-            raise AuthFailedError(f"Failed display captcha: {err}: {errdetail}. "
-                                  f"To access your account, you must sign in on the web."
-                                  f"Follow this link: https://accounts.google.com/b/0/DisplayUnlockCaptcha")
-        if err:
-            errdetail = master_login.get("ErrorDetail", None)
-            raise AuthFailedError(f"master login: {err}: {errdetail}")
-        oauth_login = gpsoauth.perform_oauth(
-            email=email,
-            master_token=master_login.get('Token', ''),
-            android_id=self.android_id,
-            service=_SERVICE,
-            app=_GOOGLE_LOGIN_APP,
-            client_sig=_GOOGLE_LOGIN_CLIENT_SIG,
-            device_country='dk',
-            operator_country='us',
-            sdk_version=_sdk
-        )
-        err = oauth_login.get("Error", None)
-        if err:
-            errdetail = master_login.get("ErrorDetail", None)
-            raise AuthFailedError(f"oauth login: {err}: {errdetail}")
-        ast = oauth_login.get('Auth', None)
-        if not ast:
-            raise AuthFailedError("'Auth' is missing in oauth response")
-        return ast
+        if resp.status_code == 403:
+            err_splitted = {n.split("=")[0]:"=".join(n.split("=")[1:]) for n in resp.text.split("\n")}
+            if err_splitted['Error'] == "NeedsBrowser":
+                raise AuthFailedError(f"To access your account, you must sign in on the web. Follow this link: https://accounts.google.com/b/0/DisplayUnlockCaptcha")
+
+        return None
 
     def _get_headers(self, post_content_type=None):
         """
@@ -268,7 +291,8 @@ class GooglePlaySpider(PackageListSpider):
             "X-DFE-Client-Id": "am-android-google",  # Y
             "User-Agent": _USERAGENT_SEARCH,  # Y
             "X-DFE-Enabled-Experiments": "cl:billing.select_add_instrument_by_default",  # maybe
-            "X-DFE-Unsupported-Experiments": "nocache:billing.use_charging_poller,market_emails,buyer_currency,prod_baseline,checkin.set_asset_paid_app_field,shekel_test,content_ratings,buyer_currency_in_app,nocache:encrypted_apk,recent_changes", # maybe
+            "X-DFE-Unsupported-Experiments": "nocache:billing.use_charging_poller,market_emails,buyer_currency,prod_baseline,checkin.set_asset_paid_app_field,shekel_test,content_ratings,buyer_currency_in_app,nocache:encrypted_apk,recent_changes",
+            # maybe
             "X-DFE-SmallestScreenWidthDp": "320",  # maybe
             "X-DFE-Filter-Level": "3",  # maybe
             # "Accept-Encoding": "", # N
@@ -513,3 +537,68 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.pause()
             time.sleep(t)
             self.crawler.engine.unpause()
+
+
+def encrypt_password(email, passwd):
+    """Encrypt credentials using the google publickey, with the
+    RSA algorithm"""
+
+    # structure of the binary key:
+    #
+    # *-------------------------------------------------------*
+    # | modulus_length | modulus | exponent_length | exponent |
+    # *-------------------------------------------------------*
+    #
+    # modulus_length and exponent_length are uint32
+    binaryKey = b64decode(_GOOGLE_PUBKEY)
+    # modulus
+    i = read_int(binaryKey, 0)
+    modulus = to_big_int(binaryKey[4:][0:i])
+    # exponent
+    j = read_int(binaryKey, i + 4)
+    exponent = to_big_int(binaryKey[i + 8:][0:j])
+
+    # calculate SHA1 of the pub key
+    digest = hashes.Hash(hashes.SHA1(), backend=default_backend())
+    digest.update(binaryKey)
+    h = b'\x00' + digest.finalize()[0:4]
+
+    # generate a public key
+    der_data = encode_dss_signature(modulus, exponent)
+    publicKey = load_der_public_key(der_data, backend=default_backend())
+
+    # encrypt email and password using pubkey
+    to_be_encrypted = email.encode() + b'\x00' + passwd.encode()
+    ciphertext = publicKey.encrypt(
+        to_be_encrypted,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA1()),
+            algorithm=hashes.SHA1(),
+            label=None
+        )
+    )
+
+    return urlsafe_b64encode(h + ciphertext)
+
+
+def get_login_params(email, encrypted_password):
+    return {"Email": email,
+            "EncryptedPasswd": encrypted_password,
+            "add_account": "1",
+            "accountType": _ACCOUNT_TYPE_HOSTED_OR_GOOGLE,
+            "google_play_services_version": _gsf_version,
+            "has_permission": "1",
+            "source": "android",
+            "device_country": _locale[0:2],
+            "lang": _locale,
+            "client_sig": "38918a453d07199354f8b19af05ec6562ced5788",
+            "callerSig": "38918a453d07199354f8b19af05ec6562ced5788"}
+
+
+def get_auth_headers(gsfid=None):
+    headers = {
+        "User-Agent": f"GoogleAuth/1.4 ({_device} {_build_id})",
+    }
+    if gsfid:
+        headers["device"] = f"{gsfid:x}"
+    return headers
