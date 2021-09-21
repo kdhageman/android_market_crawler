@@ -7,6 +7,9 @@ Requirements:
 - Python 3.6+ (tested with 3.7.3)
 
 ##### Configuration
+As of now, the login functionality for the Google Playstore is not properly implemented.
+As such, you must rely on another tool, such as [this](https://gitlab.com/marzzzello/playstoreapi) to obtain an authentication sub token.
+
 Prepare the configuration file, by copying/changing `config/config.template.yml` to your needs.
 The `package_files` are text file of package name where each line contains a single package name:
 ```bash

@@ -1,13 +1,11 @@
 import os
+from datetime import datetime
 
 from sentry_sdk import capture_exception
 from twisted.internet import defer
 
 from crawler import util
-from crawler.item import Result
 from crawler.util import get_directory, HttpClient, RequestException
-
-FNAME = "privacy_policy.html"
 
 
 class PrivacyPolicyPipeline:
@@ -35,7 +33,9 @@ class PrivacyPolicyPipeline:
                     raise RequestException
 
                 meta_dir = get_directory(item['meta'], spider)
-                fpath = os.path.join(self.outdir, meta_dir, FNAME)
+                ts = datetime.now().strftime("%s")
+                fname = f"privacy_policy.{ts}.html"
+                fpath = os.path.join(self.outdir, meta_dir, fname)
 
                 os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
 
