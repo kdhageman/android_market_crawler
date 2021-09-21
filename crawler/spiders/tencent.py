@@ -21,8 +21,8 @@ class TencentSpider(PackageListSpider):
         for req in super().start_requests():
             yield req
 
-    def base_requests(self):
-        return [scrapy.Request('https://android.myapp.com/', self.parse)]
+    def base_requests(self, meta={}):
+        return [scrapy.Request('https://android.myapp.com/', callback=self.parse, meta=meta)]
 
     def url_by_package(self, pkg):
         return f"https://android.myapp.com/myapp/detail.htm?apkName={pkg}"

@@ -1,29 +1,66 @@
-import concurrent.futures
 import re
 import time
+from base64 import b64decode, urlsafe_b64encode
+from urllib.parse import urlencode
 
-import gpsoauth
 import numpy as np
 import requests
 import scrapy
 import sqlite3
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+from cryptography.hazmat.primitives.serialization import load_der_public_key
 
-from crawler.spiders.util import PackageListSpider, normalize_rating
+import ssl
+
+from urllib3.poolmanager import PoolManager
+from urllib3.util import ssl_
+
+from crawler.spiders.util import PackageListSpider, normalize_rating, read_int, to_big_int
 from protobuf.proto.googleplay_pb2 import ResponseWrapper
+
+_CIPHERS = "ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:ECDH+AESGCM:DH+AESGCM:ECDH+AES:DH+AES:RSA+AESGCM:RSA+AES:!DSS"
 
 pkg_pattern = "https://play.google.com/store/apps/details\?id=(.*)"
 
 _APP_LISTING_PAGE = 'https://play.google.com/store/apps'
 _SERVICE = "androidmarket"
 _URL_LOGIN = "https://android.clients.google.com/auth"
-_ACCOUNT_TYPE_GOOGLE = "GOOGLE"
-_ACCOUNT_TYPE_HOSTED = "HOSTED"
+_URL_DELIVERY = "https://play-fe.googleapis.com/fdfe/delivery"
 _ACCOUNT_TYPE_HOSTED_OR_GOOGLE = "HOSTED_OR_GOOGLE"
 _GOOGLE_LOGIN_APP = 'com.android.vending'
 _GOOGLE_LOGIN_CLIENT_SIG = '321187995bc7cdc2b5fc91b11a96e2baa8602c62'
-_USERAGENT_SEARCH = "Android-Finsky/8.0.0 (api=3,versionCode=8016014,sdk=26,device=sailfish,hardware=sailfish,product=sailfish)"
 _USERAGENT_DOWNLOAD = "AndroidDownloadManager/6.0 (Linux; U; Android 8.0.0; Pixel Build/OPR3.170623.013)"
 _INCOMPATIBLE_DEVICE_MSG = "Your device is not compatible with this item."
+_GOOGLE_PUBKEY = "AAAAgMom/1a/v0lblO2Ubrt60J2gcuXSljGFQXgcyZWveWLEwo6prwgi3iJIZdodyhKZQrNWp5nKJ3srRXc" \
+                 "UW+F1BD3baEVGcmEgqaLZUNBjm057pKRI16kB0YppeGx5qIQ5QjKzsR8ETQbKLNWgRY0QRNVz34kMJR3P/L" \
+                 "gHax/6rmf5AAAAAwEAAQ=="
+_DFE_TARGETS = "CAEScFfqlIEG6gUYogFWrAISK1WDAg+hAZoCDgIU1gYEOIACFkLMAeQBnASLATlASUuyAyqCAjY5igOMBQzfA" \
+               "/IClwFbApUC4ANbtgKVAS7OAX8YswHFBhgDwAOPAmGEBt4OfKkB5weSB5AFASkiN68akgMaxAMSAQEBA9kBO7" \
+               "UBFE1KVwIDBGs3go6BBgEBAgMECQgJAQIEAQMEAQMBBQEBBAUEFQYCBgUEAwMBDwIBAgOrARwBEwMEAg0mrwE" \
+               "SfTEcAQEKG4EBMxghChMBDwYGASI3hAEODEwXCVh/EREZA4sBYwEdFAgIIwkQcGQRDzQ2fTC2AjfVAQIBAYoB" \
+               "GRg2FhYFBwEqNzACJShzFFblAo0CFxpFNBzaAd0DHjIRI4sBJZcBPdwBCQGhAUd2A7kBLBVPngEECHl0UEUMt" \
+               "QETigHMAgUFCc0BBUUlTywdHDgBiAJ+vgKhAU0uAcYCAWQ/5ALUAw1UwQHUBpIBCdQDhgL4AY4CBQICjARbGF" \
+               "BGWzA1CAEMOQH+BRAOCAZywAIDyQZ2MgM3BxsoAgUEBwcHFia3AgcGTBwHBYwBAlcBggFxSGgIrAEEBw4QEqU" \
+               "CASsWadsHCgUCBQMD7QICA3tXCUw7ugJZAwGyAUwpIwM5AwkDBQMJA5sBCw8BNxBVVBwVKhebARkBAwsQEAgE" \
+               "AhESAgQJEBCZATMdzgEBBwG8AQQYKSMUkAEDAwY/CTs4/wEaAUt1AwEDAQUBAgIEAwYEDx1dB2wGeBFgTQ "
+_CONTENT_TYPE_URLENC = 'application/x-www-form-urlencoded; charset=UTF-8'
+_version_string = "26.1.25-21 [0] [PR] 382830316"
+_version_code = "81582300"
+_sdk = "28"
+_device = "sargo"
+_hardware = "sargo"
+_product = "sargo"
+_platform_v = "9"
+_model = "Pixel 3a"
+_build_id = "PQ3B.190705.003"
+_supported_abis = "arm64-v8a,armeabi-v7a,armeabi"
+_gsf_version = "203315024"
+_locale = "en_GB"
+_timezone = 'Europe/London'
+_USERAGENT_SEARCH = f"Android-Finsky/{_version_string} (api=3,versionCode={_version_code},sdk={_sdk},device={_device},hardware={_hardware},product={_product},platformVersionRelease={_platform_v},model={_model},buildId={_build_id},isWideScreen=0,supportedAbis={_supported_abis.replace(',', ';')})"
 
 
 def parse_details(details):
@@ -87,12 +124,16 @@ def parse_details(details):
     version_string = ad.versionString
     version_date = ad.uploadDate
 
-    versions = {
-        version_string: {
-            "timestamp": version_date,
-            "code": version_code
+    if version_string == '':
+        versions = {}
+    else:
+        versions = {
+            version_string: {
+                "timestamp": version_date,
+                "code": version_code
+            }
         }
-    }
+
     return meta, versions
 
 
@@ -141,7 +182,10 @@ class AuthDb:
         cur = self.conn.cursor()
         qry = f"SELECT ast FROM logins WHERE email = :email"
         cur.execute(qry, {"email": email})
-        return cur.fetchone()
+        row = cur.fetchone()
+        if not row:
+            return None
+        return row[0]
 
     def create_ast(self, email, ast):
         cur = self.conn.cursor()
@@ -156,16 +200,45 @@ class AuthDb:
         self.conn.commit()
 
 
+class SSLContext(ssl.SSLContext):
+    def set_alpn_protocols(self, protocols):
+        """
+        ALPN headers cause Google to return 403 Bad Authentication.
+        """
+        pass
+
+
+class AuthHTTPAdapter(requests.adapters.HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        """
+        Secure settings from ssl.create_default_context(), but without
+        ssl.OP_NO_TICKET which causes Google to return 403 Bad
+        Authentication.
+        """
+        context = SSLContext()
+        context.set_ciphers(_CIPHERS)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.options &= ~ssl_.OP_NO_TICKET
+        self.poolmanager = PoolManager(*args, ssl_context=context, **kwargs)
+
+
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
     def __init__(self, crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
+        self.session = requests.session()
+        self.session.mount('https://', AuthHTTPAdapter())
 
-        self.android_id = android_id
+        if type(android_id) == int:
+            self.android_id = android_id
+        else:
+            # from hex representation to integer
+            self.android_id = int(android_id, 16)
         self.interval = interval
         self.lang = lang
         self.auth_sub_tokens = self.get_auth_sub_tokens(accounts_db_path, accounts)
+
         if len(self.auth_sub_tokens) == 0:
             raise NotLoggedInError
 
@@ -178,7 +251,7 @@ class GooglePlaySpider(PackageListSpider):
         accounts_db_path = params.get("accounts_db_path")
         accounts = params.get("accounts")
 
-        return cls(crawler, android_id, accounts_db_path, accounts, interval=interval)
+        return cls(crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=interval)
 
     # Methods for interacting with Google Play API
 
@@ -214,55 +287,42 @@ class GooglePlaySpider(PackageListSpider):
         """
         if not (email and password):
             raise CredsError
+        encrypted_password = encrypt_password(email, password).decode('utf-8')
+        params = get_login_params(email, encrypted_password)
+        params['service'] = 'ac2dm'
+        params['add_account'] = '1'
+        params['callerPkg'] = 'com.google.android.gms'
+        headers = get_auth_headers()
+        headers['app'] = 'com.google.android.gsm'
+        resp = self.session.post(_URL_LOGIN, data=params)
 
-        master_login = gpsoauth.perform_master_login(email, password, self.android_id)
-        err = master_login.get("Error", None)
-        if err == 'NeedsBrowser':
-            errdetail = master_login.get("ErrorDetail", None)
-            raise AuthFailedError(f"Failed display captcha: {err}: {errdetail}. "
-                                  f"To access your account, you must sign in on the web."
-                                  f"Follow this link: https://accounts.google.com/b/0/DisplayUnlockCaptcha")
-        if err:
-            errdetail = master_login.get("ErrorDetail", None)
-            raise AuthFailedError(f"master login: {err}: {errdetail}")
-        oauth_login = gpsoauth.perform_oauth(
-            email,
-            master_login.get('Token', ''),
-            self.android_id,
-            _SERVICE,
-            _GOOGLE_LOGIN_APP,
-            _GOOGLE_LOGIN_CLIENT_SIG
-        )
-        err = oauth_login.get("Error", None)
-        if err:
-            errdetail = master_login.get("ErrorDetail", None)
-            raise AuthFailedError(f"oauth login: {err}: {errdetail}")
-        ast = oauth_login.get('Auth', None)
-        if not ast:
-            raise AuthFailedError("'Auth' is missing in oauth response")
-        return ast
+        if resp.status_code == 403:
+            err_splitted = {n.split("=")[0]:"=".join(n.split("=")[1:]) for n in resp.text.split("\n")}
+            if err_splitted['Error'] == "NeedsBrowser":
+                raise AuthFailedError(f"To access your account, you must sign in on the web. Follow this link: https://accounts.google.com/b/0/DisplayUnlockCaptcha")
 
-    def _get_headers(self, post_content_type=None):
-        """
+        return None
+
+    def _get_headers(self, post_content_type=_CONTENT_TYPE_URLENC):
+        """get_head
         Return a dictionary of headers used for various requests
         """
         ast = np.random.choice(self.auth_sub_tokens)
 
-        res = {
-            "Accept-Language": self.lang,
-            "Authorization": f"GoogleLogin auth={ast}",
-            "X-DFE-Enabled-Experiments": "cl:billing.select_add_instrument_by_default",
-            "X-DFE-Unsupported-Experiments": "nocache:billing.use_charging_poller,market_emails,buyer_currency,prod_baseline,checkin.set_asset_paid_app_field,shekel_test,content_ratings,buyer_currency_in_app,nocache:encrypted_apk,recent_changes",
-            "X-DFE-Device-Id": self.android_id,
-            "X-DFE-Client-Id": "am-android-google",
-            "User-Agent": _USERAGENT_SEARCH,
-            "X-DFE-SmallestScreenWidthDp": "335",
-            "X-DFE-Filter-Level": "3",
-            "Accept-Encoding": "",
-            "Host": "android.clients.google.com"
-        }
-        if post_content_type:
-            res["Content-Type"] = post_content_type
+        res = {"Accept-Language": _locale.replace('_', '-'),
+               "X-DFE-Encoded-Targets": _DFE_TARGETS,
+               "User-Agent": _USERAGENT_SEARCH,
+               "X-DFE-Client-Id": "am-android-google",
+               "X-DFE-MCCMNC": "334050",
+               "X-DFE-Network-Type": "4",
+               "X-DFE-Content-Filters": "",
+               "X-DFE-Request-Params": "timeoutMs=4000",
+               "Authorization": f"Bearer {ast}",
+               "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+               "X-DFE-Device-Id": f"{self.android_id:x}",
+               "Content-Type": post_content_type,
+               }
+
         return res
 
     # Scrapy methods
@@ -271,8 +331,8 @@ class GooglePlaySpider(PackageListSpider):
         for req in super().start_requests():
             yield req
 
-    def base_requests(self):
-        return [scrapy.Request(_APP_LISTING_PAGE, self.parse)]
+    def base_requests(self, meta={}):
+        return [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, meta=meta)]
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"
@@ -290,22 +350,34 @@ class GooglePlaySpider(PackageListSpider):
         headers = self._get_headers()
         return scrapy.Request(url, headers=headers, priority=10, callback=self.parse_api_details, meta=meta)
 
-    def _craft_purchase_req(self, pkg_name, version, offer_type, meta=None):
+    def _craft_purchase_req(self, pkg_name, version_code, offer_type, meta=None):
         """
         Returns a scrapy.Request for the given pkg that purchases the package
         Args:
             pkg_name: the name of the package to retrieve details from
-            version: the app version
+            version_code: the app version
             offer_type: (almost) always 1
 
         Returns: scrapy.Request
         """
         url = f"https://android.clients.google.com/fdfe/purchase"
-        body = f"ot={offer_type}&doc={requests.utils.quote(pkg_name)}&vc={version}"
+        body = f"ot={offer_type}&doc={requests.utils.quote(pkg_name)}&vc={version_code}"
         headers = self._get_headers(post_content_type="application/x-www-form-urlencoded; charset=UTF-8")
 
         return scrapy.Request(url, method='POST', body=body, headers=headers, priority=20,
                               callback=self.parse_api_purchase, meta=meta)
+
+    def _craft_delivery_request(self, pkg_name, version_code, offer_type, dl_token, meta=None):
+        param_dict = {
+            "ot": offer_type,
+            "doc": pkg_name,
+            "vc": version_code,
+            "dtok": dl_token
+        }
+        params = urlencode(param_dict)
+        url = f"{_URL_DELIVERY}?{params}"
+        headers = self._get_headers()
+        return scrapy.Request(url, headers=headers, priority=30, callback=self.parse_delivery, meta=meta)
 
     def parse(self, response):
         """
@@ -354,6 +426,14 @@ class GooglePlaySpider(PackageListSpider):
         # icon url
         icon_url = response.xpath("//img[contains(@alt, 'Cover art')]/@src").get()
 
+        # developer address
+        els = response.xpath("//*[text() = 'Developer']/../*[2]/*/*/*/text()")
+        if len(els) > 0:
+            # must be address
+            developer_address = els[0].get()
+        else:
+            developer_address = None
+
         # package name
         m = re.search(pkg_pattern, response.url)
         if m:
@@ -361,6 +441,7 @@ class GooglePlaySpider(PackageListSpider):
             req = self._craft_details_req(pkg)
             req.meta['meta'] = {
                 "icon_url": icon_url,
+                "developer_address": developer_address,
             }
             req.meta["__pkg_start_time"] = response.meta['__pkg_start_time']
             res.append(req)
@@ -402,6 +483,10 @@ class GooglePlaySpider(PackageListSpider):
         if icon_url:
             meta['icon_url'] = icon_url
 
+        developer_address = response.meta.get('meta', {}).get('developer_address', None)
+        if developer_address:
+            meta['developer_address'] = developer_address
+
         pkg_name = meta.get('pkg_name')
         offer_type = meta.get('offer_type', 1)
         for version, dat in versions.items():
@@ -421,28 +506,40 @@ class GooglePlaySpider(PackageListSpider):
         Parses the response when purchasing an app
         Example URL: https://android.clients.google.com/fdfe/purchase?ot=1&doc=com.whatsapp&vc=1
         """
+        res = []
+
         if response.status != 200:
             err_msg = ResponseWrapper.FromString(response.content).commands.displayErrorMessage
             if err_msg == _INCOMPATIBLE_DEVICE_MSG:
                 raise IncompatibleDeviceError
             raise RequestFailedError(err_msg)
         body = ResponseWrapper.FromString(response.body)
+        dl_token = body.payload.buyResponse.encodedDeliveryToken
+        pkg_name = response.meta['meta']['pkg_name']
+        offer_type = response.meta['meta']['offer_type']
+        for version, version_dict in response.meta['versions'].items():
+            version_code = version_dict['code']
 
-        url = body.payload.buyResponse.purchaseStatusResponse.appDeliveryData.downloadUrl
-        resp_cookies = body.payload.buyResponse.purchaseStatusResponse.appDeliveryData.downloadAuthCookie
-        if len(resp_cookies) == 0:
-            raise MissingCookieError()
-        cookie = resp_cookies[0]
+            req = self._craft_delivery_request(pkg_name, version_code, offer_type, dl_token, meta={
+                'version': version,
+                "meta": response.meta['meta'],
+                "versions": response.meta['versions'],
+                '__pkg_start_time': response.meta['__pkg_start_time']
+            })
+            res.append(req)
 
+        return res
+
+    def parse_delivery(self, response):
+        body = ResponseWrapper.FromString(response.body)
+
+        url = body.payload.deliveryResponse.appDeliveryData.downloadUrl
+        dl_auth_cookie = body.payload.deliveryResponse.appDeliveryData.downloadAuthCookie[0]
         cookies = {
-            str(cookie.name): str(cookie.value)
+            str(dl_auth_cookie.name): str(dl_auth_cookie.value)
         }
 
-        headers = {
-            "User-Agent": _USERAGENT_DOWNLOAD,
-            "Accept-Encoding": "",
-        }
-
+        headers = self._get_headers()
         version = response.meta['version']
         meta = response.meta['meta']
         versions = response.meta['versions']
@@ -459,6 +556,7 @@ class GooglePlaySpider(PackageListSpider):
             'meta': meta,
             'versions': versions,
         }
+
 
     def parse_similar_apps(self, response):
         """
@@ -492,3 +590,68 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.pause()
             time.sleep(t)
             self.crawler.engine.unpause()
+
+
+def encrypt_password(email, passwd):
+    """Encrypt credentials using the google publickey, with the
+    RSA algorithm"""
+
+    # structure of the binary key:
+    #
+    # *-------------------------------------------------------*
+    # | modulus_length | modulus | exponent_length | exponent |
+    # *-------------------------------------------------------*
+    #
+    # modulus_length and exponent_length are uint32
+    binaryKey = b64decode(_GOOGLE_PUBKEY)
+    # modulus
+    i = read_int(binaryKey, 0)
+    modulus = to_big_int(binaryKey[4:][0:i])
+    # exponent
+    j = read_int(binaryKey, i + 4)
+    exponent = to_big_int(binaryKey[i + 8:][0:j])
+
+    # calculate SHA1 of the pub key
+    digest = hashes.Hash(hashes.SHA1(), backend=default_backend())
+    digest.update(binaryKey)
+    h = b'\x00' + digest.finalize()[0:4]
+
+    # generate a public key
+    der_data = encode_dss_signature(modulus, exponent)
+    publicKey = load_der_public_key(der_data, backend=default_backend())
+
+    # encrypt email and password using pubkey
+    to_be_encrypted = email.encode() + b'\x00' + passwd.encode()
+    ciphertext = publicKey.encrypt(
+        to_be_encrypted,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA1()),
+            algorithm=hashes.SHA1(),
+            label=None
+        )
+    )
+
+    return urlsafe_b64encode(h + ciphertext)
+
+
+def get_login_params(email, encrypted_password):
+    return {"Email": email,
+            "EncryptedPasswd": encrypted_password,
+            "add_account": "1",
+            "accountType": _ACCOUNT_TYPE_HOSTED_OR_GOOGLE,
+            "google_play_services_version": _gsf_version,
+            "has_permission": "1",
+            "source": "android",
+            "device_country": _locale[0:2],
+            "lang": _locale,
+            "client_sig": "38918a453d07199354f8b19af05ec6562ced5788",
+            "callerSig": "38918a453d07199354f8b19af05ec6562ced5788"}
+
+
+def get_auth_headers(gsfid=None):
+    headers = {
+        "User-Agent": f"GoogleAuth/1.4 ({_device} {_build_id})",
+    }
+    if gsfid:
+        headers["device"] = f"{gsfid:x}"
+    return headers

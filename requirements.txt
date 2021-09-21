@@ -18,7 +18,7 @@ decorator==5.0.9
 Flask==1.1.1
 future==0.18.2
 googleplayapi==1.1
-gpsoauth==0.4.1
+gpsoauth==1.0.0
 greenlet==1.1.1
 gremlinpython==3.4.4
 h2==3.2.0
