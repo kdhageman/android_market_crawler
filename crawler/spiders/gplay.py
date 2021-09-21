@@ -426,6 +426,14 @@ class GooglePlaySpider(PackageListSpider):
         # icon url
         icon_url = response.xpath("//img[contains(@alt, 'Cover art')]/@src").get()
 
+        # developer address
+        els = response.xpath("//*[text() = 'Developer']/../*[2]/*/*/*/text()")
+        if len(els) > 0:
+            # must be address
+            developer_address = els[0].get()
+        else:
+            developer_address = None
+
         # package name
         m = re.search(pkg_pattern, response.url)
         if m:
@@ -433,6 +441,7 @@ class GooglePlaySpider(PackageListSpider):
             req = self._craft_details_req(pkg)
             req.meta['meta'] = {
                 "icon_url": icon_url,
+                "developer_address": developer_address,
             }
             req.meta["__pkg_start_time"] = response.meta['__pkg_start_time']
             res.append(req)
@@ -473,6 +482,10 @@ class GooglePlaySpider(PackageListSpider):
         icon_url = response.meta.get('meta', {}).get('icon_url', None)
         if icon_url:
             meta['icon_url'] = icon_url
+
+        developer_address = response.meta.get('meta', {}).get('developer_address', None)
+        if developer_address:
+            meta['developer_address'] = developer_address
 
         pkg_name = meta.get('pkg_name')
         offer_type = meta.get('offer_type', 1)
