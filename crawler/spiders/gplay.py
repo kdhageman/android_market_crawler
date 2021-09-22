@@ -394,22 +394,22 @@ class GooglePlaySpider(PackageListSpider):
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
             self.logger.debug(f"scheduling new package: {pkg}")
-            req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page)
+            req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page, meta=response.meta)
             res.append(req)
 
         # follow 'See more' buttons on the home page
         see_more_links = response.xpath("//a[text() = 'See more']//@href").getall()
         for link in see_more_links:
             full_url = response.urljoin(link)
-            req = scrapy.Request(full_url, callback=self.parse_similar_apps)
+            req = scrapy.Request(full_url, callback=self.parse_similar_apps, meta=response.meta)
             res.append(req)
 
         # follow categories on the home page
         category_links = response.css("#action-dropdown-children-Categories a::attr(href)").getall()
         for link in category_links:
             full_url = response.urljoin(link)
-            self.logger.debug(f"scheduling new category: {pkg}")
-            req = scrapy.Request(full_url, callback=self.parse)
+            self.logger.debug(f"scheduling new category: {link}")
+            req = scrapy.Request(full_url, callback=self.parse, meta=response.meta)
             res.append(req)
 
         return res
@@ -558,7 +558,6 @@ class GooglePlaySpider(PackageListSpider):
             'meta': meta,
             'versions': versions,
         }
-
 
     def parse_similar_apps(self, response):
         """
