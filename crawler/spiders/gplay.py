@@ -393,6 +393,7 @@ class GooglePlaySpider(PackageListSpider):
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
+            self.logger.debug(f"scheduling new package: {pkg}")
             req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page)
             res.append(req)
 
@@ -407,6 +408,7 @@ class GooglePlaySpider(PackageListSpider):
         category_links = response.css("#action-dropdown-children-Categories a::attr(href)").getall()
         for link in category_links:
             full_url = response.urljoin(link)
+            self.logger.debug(f"scheduling new category: {pkg}")
             req = scrapy.Request(full_url, callback=self.parse)
             res.append(req)
 
@@ -574,6 +576,7 @@ class GooglePlaySpider(PackageListSpider):
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
+            self.logger.debug(f"scheduling new package: {pkg}")
             req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
             res.append(req)
 
