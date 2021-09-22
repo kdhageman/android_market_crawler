@@ -40,24 +40,24 @@ class InfluxdbPipeline:
 
     def process_item(self, item, spider):
         market = market_from_spider(spider)
-        if isinstance(item, Result):
-            apk_count = len([0 for d in item['versions'].values() if 'file_path' in d])
-            apk_sizes = sum([d.get('file_size', 0) for d in item['versions'].values()])
-            version_count = len(item['versions'])
 
-            point = {
-                "measurement": "items",
-                "tags": {
-                    "market": market
-                },
-                "fields": {
-                    "count": 1,
-                    "apks": apk_count,
-                    "apk_sizes": apk_sizes,
-                    "versions": version_count
-                }
+        apk_count = len([0 for d in item['versions'].values() if 'file_path' in d])
+        apk_sizes = sum([d.get('file_size', 0) for d in item['versions'].values()])
+        version_count = len(item['versions'])
+
+        point = {
+            "measurement": "items",
+            "tags": {
+                "market": market
+            },
+            "fields": {
+                "count": 1,
+                "apks": apk_count,
+                "apk_sizes": apk_sizes,
+                "versions": version_count
             }
-            self.influxdb_client.add_point(point)
+        }
+        self.influxdb_client.add_point(point)
 
         return item
 
