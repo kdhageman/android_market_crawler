@@ -25,34 +25,34 @@ class PackageListSpider(scrapy.Spider):
             '__pkg_start_time': datetime.now()
         }
 
-        # re-crawl packages from database
-        if not self.package_files_only:
-            params = self.settings.get("DATABASE_PARAMS")
-            engine, _ = _engine_from_params(params)
-
-            market = market_from_spider(self)
-            qry = f"SELECT distinct pkg_name FROM packages WHERE pkg_name is not null and pkg_name != '' AND market = '{market}'"
-            try:
-                with engine.connect() as con:
-                    res = con.execute(qry)
-            finally:
-                engine.dispose()
-
-            rows = res.fetchall()
-            for row in rows:
-                url = self.url_by_package(row.pkg_name.strip())
-                yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
-
-        # read from package files
-        pkg_files = self.settings.get("PACKAGE_FILES", [])
-        for pkg_file in pkg_files:
-
-            with open(pkg_file, 'r') as f:
-                line = f.readline()
-                while line:
-                    url = self.url_by_package(line.strip())
-                    yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
-                    line = f.readline()
+        # # re-crawl packages from database
+        # if not self.package_files_only:
+        #     params = self.settings.get("DATABASE_PARAMS")
+        #     engine, _ = _engine_from_params(params)
+        #
+        #     market = market_from_spider(self)
+        #     qry = f"SELECT distinct pkg_name FROM packages WHERE pkg_name is not null and pkg_name != '' AND market = '{market}'"
+        #     try:
+        #         with engine.connect() as con:
+        #             res = con.execute(qry)
+        #     finally:
+        #         engine.dispose()
+        #
+        #     rows = res.fetchall()
+        #     for row in rows:
+        #         url = self.url_by_package(row.pkg_name.strip())
+        #         yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+        #
+        # # read from package files
+        # pkg_files = self.settings.get("PACKAGE_FILES", [])
+        # for pkg_file in pkg_files:
+        #
+        #     with open(pkg_file, 'r') as f:
+        #         line = f.readline()
+        #         while line:
+        #             url = self.url_by_package(line.strip())
+        #             yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+        #             line = f.readline()
 
         # crawl the store as usual
         if not self.package_files_only:
