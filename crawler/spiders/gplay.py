@@ -15,11 +15,14 @@ from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 import ssl
 
+from playstoreapi.googleplay import GooglePlayAPI
+from playstoreapi.googleplay_pb2 import ResponseWrapper
+from scrapy.exceptions import CloseSpider
 from urllib3.poolmanager import PoolManager
 from urllib3.util import ssl_
 
 from crawler.spiders.util import PackageListSpider, normalize_rating, read_int, to_big_int
-from protobuf.proto.googleplay_pb2 import ResponseWrapper
+import crawler.util
 
 _CIPHERS = "ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:ECDH+AESGCM:DH+AESGCM:ECDH+AES:DH+AES:RSA+AESGCM:RSA+AES:!DSS"
 
@@ -61,7 +64,7 @@ _gsf_version = "203315024"
 _locale = "en_GB"
 _timezone = 'Europe/London'
 _USERAGENT_SEARCH = f"Android-Finsky/{_version_string} (api=3,versionCode={_version_code},sdk={_sdk},device={_device},hardware={_hardware},product={_product},platformVersionRelease={_platform_v},model={_model},buildId={_build_id},isWideScreen=0,supportedAbis={_supported_abis.replace(',', ';')})"
-
+_ALLOWED_ERROR_COUNT = 5
 
 def parse_details(details):
     """
@@ -69,9 +72,9 @@ def parse_details(details):
     Args:
         details: dict
     """
-    docv2 = details.docV2
+    docv2 = details.item
     url = docv2.shareUrl
-    pkg_name = docv2.docid
+    pkg_name = docv2.id
     app_name = docv2.title
     creator = docv2.creator
     description = docv2.descriptionHtml
@@ -176,26 +179,24 @@ class AuthDb:
     def __init__(self, path):
         self.conn = sqlite3.connect(path)
         cur = self.conn.cursor()
-        cur.execute("CREATE TABLE IF NOT EXISTS logins (email TEXT, ast TEXT)")
+        cur.execute("CREATE TABLE IF NOT EXISTS logins (gsfid INT, ast TEXT)")
 
-    def get_ast(self, email):
+    def get_creds(self):
         cur = self.conn.cursor()
-        qry = f"SELECT ast FROM logins WHERE email = :email"
-        cur.execute(qry, {"email": email})
-        row = cur.fetchone()
-        if not row:
-            return None
-        return row[0]
+        qry = f"SELECT * FROM logins"
+        cur.execute(qry)
+        return cur.fetchone()
 
-    def create_ast(self, email, ast):
+
+    def create_ast(self, gsfid, ast):
         cur = self.conn.cursor()
         # remove all
-        qry = "DELETE FROM logins WHERE email = :email"
-        cur.execute(qry, {"email": email})
+        qry = "DELETE FROM logins"
+        cur.execute(qry)
 
         # insert new
-        qry = "INSERT INTO logins VALUES (:email, :ast)"
-        cur.execute(qry, {"email": email, "ast": ast})
+        qry = "INSERT INTO logins VALUES (:gsfid, :ast)"
+        cur.execute(qry, {"gsfid": gsfid, "ast": ast})
 
         self.conn.commit()
 
@@ -225,7 +226,7 @@ class AuthHTTPAdapter(requests.adapters.HTTPAdapter):
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
-    def __init__(self, crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=1):
+    def __init__(self, crawler, android_id, accounts_db_path, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
         self.session = requests.session()
         self.session.mount('https://', AuthHTTPAdapter())
@@ -237,10 +238,13 @@ class GooglePlaySpider(PackageListSpider):
             self.android_id = int(android_id, 16)
         self.interval = interval
         self.lang = lang
-        self.auth_sub_tokens = self.get_auth_sub_tokens(accounts_db_path, accounts)
 
-        if len(self.auth_sub_tokens) == 0:
-            raise NotLoggedInError
+        self.auth_db = AuthDb(path=accounts_db_path)
+
+        self.auth_sub_token = None
+        self._renew_account(from_db=True)
+
+        self.remaining_errors = _ALLOWED_ERROR_COUNT
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -249,66 +253,15 @@ class GooglePlaySpider(PackageListSpider):
 
         android_id = params.get("android_id")
         accounts_db_path = params.get("accounts_db_path")
-        accounts = params.get("accounts")
 
-        return cls(crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=interval)
+        return cls(crawler, android_id, accounts_db_path, lang='en_US', interval=interval)
 
     # Methods for interacting with Google Play API
-
-    def get_auth_sub_tokens(self, db_path, accounts):
-        """
-        Returns: the sub auth tokens for a given set of accounts.
-        Fetches the sub auth tokens from a local sqlite3 database
-        """
-        self.logger.debug("getting auth sub tokens")
-
-        auth_db = AuthDb(db_path)
-
-        res = []
-        for account in accounts:
-            email = account['email']
-            password = account['password']
-
-            ast = auth_db.get_ast(email)
-            if not ast:
-                try:
-                    ast = self.login(email, password)
-                    auth_db.create_ast(email, ast)
-                except (CredsError, AuthFailedError) as e:
-                    self.logger.warn(f"failed to login Google Play user '{email}': {e}")
-                    continue
-            res.append(ast)
-        self.logger.debug(f"logged in {len(res)} / {len(accounts)} accounts")
-        return res
-
-    def login(self, email=None, password=None):
-        """
-        Logs the user in using their email address and password
-        """
-        if not (email and password):
-            raise CredsError
-        encrypted_password = encrypt_password(email, password).decode('utf-8')
-        params = get_login_params(email, encrypted_password)
-        params['service'] = 'ac2dm'
-        params['add_account'] = '1'
-        params['callerPkg'] = 'com.google.android.gms'
-        headers = get_auth_headers()
-        headers['app'] = 'com.google.android.gsm'
-        resp = self.session.post(_URL_LOGIN, data=params)
-
-        if resp.status_code == 403:
-            err_splitted = {n.split("=")[0]:"=".join(n.split("=")[1:]) for n in resp.text.split("\n")}
-            if err_splitted['Error'] == "NeedsBrowser":
-                raise AuthFailedError(f"To access your account, you must sign in on the web. Follow this link: https://accounts.google.com/b/0/DisplayUnlockCaptcha")
-
-        return None
 
     def _get_headers(self, post_content_type=_CONTENT_TYPE_URLENC):
         """get_head
         Return a dictionary of headers used for various requests
         """
-        ast = np.random.choice(self.auth_sub_tokens)
-
         res = {"Accept-Language": _locale.replace('_', '-'),
                "X-DFE-Encoded-Targets": _DFE_TARGETS,
                "User-Agent": _USERAGENT_SEARCH,
@@ -317,7 +270,7 @@ class GooglePlaySpider(PackageListSpider):
                "X-DFE-Network-Type": "4",
                "X-DFE-Content-Filters": "",
                "X-DFE-Request-Params": "timeoutMs=4000",
-               "Authorization": f"Bearer {ast}",
+               "Authorization": f"Bearer {self.auth_sub_token}",
                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
                "X-DFE-Device-Id": f"{self.android_id:x}",
                "Content-Type": post_content_type,
@@ -592,6 +545,42 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.pause()
             time.sleep(t)
             self.crawler.engine.unpause()
+
+    def handle_status(self, status_code):
+        if status_code == 401:
+            self.remaining_errors = self.remaining_errors - 1
+            if self.remaining_errors <= 0:
+                self.logger.debug(f"Got a 401 response, renewing accounts..")
+                self._renew_account()
+                self.remaining_errors = _ALLOWED_ERROR_COUNT
+            else:
+                self.logger.debug(f"Got a 401 response, only {self.remaining_errors} errors allowed")
+
+    def _renew_account(self, from_db=False):
+        if from_db:
+            # read from db if possible
+            creds = self.auth_db.get_creds()
+            if creds:
+                self.android_id = creds[0]
+                self.auth_sub_token = creds[1]
+                return
+
+        proxies = crawler.util.PROXY_POOL.proxies
+        if proxies:
+            proxy = np.random.choice(list(proxies.keys()))
+            proxy_config = crawler.util.get_proxy_as_dict(proxy)
+        else:
+            proxy_config = None
+
+        try:
+            api = GooglePlayAPI('en_US', 'Europe/Copenhagen', proxies_config=proxy_config)
+            api.login(anonymous=True)
+        except Exception as e:
+            raise CloseSpider('cannot proceed without a valid account')
+
+        self.auth_db.create_ast(api.gsfId, api.authSubToken)
+        self.android_id = api.gsfId
+        self.auth_sub_token = api.authSubToken
 
 
 def encrypt_password(email, passwd):

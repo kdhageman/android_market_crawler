@@ -100,17 +100,7 @@ class BackoffProxyPool:
             return Exception("should never happen!")
 
     def get_proxy_as_dict(self):
-        """
-        Returns a proxy dictionary to be used by 'request' or 'treq' library
-        """
-        proxy = self.get_proxy()
-        if not proxy:
-            return {}
-        full_url = f"http://{proxy}"
-        return {
-            "http": full_url,
-            "https": full_url
-        }
+        return get_proxy_as_dict(self.get_proxy())
 
     def backoff(self, proxy, **kwargs):
         """
@@ -127,6 +117,19 @@ class BackoffProxyPool:
             self.non_proxy_until = until
         else:
             self.proxies[proxy] = until
+
+
+def get_proxy_as_dict(proxy):
+    """
+    Returns a proxy dictionary to be used by 'request' or 'treq' library
+    """
+    if not proxy:
+        return {}
+    full_url = f"http://{proxy}"
+    return {
+        "http": full_url,
+        "https": full_url
+    }
 
 
 def get_identifier(meta):

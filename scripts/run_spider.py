@@ -186,7 +186,8 @@ def get_settings(config, spidername, logdir):
 
     spider_middlewares = {
         'crawler.middlewares.sentry.SentryMiddleware': 1,
-        'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 2
+        'crawler.middlewares.status_code.StatuscodeMiddleware': 2,
+        'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 3
     }
 
     extensions = {

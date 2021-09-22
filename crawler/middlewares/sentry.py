@@ -1,8 +1,8 @@
 from google.protobuf.message import DecodeError
+from playstoreapi.googleplay_pb2 import ResponseWrapper
 from sentry_sdk import capture_message, configure_scope, capture_exception
 
 from crawler.util import is_success
-from protobuf.proto.googleplay_pb2 import ResponseWrapper
 
 
 class SentryMiddleware:
