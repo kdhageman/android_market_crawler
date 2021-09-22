@@ -36,6 +36,7 @@ class InfluxdbPipeline:
         for t in self.tasks:
             if t.running:
                 t.stop()
+        self.influxdb_client.close()
 
     def process_item(self, item, spider):
         market = market_from_spider(spider)
