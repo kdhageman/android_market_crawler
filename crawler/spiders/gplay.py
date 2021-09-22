@@ -87,11 +87,11 @@ def parse_details(details):
     developer_name = ad.developerName
     developer_email = ad.developerEmail
     developer_website = ad.developerWebsite
-    downloads = ad.numDownloads
+    downloads = ad.downloadCount
 
     ann = docv2.annotations
     privacy_policy_url = ann.privacyPolicyUrl
-    contains_ads = "contains ads" in ann.badgeForDoc
+    contains_ads = ad.installNotes == "Contains ads"
 
     offer = docv2.offer
 
@@ -125,7 +125,7 @@ def parse_details(details):
 
     version_code = ad.versionCode
     version_string = ad.versionString
-    version_date = ad.uploadDate
+    version_date = ad.infoUpdatedOn
 
     if version_string == '':
         versions = {}
