@@ -22,31 +22,57 @@ class FDroidSpider(PackageListSpider):
             yield req
 
     def base_requests(self, meta={}):
-        return [scrapy.Request('https://f-droid.org/en/packages/', callback=self.parse, meta=meta)]
+        res = []
+        categories = [
+            'connectivity',
+            'development',
+            'games',
+            'graphics',
+            'internet',
+            'money',
+            'multimedia',
+            'navigation',
+            'phone-sms',
+            'reading',
+            'science-education',
+            'security',
+            'sports-health',
+            'system',
+            'theming',
+            'time',
+            'writing',
+        ]
+        for category in categories:
+            url = f"https://f-droid.org/en/categories/{category}/"
+            req = scrapy.Request(url, callback=self.parse_category, meta=meta)
+            res.append(req)
+        return res
 
     def url_by_package(self, pkg):
         return f"https://f-droid.org/en/packages/{pkg}/"
 
-    def parse(self, response):
+    def parse_category(self, response):
         """
         Crawls the pages with the paginated list of apps
-        Example URL: https://f-droid.org/en/packages/
+        Example URL: https://f-droid.org/en/categories/connectivity/
 
         Args:
             response: scrapy.Response
         """
         res = []
         # follow pagination
-        a_to_next = response.css("li.nav.next").css("a")
-        if "href" in a_to_next.attrib:
-            next_page = response.urljoin(a_to_next.attrib["href"])
-            req = scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
+        link_to_next = response.css("li.nav.next > a::attr('href')").get()
+        if link_to_next:
+            self.logger.debug(f"scheduled new page to crawl: {link_to_next}")
+            next_page = response.urljoin(link_to_next)
+            req = scrapy.Request(next_page, callback=self.parse_category, meta=response.meta)  # add URL to set of URLs to crawl
             res.append(req)
 
         # links to packages
         for link in response.css("a.package-header::attr(href)").getall():
+            self.logger.debug(f"scheduled new package to crawl: {link}")
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse_pkg_page, priority=1, meta=response.meta)  # add URL to set of URLs to crawl
             res.append(req)
 
         return res
