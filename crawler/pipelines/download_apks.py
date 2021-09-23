@@ -73,17 +73,21 @@ class DownloadApksPipeline(FilesPipeline):
 
             if success:  # True if download successful
                 src_path = os.path.join(self.root_dir, resultdata['path'])
-                with open(src_path, 'rb') as f:
-                    digest = sha256(f)
+                if os.path.exists(src_path):
+                    with open(src_path, 'rb') as f:
+                        digest = sha256(f)
 
-                # move file to the correct location, based on its hash
-                dst_path = os.path.join(self.dst_dir, f"{digest}.apk")
-                os.rename(src_path, dst_path)
+                    # move file to the correct location, based on its hash
+                    dst_path = os.path.join(self.dst_dir, f"{digest}.apk")
+                    os.rename(src_path, dst_path)
 
-                values['file_path'] = dst_path
-                values['file_md5'] = resultdata['checksum']
-                values['file_size'] = os.path.getsize(dst_path)
-                values['file_sha256'] = digest
+                    values['file_path'] = dst_path
+                    values['file_md5'] = resultdata['checksum']
+                    values['file_size'] = os.path.getsize(dst_path)
+                    values['file_sha256'] = digest
+                else:
+                    # download successful, but the file does not exist
+                    info.spider.logger.debug(f"failed to download APK for '{identifier}'")
             else:
                 info.spider.logger.debug(f"failed to download APK for '{identifier}'")
             item['versions'][version] = values
