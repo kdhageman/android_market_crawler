@@ -1,12 +1,9 @@
 import urllib
-
 import scrapy
 
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating, PackageListSpider
 
 
-# TODO: handle redirects to "https://a.app.qq.com/error_pages/noApp.jsp" that will fail parsing apps
 class TencentSpider(PackageListSpider):
     name = "tencent_spider"
 
@@ -22,7 +19,7 @@ class TencentSpider(PackageListSpider):
             yield req
 
     def base_requests(self, meta={}):
-        return [scrapy.Request('https://android.myapp.com/', callback=self.parse, meta=meta)]
+        return [scrapy.Request('https://android.myapp.com/', callback=self.parse)]
 
     def url_by_package(self, pkg):
         return f"https://android.myapp.com/myapp/detail.htm?apkName={pkg}"
@@ -38,6 +35,7 @@ class TencentSpider(PackageListSpider):
         res = []
         # find links to other apps
         for link in response.css("a::attr(href)").re("../myapp/detail.htm\?apkName=.+"):
+            self.logger.debug(f"scheduled new package page: {link}")
             next_page = response.urljoin(link)  # build absolute URL based on relative link
             req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
             res.append(req)
@@ -51,14 +49,25 @@ class TencentSpider(PackageListSpider):
         Args:
             response: scrapy.Response
         """
-        if response.css("div.search-none-img"):
+
+        if response.css("div.search-none-img") or response.url == 'https://a.app.qq.com/error_pages/noApp.jsp':
             # not found page
             return
 
+        res = []
+
+        # add related apps
+        related_app_urls = response.css("a.appName::attr(href)").getall()
+        for path in related_app_urls:
+            self.logger.debug(f"scheduled new package page: {path}")
+            url = response.urljoin(path)
+            req = scrapy.Request(url, callback=self.parse_pkg_page)
+            res.append(req)
+
         # find meta data
-        meta = dict(
-            url=response.url
-        )
+        meta = {
+            'url': response.url
+        }
 
         divs = response.css("div.det-othinfo-container div.det-othinfo-data")
 
@@ -89,17 +98,8 @@ class TencentSpider(PackageListSpider):
             download_url=dl_link
         )
 
-        res = []
-
-        if meta['developer_name']:
-            res.append(Result(
-                meta=meta,
-                versions=versions
-            ))
-
-        # add related apps
-        related_app_urls = response.css("a.appName::attr(href)").getall()
-        for url in related_app_urls:
-            res.append(response.follow(url, self.parse_pkg_page))
-
+        res.append({
+            'meta': meta,
+            'versions': versions,
+        })
         return res
