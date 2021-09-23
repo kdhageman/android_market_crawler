@@ -25,6 +25,7 @@ class BaiduSpider(scrapy.Spider):
             response: scrapy.Response
         """
         for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
+            self.logger.debug(f"scheduling new app URL: {pkg_link}")
             yield response.follow(pkg_link, callback=self.parse_pkg_page, priority=2)
 
     def parse_top_page(self, response):
@@ -36,11 +37,13 @@ class BaiduSpider(scrapy.Spider):
         """
         # visit all apps
         for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
+            self.logger.debug(f"scheduling new app URL: {pkg_link}")
             yield response.follow(pkg_link, callback=self.parse_pkg_page, priority=2)
 
         # follow pagination
         next_page = response.css("li.next a::attr(href)").get()
         if next_page:
+            self.logger.debug(f"scheduling new top page: {next_page}")
             yield response.follow(next_page, self.parse_top_page)
 
     def parse_pkg_page(self, response):
