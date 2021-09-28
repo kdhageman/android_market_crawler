@@ -2,7 +2,7 @@ import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
-from crawler.item import Result
+from crawler.middlewares.sentry import capture, _tags
 
 try:
     from cStringIO import StringIO as BytesIO
@@ -54,6 +54,12 @@ class DownloadApksPipeline(FilesPipeline):
             if download_url:
                 info.spider.logger.debug(f"scheduling download for '{identifier}' from '{download_url}'")
                 yield scrapy.Request(download_url, headers=headers, cookies=cookies, meta={'meta': item['meta'], 'version': version}, priority=100)
+
+    def media_failed(self, failure, request, info):
+        """Handler for failed downloads"""
+        tags = _tags(request,info.spider)
+        capture(exception=failure, tags=tags)
+        return super().media_failed(self, failure, request, info)
 
     def item_completed(self, results, item, info):
         identifier = get_identifier(item['meta'])
