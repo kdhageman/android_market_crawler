@@ -1,4 +1,5 @@
 from datetime import datetime
+import time
 
 from crawler.util import get_identifier
 
@@ -13,4 +14,16 @@ class LogPipeline:
             del item['__pkg_start_time']
         else:
             spider.logger.info(f"processed '{identifier}'")
+        pause(3, spider.crawler)
         return item
+
+
+def pause(t, crawler):
+    """
+    Pause the crawler 't' seconds
+    """
+    try:
+        crawler.engine.pause()
+        time.sleep(t)
+    finally:
+        crawler.engine.unpause()
