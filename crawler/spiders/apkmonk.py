@@ -41,7 +41,9 @@ class ApkMonkSpider(PackageListSpider):
         res = []
         for category_url in response.css("a.waves-effect::attr(href)").getall():
             if category_url:
-                req = response.follow(category_url, callback=self.parse_category)
+                self.logger.debug(f"scheduled new category link: {category_url}")
+                full_url = response.urljoin(category_url)
+                req = scrapy.Request(full_url, callback=self.parse_category)
                 res.append(req)
 
         return res
@@ -54,12 +56,16 @@ class ApkMonkSpider(PackageListSpider):
         # go to package pages
         for pkg in response.css("a::attr(href)").re("/app(?:/id)?/(.+)/"):
             pkg_url = f"/app/id/{pkg}/"
-            req = response.follow(pkg_url, callback=self.parse_pkg_page, priority=20)
+            self.logger.debug(f"scheduled new package link: {pkg_url}")
+            full_url = response.urljoin(pkg_url)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, priority=20)
             res.append(req)
 
         # pagination
         for category_url in response.css("div.selection a::attr(href)").getall():
-            req = response.follow(category_url, callback=self.parse_category)
+            self.logger.debug(f"scheduled new category link: {category_url}")
+            full_url = response.urljoin(category_url)
+            req = scrapy.Request(full_url, callback=self.parse_category)
             res.append(req)
 
         return res
@@ -104,6 +110,10 @@ class ApkMonkSpider(PackageListSpider):
                 version = version_name(version, versions)
                 versions.append(version)
                 remaining.append((full_url, version, date))
+
+        if len(remaining) > 3:
+            self.logger.debug(f"Out of %d versions, only collect the newest 3", len(remaining))
+            remaining = remaining[:3]
 
         if remaining:
             next_version = remaining.pop()

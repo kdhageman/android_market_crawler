@@ -138,7 +138,8 @@ class ApkMirrorSpider(scrapy.Spider):
                 versions=versions
             ))
         else:
-            req = response.follow(dl_link, callback=self.download_url_from_button, meta=dict(meta=meta, versions=versions))
+            full_url = response.urljoin(dl_link)
+            req = scrapy.Request(full_url, callback=self.download_url_from_button, meta=dict(meta=meta, versions=versions))
             res.append(req)
 
         return res
