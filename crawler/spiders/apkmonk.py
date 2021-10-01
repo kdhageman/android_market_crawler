@@ -111,9 +111,9 @@ class ApkMonkSpider(PackageListSpider):
                 versions.append(version)
                 remaining.append((full_url, version, date))
 
-        if len(remaining) > 3:
-            self.logger.debug(f"Out of %d versions, only collect the newest 3", len(remaining))
-            remaining = remaining[:3]
+        if len(remaining) > 1:
+            self.logger.debug(f"Out of %d versions, only collect the latest", len(remaining))
+            remaining = remaining[:1]
 
         if remaining:
             next_version = remaining.pop()
