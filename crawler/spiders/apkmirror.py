@@ -25,6 +25,7 @@ class ApkMirrorSpider(scrapy.Spider):
         res = []
         # links to packages
         for link in response.css("a.fontBlack::attr(href)").getall():
+            self.logger.debug(f"scheduled new package page: {link}")
             next_page = response.urljoin(link)  # build absolute URL based on relative link
             req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
             res.append(req)
@@ -32,6 +33,7 @@ class ApkMirrorSpider(scrapy.Spider):
         # follow pagination
         a_to_next = response.css("a.nextpostslink::attr(href)").get()
         if a_to_next:
+            self.logger.debug(f"scheduled new pagination page: {a_to_next}")
             next_page = response.urljoin(a_to_next)
             req = scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
             res.append(req)
@@ -57,18 +59,20 @@ class ApkMirrorSpider(scrapy.Spider):
 
         list_of_other_versions = response.xpath("//div[@class='listWidget' and .//div[@class='widgetHeader' and (contains(text(), 'All Releases ') or contains(text(), 'All versions '))]]")
 
-        # find all version links, list with 'All Versions ' or 'All Releases ' header
-        for version_link in list_of_other_versions.xpath(".//div[@class='appRow']//a[@class='fontBlack']//@href").getall():
-            full_link = response.urljoin(version_link)
-            req = scrapy.Request(full_link, callback=self.parse_versions_page)
-            res.append(req)
+        # khageman 01-10-2021: disable downloading any versions
 
-        # find 'more versions' link
-        versions_page = list_of_other_versions.xpath(".//div[contains(@class, 'center')]//@href").get()
-        if versions_page:
-            full_link = response.urljoin(versions_page)
-            req = scrapy.Request(full_link, callback=self.parse_versions_page)
-            res.append(req)
+        # # find all version links, list with 'All Versions ' or 'All Releases ' header
+        # for version_link in list_of_other_versions.xpath(".//div[@class='appRow']//a[@class='fontBlack']//@href").getall():
+        #     full_link = response.urljoin(version_link)
+        #     req = scrapy.Request(full_link, callback=self.parse_versions_page)
+        #     res.append(req)
+        #
+        # # find 'more versions' link
+        # versions_page = list_of_other_versions.xpath(".//div[contains(@class, 'center')]//@href").get()
+        # if versions_page:
+        #     full_link = response.urljoin(versions_page)
+        #     req = scrapy.Request(full_link, callback=self.parse_versions_page)
+        #     res.append(req)
 
         return res
 
