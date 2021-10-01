@@ -13,8 +13,13 @@ class BaiduSpider(scrapy.Spider):
     name = "baidu_spider"
 
     def start_requests(self):
-        yield scrapy.Request('https://shouji.baidu.com/', self.parse)
-        yield scrapy.Request('https://shouji.baidu.com/rank/top/', self.parse_top_page)
+        url = "https://shouji.baidu.com/"
+        self.logger.debug(f"scheduling new staring URL: {url}")
+        yield scrapy.Request(url, self.parse)
+
+        url = 'https://shouji.baidu.com/rank/top/'
+        self.logger.debug(f"scheduling new staring URL: {url}")
+        yield scrapy.Request(url, self.parse_top_page)
 
     def parse(self, response):
         """
