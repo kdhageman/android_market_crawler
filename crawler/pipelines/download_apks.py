@@ -57,6 +57,7 @@ class DownloadApksPipeline(FilesPipeline):
 
     def media_failed(self, failure, request, info):
         """Handler for failed downloads"""
+        info.spider.logger.debug(f"failed to download from '{request.url}': {failure}")
         tags = _tags(request,info.spider)
         capture(exception=failure, tags=tags)
         return super().media_failed(self, failure, request, info)
@@ -93,9 +94,7 @@ class DownloadApksPipeline(FilesPipeline):
                     values['file_sha256'] = digest
                 else:
                     # download successful, but the file does not exist
-                    info.spider.logger.debug(f"failed to download APK for '{identifier}'")
-            else:
-                info.spider.logger.debug(f"failed to download APK for '{identifier}'")
+                    info.spider.logger.debug(f"failed to store downloaded APK for '{identifier}' to '{src_path}'")
             item['versions'][version] = values
 
         return item
