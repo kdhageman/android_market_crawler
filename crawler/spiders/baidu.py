@@ -88,6 +88,8 @@ class BaiduSpider(scrapy.Spider):
             pkg_url = f"https://shouji.baidu.com/{type}/{id+1}.html"
             req = scrapy.Request(pkg_url, callback=self.parse_pkg_page, priority=1)
             res.append(req)
+        else:
+            self.logger.debug(f"failed to identify the identifier for '{response.request.url}'")
 
         meta['downloads'] = response.css("span.download-num::text").re("下载次数: (.*)")[0]
 
