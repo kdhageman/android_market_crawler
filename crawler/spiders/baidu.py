@@ -13,11 +13,11 @@ class BaiduSpider(scrapy.Spider):
 
     def start_requests(self):
         url = "https://shouji.baidu.com/"
-        self.logger.debug(f"scheduling new staring URL: {url}")
+        self.logger.debug(f"scheduling new starting URL: {url}")
         yield scrapy.Request(url, self.parse)
 
         url = 'https://shouji.baidu.com/rank/top/'
-        self.logger.debug(f"scheduling new staring URL: {url}")
+        self.logger.debug(f"scheduling new starting URL: {url}")
         yield scrapy.Request(url, self.parse_top_page)
 
     def parse(self, response):
@@ -77,9 +77,9 @@ class BaiduSpider(scrapy.Spider):
         if not meta['app_name']:
             # we found a non-existing app page
             return
-        meta['app_description'] = "\n".join(
-            yui3.css("div.section-container.introduction div.brief-long p::text").getall())
+        meta['app_description'] = "\n".join(yui3.css("div.section-container.introduction div.brief-long p::text").getall())
 
+        # increment internal identifier by one
         m = re.search(id_pattern, response.url)
         if m:
             type = m.group(1)
