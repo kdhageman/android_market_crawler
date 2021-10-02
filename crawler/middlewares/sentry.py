@@ -1,6 +1,8 @@
 from google.protobuf.message import DecodeError
 from playstoreapi.googleplay_pb2 import ResponseWrapper
+from scrapy.exceptions import CloseSpider
 from sentry_sdk import capture_message, configure_scope, capture_exception
+from twisted.internet.error import DNSLookupError
 
 from crawler.util import is_success
 
@@ -24,6 +26,12 @@ class SentryMiddleware:
 
     def process_spider_exception(self, response, exception, spider):
         if not is_success(response.status):  # all 2xx and 3xx responses are accepted
+
+            # TODO: remove this hack!
+            spider.logger.debug(f"caught exception manually for request '{response.request.url}': {exception}")
+            if type(exception) == DNSLookupError:
+                raise CloseSpider('saw DNS lookup error')
+
             capture(exception=exception, tags=_tags(response, spider))
 
 
