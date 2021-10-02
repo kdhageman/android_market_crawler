@@ -31,12 +31,13 @@ class SentryMiddleware:
         return response
 
     def process_exception(self, request, exception, spider):
-        # TODO: remove this hack!
-        spider.logger.debug(f"caught exception manually for request '{request.url}': {exception}")
         if type(exception) == DNSLookupError:
-            raise CloseSpider('saw DNS lookup error')
+            # explicitly output
+            spider.logger.error(f"dns lookup error for request '{request}': {exception}")
+            spider.logger.error(f"request headers: {str(request.headers)}")
+            spider.logger.error(f"request meta: {str(request.meta)}")
+            raise CloseSpider('dns lookup error')
         capture(exception=exception, tags=_request_tags(request, spider))
-
 
 def _request_tags(request, spider):
     return {
