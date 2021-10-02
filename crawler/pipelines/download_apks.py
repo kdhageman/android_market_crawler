@@ -2,7 +2,7 @@ import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
-from crawler.middlewares.sentry import capture, _tags
+from crawler.middlewares.sentry import capture, _response_tags
 
 try:
     from cStringIO import StringIO as BytesIO
@@ -58,7 +58,7 @@ class DownloadApksPipeline(FilesPipeline):
     def media_failed(self, failure, request, info):
         """Handler for failed downloads"""
         info.spider.logger.debug(f"failed to download from '{request.url}': {failure}")
-        tags = _tags(request,info.spider)
+        tags = _response_tags(request, info.spider)
         capture(exception=failure, tags=tags)
         return super().media_failed(self, failure, request, info)
 
