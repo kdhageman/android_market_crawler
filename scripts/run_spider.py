@@ -172,11 +172,12 @@ def get_settings(config, spidername, logdir):
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
+        'crawler.middlewares.sentry.SentryMiddleware': 1,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'crawler.middlewares.stats.StatsMiddleware': 120,
         'crawler.middlewares.duration.DurationMiddleware': 200,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
-        'crawler.middlewares.ratelimit.RatelimitMiddleware': 543
+        'crawler.middlewares.ratelimit.RatelimitMiddleware': 543,
     }
 
     spider_middlewares = {

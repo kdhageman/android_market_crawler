@@ -25,12 +25,16 @@ class SentryMiddleware:
             capture(msg="failed request", tags=tags)
 
     def process_spider_exception(self, response, exception, spider):
+        capture(exception=exception, tags=_tags(response, spider))
+
+    def process_response(self, request, response, spider):
+        return response
+
+    def process_exception(self, request, exception, spider):
         # TODO: remove this hack!
-        spider.logger.debug(f"caught exception manually for request '{response.request.url}': {exception}")
+        spider.logger.debug(f"caught exception manually for request '{request.url}': {exception}")
         if type(exception) == DNSLookupError:
             raise CloseSpider('saw DNS lookup error')
-
-        capture(exception=exception, tags=_tags(response, spider))
 
 
 def _tags(response, spider):
