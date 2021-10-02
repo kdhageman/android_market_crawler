@@ -216,6 +216,8 @@ def get_settings(config, spidername, logdir):
         MEDIA_ALLOW_REDIRECTS=True,
         HTTP_PROXIES=proxies,
         DOWNLOAD_WARNSIZE=0,
+        DNSCACHE_SIZE=100000,
+        DNS_RESOLVER='scrapy.resolver.CachingHostnameResolver',
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=60,
