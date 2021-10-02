@@ -142,12 +142,13 @@ def get_identifier(meta):
     Returns:
         str: identifier of package
     """
-    if 'pkg_name' in meta:
-        return meta['pkg_name']
-    if 'id' in meta:
-        return meta['id']
-    else:
-        raise Exception('cannot find identifier for app')
+    pkg_name = meta.get("pkg_name", None)
+    identifier = meta.get("id", None)
+    if pkg_name:
+        return pkg_name
+    if identifier:
+        return identifier
+    raise Exception('cannot find identifier for app')
 
 
 def market_from_spider(spider):
