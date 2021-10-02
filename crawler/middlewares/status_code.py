@@ -4,7 +4,7 @@ class StatuscodeMiddleware:
         if status_code >= 300:
             # error code
             try:
-                spider.handle_status(status_code)
+                spider.handle_status(response, status_code)
             except:
                 # ignore any exception
                 pass
