@@ -40,7 +40,10 @@ class InfluxdbPipeline:
     def process_item(self, item, spider):
         market = market_from_spider(spider)
 
-        apk_count = len([0 for d in item['versions'].values() if 'file_path' in d])
+        apk_successes = len([v['file_success'] for v in item['versions'].values() if v['file_success'] == 1])
+        apk_failures = len([v['file_success'] for v in item['versions'].values() if v['file_success'] == 0])
+        apk_skipped = len([v['file_success'] for v in item['versions'].values() if v['file_success'] == -1])
+
         apk_sizes = sum([d.get('file_size', 0) for d in item['versions'].values()])
         version_count = len(item['versions'])
 
@@ -51,7 +54,9 @@ class InfluxdbPipeline:
             },
             "fields": {
                 "count": 1,
-                "apks": apk_count,
+                "apk_successes": apk_successes,
+                "apk_failures": apk_failures,
+                "apk_skipped": apk_skipped,
                 "apk_sizes": apk_sizes,
                 "versions": version_count
             }
