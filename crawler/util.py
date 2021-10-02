@@ -25,12 +25,25 @@ def init_proxy_pool(crawler, proxies):
         PROXY_POOL = BackoffProxyPool(crawler, proxies)
 
 
+def _is_valid(proxy):
+    """
+    Test if the proxy fulfills the format:
+    """
+    if not proxy:
+        return False
+    pattern = "\d{1,3}\.\d{1,3}\.\d{1,3}.\d{1,3}:\d+"
+    return re.match(pattern, proxy)
+
+
 class BackoffProxyPool:
     def __init__(self, crawler, proxies):
         self.crawler = crawler
         self.proxies = {}
         for proxy in proxies:
-            self.proxies[proxy] = None
+            if _is_valid(proxy):
+                self.proxies[proxy] = None
+            else:
+                crawler.spider.logger.debug(f"dropping invalid proxy: {proxy}")
 
         self.use_proxies = len(proxies) > 0
         self.non_proxy_until = datetime.now()
