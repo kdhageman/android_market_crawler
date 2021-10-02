@@ -151,10 +151,6 @@ def get_settings(config, spidername, logdir):
     if not database:
         raise YamlException("database")
 
-    janus = config.get("janusgraph", {})
-    if not janus:
-        raise YamlException("janusgraph")
-
     log_file = os.path.join(logdir, f"{spidername}.log")
 
     item_pipelines = {
@@ -170,7 +166,6 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.database.PostDownloadPipeline': 900,
         'crawler.pipelines.database.PostDownloadPackagePipeline': 901,
         # 'crawler.pipelines.output_meta.WriteMetaFilePipeline': 1000,
-        'crawler.pipelines.output_meta.StorePipeline': 1001 if janus.get("enabled", False) else None,
         'crawler.pipelines.log.LogPipeline': 1100
     }
 
@@ -229,7 +224,6 @@ def get_settings(config, spidername, logdir):
         INFLUXDB_CLIENT=influxdb_client,
         GPLAY_PARAMS=gplay,
         DATABASE_PARAMS=database,
-        JANUS_PARAMS=janus,
         RECURSIVE=recursive
     )
 

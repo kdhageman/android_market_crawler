@@ -3,7 +3,6 @@ import re
 import scrapy
 import numpy as np
 
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 dl_pattern = "zhytools.downloadApp\((.*)\);"
@@ -96,7 +95,7 @@ class HuaweiSpider(scrapy.Spider):
             download_url=dl_link
         )
 
-        res = [Result(
+        res = [dict(
             meta=meta,
             versions=versions
         )]

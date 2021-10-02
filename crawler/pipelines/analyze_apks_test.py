@@ -2,7 +2,6 @@ import unittest
 
 from lxml import etree
 
-from crawler.item import Result
 from crawler.pipelines.analyze_apks import AnalyzeApkPipeline, parse_app_links, _assetlinks_domain, \
     _get_android_version_name
 
@@ -11,7 +10,7 @@ from crawler.pipelines.analyze_apks import AnalyzeApkPipeline, parse_app_links, 
 class AnalyzeApkPipelineTest(unittest.TestCase):
     def test_process_item(self):
         pipeline = AnalyzeApkPipeline()
-        item = Result(
+        item = dict(
             meta={
                 "pkg_name": "com.apple.test"
             },

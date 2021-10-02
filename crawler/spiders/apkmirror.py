@@ -1,7 +1,4 @@
 import scrapy
-import re
-
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"

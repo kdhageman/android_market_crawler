@@ -2,7 +2,6 @@ import re
 
 import scrapy
 
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 version_pattern = '版本: (.*)'
@@ -110,7 +109,10 @@ class BaiduSpider(scrapy.Spider):
                 download_url=dl_link
             )
 
-        res.append(Result(meta=meta,versions=versions))
+        res.append(dict(
+            meta=meta,
+            versions=versions
+        ))
 
         # apps you might like
         for pkg_link in response.css("div.sec-favourite a.app-box::attr(href)").getall():

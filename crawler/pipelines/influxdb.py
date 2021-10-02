@@ -1,7 +1,6 @@
 from scrapy import signals
 from twisted.internet import task
 
-from crawler.item import Result
 from crawler.util import market_from_spider
 
 

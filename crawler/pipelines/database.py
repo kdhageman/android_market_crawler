@@ -5,8 +5,6 @@ from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
-from crawler.item import Result
-
 _version_table = "versions"
 
 _sqlite_tables = [

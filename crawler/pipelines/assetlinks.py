@@ -5,7 +5,6 @@ from sentry_sdk import capture_exception
 from twisted.internet import defer
 
 from crawler import util
-from crawler.item import Result
 from crawler.util import HttpClient, RequestException, response_has_content_type
 
 

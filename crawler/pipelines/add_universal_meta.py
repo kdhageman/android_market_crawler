@@ -1,6 +1,5 @@
 import time
 
-from crawler.item import Result
 from crawler.util import market_from_spider
 
 

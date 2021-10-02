@@ -1,14 +1,5 @@
-import scrapy
-
-
 class NoPkgError(Exception):
     pass
-
-
-class Result(scrapy.Item):
-    meta = scrapy.Field()
-    versions = scrapy.Field()
-
 
 def pkg_name_from_result(result):
     meta = result["meta"]
