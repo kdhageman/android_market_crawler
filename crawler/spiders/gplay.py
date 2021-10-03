@@ -224,27 +224,11 @@ class SSLContext(ssl.SSLContext):
         pass
 
 
-class AuthHTTPAdapter(requests.adapters.HTTPAdapter):
-    def init_poolmanager(self, *args, **kwargs):
-        """
-        Secure settings from ssl.create_default_context(), but without
-        ssl.OP_NO_TICKET which causes Google to return 403 Bad
-        Authentication.
-        """
-        context = SSLContext()
-        context.set_ciphers(_CIPHERS)
-        context.verify_mode = ssl.CERT_REQUIRED
-        context.options &= ~ssl_.OP_NO_TICKET
-        self.poolmanager = PoolManager(*args, ssl_context=context, **kwargs)
-
-
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
     def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
-        self.session = requests.session()
-        self.session.mount('https://', AuthHTTPAdapter())
 
         self.interval = interval
         self.lang = lang

@@ -21,7 +21,9 @@ class HttpProxyMiddleware:
             host = urlparse(request.url).hostname
             proxy = util.PROXY_POOL.get_proxy()
             if _is_valid(proxy) and host not in ["127.0.0.1", "::1", "localhost"]:
-                request.meta['proxy'] = f"http://{proxy}"
+                full_proxy = f"http://{proxy}"
+                request.meta['proxy'] = full_proxy
+                request.meta['download_slot'] = full_proxy
             else:
                 request.meta['proxy'] = None
         except NoProxiesError:
