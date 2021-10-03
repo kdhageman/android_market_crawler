@@ -216,7 +216,8 @@ def get_settings(config, spidername, logdir):
         DOWNLOAD_WARNSIZE=0,
         DNSCACHE_SIZE=100000,
         TELNETCONSOLE_USERNAME="scrapy",
-        TELNETCONSOLE_PASSWORD = "scrapy",
+        TELNETCONSOLE_PASSWORD="scrapy",
+        DUPEFILTER_DEBUG=True,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=60,
