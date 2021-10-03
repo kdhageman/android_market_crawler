@@ -192,13 +192,13 @@ class PreDownloadVersionPipeline(DatabasePipeline):
             else:
                 spider.logger.debug(f"unseen APK of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
             if existing_meta:
-                spider.logger.info(f"seen meta of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
+                spider.logger.info(f"seen analysis of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
                 existing_analysis = existing_meta['versions'].get(version, {}).get('analysis', None)
                 if existing_analysis:
                     dat['analysis'] = existing_analysis
                 meta['pkg_name'] = existing_meta['meta'].get('pkg_name', None)
             else:
-                spider.logger.debug(f"unseen meta of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
+                spider.logger.debug(f"unseen analysis of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
             versions[version] = dat
 
         item['versions'] = versions
