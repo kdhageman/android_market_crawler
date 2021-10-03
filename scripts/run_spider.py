@@ -187,7 +187,9 @@ def get_settings(config, spidername, logdir):
     }
 
     extensions = {
-        'crawler.extensions.stats.InfluxdbLogs': 100
+        'crawler.extensions.stats.InfluxdbLogs': 100,
+        'crawler.extensions.stats.DumpStatsExtension': 101,
+        'crawler.extensions.stats.MonitorDownloadsExtension': 102
     }
 
     user_agents = _load_user_agents(args.user_agents_file)
