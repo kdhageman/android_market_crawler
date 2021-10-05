@@ -55,7 +55,7 @@ class AssetLinksPipeline(FilesPipeline):
                     info.spider.logger.warn(f"failed to extract assetlinks from file: {e}")
 
         for version, dat in item['versions'].items():
-            for domain in dat.get("analysis", {}).get("assetlink_domains").keys():
+            for domain in dat.get("analysis", {}).get("assetlink_domains", {}).keys():
                 al = self.seen.get(domain, None)
                 dat['analysis']['assetlink_domains'][domain] = al
                 if al:
