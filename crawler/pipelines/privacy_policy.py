@@ -40,13 +40,14 @@ class PrivacyPolicyPipeline(FilesPipeline):
             yield scrapy.Request(privacy_policy_url, meta=item)
 
     def item_completed(self, results, item, info):
-        if len(results) != 1:
+        if len(results) > 1:
             info.spider.logger.debug("collected more than one privacy policy, using first only")
-        success, resultdata = results[0]
-        if success:
-            item['meta']['privacy_policy_path'] = resultdata['path']
-            item['meta']['privacy_policy_status'] = 200
-        else:
-            # TODO: set correct HTTP status
-            item['meta']['privacy_policy_status'] = 1000
+        elif len(results) == 1:
+            success, resultdata = results[0]
+            if success:
+                item['meta']['privacy_policy_path'] = resultdata['path']
+                item['meta']['privacy_policy_status'] = 200
+            else:
+                # TODO: set correct HTTP status
+                item['meta']['privacy_policy_status'] = 1000
         return item
