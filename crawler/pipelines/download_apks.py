@@ -33,7 +33,7 @@ class DownloadApksPipeline(FilesPipeline):
             settings=settings
         )
 
-    def file_path(self, request, response=None, info=None):
+    def file_path(self, request, response=None, info=None, *, item=None):
         item = request.meta
         dir = get_directory(item['meta'], info.spider)
         version = item['version']

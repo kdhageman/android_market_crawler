@@ -1,51 +1,52 @@
 import os
 from datetime import datetime
+import scrapy
+from scrapy.pipelines.files import FilesPipeline
 
-from sentry_sdk import capture_exception
-from twisted.internet import defer
-
-from crawler import util
-from crawler.pipelines.util import timed
-from crawler.util import get_directory, HttpClient, RequestException
+from crawler.middlewares.sentry import _response_tags, capture
+from crawler.util import get_directory
 
 
-class PrivacyPolicyPipeline:
+class PrivacyPolicyPipeline(FilesPipeline):
+    def __init__(self, settings):
+        self.root_dir = settings.get('CRAWL_ROOTDIR', "/tmp/crawl")
+        super().__init__(self.root_dir, settings=settings)
+
     @classmethod
-    def from_crawler(cls, crawler):
-        client = HttpClient(crawler)
+    def from_settings(cls, settings):
         return cls(
-            client=client,
-            outdir=crawler.settings.get('CRAWL_ROOTDIR')
+            settings=settings
         )
 
-    def __init__(self, client, outdir):
-        self.client = client
-        self.outdir = outdir
+    def file_path(self, request, response=None, info=None, *, item=None):
+        ts = datetime.now().strftime("%s")
+        meta_dir = get_directory(item['meta'], info.spider)
+        fname = f"privacy_policy.{ts}.html"
+        fpath = os.path.join(self.root_dir, meta_dir, fname)
+        return fpath
 
-    @timed("PrivacyPolicyPipeline")
-    @defer.inlineCallbacks
-    def process_item(self, item, spider):
-        privacy_policy_url = item['meta'].get("privacy_policy_url", "")
+    def media_failed(self, failure, request, info):
+        """Handler for failed downloads"""
+        info.spider.logger.debug(f"failed to download from '{request.url}': {failure}")
+        tags = _response_tags(request, info.spider)
+        capture(exception=failure, tags=tags)
+        return super().media_failed(self, failure, request, info)
 
+    def get_media_requests(self, item, info):
+        privacy_policy_url = item['meta'].get('privacy_policy_url')
         if privacy_policy_url:
-            try:
-                resp = yield self.client.get(privacy_policy_url, timeout=5, proxies=util.PROXY_POOL.get_proxy_as_dict())
-                item['meta']['privacy_policy_status'] = resp.code
-                if resp.code >= 400:
-                    raise RequestException
+            info.spider.logger.debug(f"scheduling download privacy policy from '{privacy_policy_url}'")
+            item['download_timeout'] = 5
+            yield scrapy.Request(privacy_policy_url, meta=item)
 
-                meta_dir = get_directory(item['meta'], spider)
-                ts = datetime.now().strftime("%s")
-                fname = f"privacy_policy.{ts}.html"
-                fpath = os.path.join(self.outdir, meta_dir, fname)
-
-                os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
-
-                with open(fpath, "wb") as f:
-                    content = yield resp.content()
-                    f.write(content)
-
-                item['meta']['privacy_policy_path'] = fpath
-            except Exception as e:
-                capture_exception(e)
-        defer.returnValue(item)
+    def item_completed(self, results, item, info):
+        if len(results) != 1:
+            info.spider.logger.debug("collected more than one privacy policy, using first only")
+        success, resultdata = results[0]
+        if success:
+            item['meta']['privacy_policy_path'] = resultdata['path']
+            item['meta']['privacy_policy_status'] = 200
+        else:
+            # TODO: set correct HTTP status
+            item['meta']['privacy_policy_status'] = 1000
+        return item
