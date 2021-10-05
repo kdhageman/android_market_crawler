@@ -5,6 +5,7 @@ from sentry_sdk import capture_exception
 from twisted.internet import defer
 
 from crawler import util
+from crawler.pipelines.util import timed
 from crawler.util import HttpClient, RequestException, response_has_content_type
 
 
@@ -22,6 +23,7 @@ class AssetLinksPipeline:
         client = HttpClient(crawler)
         return cls(client)
 
+    @timed("AssetLinksPipeline")
     @defer.inlineCallbacks
     def process_item(self, item, spider):
         """

@@ -5,6 +5,7 @@ from sentry_sdk import capture_exception
 from twisted.internet import defer
 
 from crawler import util
+from crawler.pipelines.util import timed
 from crawler.util import get_directory, HttpClient, RequestException
 
 
@@ -21,6 +22,7 @@ class PrivacyPolicyPipeline:
         self.client = client
         self.outdir = outdir
 
+    @timed("PrivacyPolicyPipeline")
     @defer.inlineCallbacks
     def process_item(self, item, spider):
         privacy_policy_url = item['meta'].get("privacy_policy_url", "")

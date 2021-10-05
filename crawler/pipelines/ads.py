@@ -6,6 +6,7 @@ from sentry_sdk import capture_exception
 from twisted.internet import defer
 
 from crawler import util
+from crawler.pipelines.util import timed
 from crawler.util import get_directory, HttpClient, RequestException, response_has_content_type, ContentTypeError, \
     sha256
 
@@ -26,6 +27,7 @@ class AdsPipeline:
         self.outdir = outdir
         self.psl = PublicSuffixList()
 
+    @timed("AdsPipeline")
     @defer.inlineCallbacks
     def process_item(self, item, spider):
         """

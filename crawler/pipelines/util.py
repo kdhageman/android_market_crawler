@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+
+import scrapy
 from influxdb_client import InfluxDBClient as InfluxClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -51,3 +53,22 @@ class InfluxDBClient:
     def close(self):
         if self.api:
             self.c.close()
+
+
+def timed(s):
+    def f(func):
+        def wrapper(*args, **kwargs):
+            for arg in args:
+                if issubclass(arg.__class__, scrapy.Spider):
+                    logger = arg.logger
+                    break
+            if logger:
+                logger.debug(f"started pipeline '{s}'")
+            res = func(*args, *kwargs)
+            t = datetime.now()
+            if logger:
+                elapsed = datetime.now() - t
+                logger.debug(f"'pipeline {s}' took {elapsed}")
+            return res
+        return wrapper
+    return f
