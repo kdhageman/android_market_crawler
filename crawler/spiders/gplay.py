@@ -567,7 +567,10 @@ class GooglePlaySpider(PackageListSpider):
                 new_account = self._new_account()
                 self.auth_db.create_account(new_account)
 
-                self.accounts.remove(old_account)
+                try:
+                    self.accounts.remove(old_account)
+                except:
+                    pass
                 self.accounts.append(new_account)
 
                 self.logger.debug(f"successfully created a new account with gsf id: {new_account.gsf_id}")
