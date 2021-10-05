@@ -1,11 +1,8 @@
 import json
 import os
 from datetime import datetime
-
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
-
-from crawler.pipelines.util import timed
 
 _version_table = "versions"
 
@@ -126,7 +123,6 @@ class PostDownloadPackagePipeline(DatabasePipeline):
     def from_crawler(cls, crawler):
         return cls(crawler)
 
-    @timed("PostDownloadPackagePipeline")
     def process_item(self, item, spider):
         self.create_package(item)
 
@@ -175,7 +171,6 @@ class PreDownloadVersionPipeline(DatabasePipeline):
     def from_crawler(cls, crawler):
         return cls(crawler)
 
-    @timed("PreDownloadVersionPipeline")
     def process_item(self, item, spider):
         meta = item.get("meta", {})
         versions = item.get("versions", {})
@@ -249,7 +244,6 @@ class PostDownloadPipeline(DatabasePipeline):
     def from_crawler(cls, crawler):
         return cls(crawler)
 
-    @timed("PostDownloadPipeline")
     def process_item(self, item, spider):
         meta = item.get("meta", {})
         versions = item.get("versions", {})

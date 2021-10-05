@@ -1,7 +1,5 @@
 from scrapy import signals
 from twisted.internet import task
-
-from crawler.pipelines.util import timed
 from crawler.util import market_from_spider
 
 
@@ -38,7 +36,6 @@ class InfluxdbPipeline:
                 t.stop()
         self.influxdb_client.close()
 
-    @timed("InfluxdbPipeline")
     def process_item(self, item, spider):
         market = market_from_spider(spider)
 

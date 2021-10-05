@@ -1,12 +1,9 @@
 from datetime import datetime
 import time
-
-from crawler.pipelines.util import timed
 from crawler.util import get_identifier
 
 
 class LogPipeline:
-    @timed("LogPipeline")
     def process_item(self, item, spider):
         identifier = get_identifier(item['meta'])
         start_time = item.get("__pkg_start_time", None)
