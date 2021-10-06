@@ -1,5 +1,6 @@
 import urllib
 import scrapy
+from scrapy.exceptions import DropItem
 
 from crawler.spiders.util import normalize_rating, PackageListSpider
 
@@ -19,12 +20,16 @@ class TencentSpider(PackageListSpider):
             yield req
 
     def base_requests(self, meta={}):
-        return [scrapy.Request('https://android.myapp.com/', callback=self.parse)]
+        return [
+            scrapy.Request('https://android.myapp.com/', callback=self.parse_frontpage),
+            scrapy.Request('https://android.myapp.com/union.htm?orgame=1&page=1', callback=self.parse_listing),
+            scrapy.Request('https://android.myapp.com/union.htm?orgame=2&page=1', callback=self.parse_listing),
+        ]
 
     def url_by_package(self, pkg):
         return f"https://android.myapp.com/myapp/detail.htm?apkName={pkg}"
 
-    def parse(self, response):
+    def parse_frontpage(self, response):
         """
         Parses the front page for packages
         Example URL: https://android.myapp.com/
@@ -37,9 +42,45 @@ class TencentSpider(PackageListSpider):
         for link in response.css("a::attr(href)").re("../myapp/detail.htm\?apkName=.+"):
             self.logger.debug(f"scheduled new package page: {link}")
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse_pkg_page, priority=1)  # add URL to set of URLs to crawl
             res.append(req)
         return res
+
+    def parse_listing(self, response):
+        res = []
+
+        # all apps in listing
+        for link in response.css("a.appName.ofh::attr('href')").getall():
+            self.logger.debug(f"scheduled new package page: {link}")
+            next_page = response.urljoin(link)  # build absolute URL based on relative link
+            req = scrapy.Request(next_page, callback=self.parse_pkg_page, priority=1)  # add URL to set of URLs to crawl
+            res.append(req)
+
+        # next page
+        response_url = urllib.parse.urlparse(response.url)
+        query = urllib.parse.parse_qs(response_url.query)
+        pages = query.get('page', [])
+        if len(pages) == 0:
+            return DropItem()
+        try:
+            old_page = int(pages[0])
+        except:
+            return DropItem()
+
+        new_page = old_page + 1
+
+        new_query = urllib.parse.urlencode({
+            'orgame': query['orgame'][0],
+            'page': new_page
+        })
+        response_url = response_url._replace(query=new_query)
+
+        next_page_url = response_url.geturl()
+        self.logger.debug(f"scheduled next page: {next_page_url}")
+        req = scrapy.Request(next_page_url, callback=self.parse_listing)  # add URL to set of URLs to crawl
+        res.append(req)
+
+        return
 
     def parse_pkg_page(self, response):
         """
