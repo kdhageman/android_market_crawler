@@ -8,7 +8,11 @@ class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
 
     def start_requests(self):
-        yield scrapy.Request('https://www.apkmirror.com/', callback=self.parse)
+        pages = 8813  # can be changed manually
+        for page_nr in range(1, pages):
+            url = f"https://www.apkmirror.com/uploads/page/{page_nr}/"
+            self.logger.debug(f"scheduled new pagination page: {url}")
+            yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         """
@@ -25,14 +29,6 @@ class ApkMirrorSpider(scrapy.Spider):
             self.logger.debug(f"scheduled new package page: {link}")
             next_page = response.urljoin(link)  # build absolute URL based on relative link
             req = scrapy.Request(next_page, callback=self.parse_pkg_page, priority=1)  # add URL to set of URLs to crawl
-            res.append(req)
-
-        # follow pagination
-        a_to_next = response.css("a.nextpostslink::attr(href)").get()
-        if a_to_next:
-            self.logger.debug(f"scheduled new pagination page: {a_to_next}")
-            next_page = response.urljoin(a_to_next)
-            req = scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
             res.append(req)
 
         return res
