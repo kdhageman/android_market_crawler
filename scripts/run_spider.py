@@ -220,7 +220,7 @@ def get_settings(config, spidername, logdir):
         DUPEFILTER_DEBUG=True,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
-        DOWNLOAD_TIMEOUT=60,
+        DOWNLOAD_TIMEOUT=120,
         DOWNLOAD_MAXSIZE=0,
         RATELIMIT_PARAMS=ratelimit,
         PACKAGE_FILES_ONLY=package_files_only,

@@ -13,7 +13,7 @@ class LogPipeline:
             del item['__pkg_start_time']
         else:
             spider.logger.info(f"processed '{identifier}'")
-        pause(3, spider.crawler)
+        # pause(3, spider.crawler)
         return item
 
 
