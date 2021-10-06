@@ -41,7 +41,7 @@ class AdsPipeline(FilesPipeline):
         paths = ["/app-ads.txt", "/ads.txt"]
         for path in paths:
             url = parsed_url._replace(netloc=root_domain, path=path).geturl()
-            item['download_timeout'] = 5
+            item['download_timeout'] = 3
             info.spider.logger.debug(f"scheduling (app-)ads.txt from '{url}'")
             yield scrapy.Request(url, meta=item)
 

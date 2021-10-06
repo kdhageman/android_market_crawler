@@ -36,7 +36,7 @@ class PrivacyPolicyPipeline(FilesPipeline):
         privacy_policy_url = item['meta'].get('privacy_policy_url')
         if privacy_policy_url:
             info.spider.logger.debug(f"scheduling download privacy policy from '{privacy_policy_url}'")
-            item['download_timeout'] = 5
+            item['download_timeout'] = 3
             yield scrapy.Request(privacy_policy_url, meta=item)
 
     def item_completed(self, results, item, info):

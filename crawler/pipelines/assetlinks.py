@@ -35,7 +35,7 @@ class AssetLinksPipeline(FilesPipeline):
                 if domain not in self.seen:
                     if len(domain.split(".")) > 1:
                         url = f"https://{domain}/.well-known/assetlinks.json"
-                        item['download_timeout'] = 5
+                        item['download_timeout'] = 3
                         info.spider.logger.debug(f"scheduling asset links from '{url}'")
                         yield scrapy.Request(url, meta=item)
                     else:
