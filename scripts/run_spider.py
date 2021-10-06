@@ -114,6 +114,7 @@ def get_settings(config, spidername, logdir):
     depth_limit = scrapy.get('depth_limit', 2)
     item_count = scrapy.get('item_count', 10)
     log_level = scrapy.get("log_level", "INFO")
+    pause_interval = scrapy.get("pause_interval")
     telnet = scrapy.get("telnet", {})
     telnet_user = telnet.get("username", None)
     telnet_password = telnet.get("password", None)
@@ -152,6 +153,7 @@ def get_settings(config, spidername, logdir):
         raise YamlException("database")
 
     log_file = os.path.join(logdir, f"{spidername}.log")
+
 
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
@@ -218,6 +220,7 @@ def get_settings(config, spidername, logdir):
         TELNETCONSOLE_USERNAME="scrapy",
         TELNETCONSOLE_PASSWORD="scrapy",
         DUPEFILTER_DEBUG=True,
+        PAUSE_INTERVAL=pause_interval,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=120,
