@@ -7,9 +7,19 @@ dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"
 class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
 
+    def __init__(self, crawler, start_page=1):
+        super().__init__(crawler=crawler, settings=crawler.settings)
+        self.start_page = start_page
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        apkmirror_params = crawler.settings.get("APKMIRROR_PARAMS", {})
+        start_page = apkmirror_params.get('start_page', 1)
+        return cls(crawler, start_page)
+
     def start_requests(self):
         pages = 8813  # can be changed manually
-        for page_nr in range(1, pages):
+        for page_nr in range(self.start_page, pages):
             url = f"https://www.apkmirror.com/uploads/page/{page_nr}/"
             self.logger.debug(f"scheduled new pagination page: {url}")
             yield scrapy.Request(url, callback=self.parse)

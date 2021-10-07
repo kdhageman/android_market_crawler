@@ -148,6 +148,8 @@ def get_settings(config, spidername, logdir):
     if not gplay:
         raise YamlException("googleplay")
 
+    apkmirror = config.get("apkmirror", {})
+
     database = config.get("database", {})
     if not database:
         raise YamlException("database")
@@ -231,6 +233,7 @@ def get_settings(config, spidername, logdir):
         STATSD_PARAMS=statsd,
         INFLUXDB_CLIENT=influxdb_client,
         GPLAY_PARAMS=gplay,
+        APKMIRROR_PARAMS=apkmirror,
         DATABASE_PARAMS=database,
         RECURSIVE=recursive
     )
