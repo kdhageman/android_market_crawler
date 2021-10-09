@@ -1,8 +1,11 @@
+import json
 import re
+import socketserver
 import time
 from base64 import b64decode, urlsafe_b64encode
+from http.server import BaseHTTPRequestHandler
 from random import choice
-from urllib.parse import urlencode
+from urllib.parse import urlencode, parse_qs
 
 import numpy as np
 import requests
@@ -13,15 +16,15 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.hazmat.primitives.serialization import load_der_public_key
+from multiprocessing import Process
 
 import ssl
 
 from playstoreapi.googleplay import GooglePlayAPI
 from playstoreapi.googleplay_pb2 import ResponseWrapper
 from scrapy.exceptions import CloseSpider
-from urllib3.poolmanager import PoolManager
-from urllib3.util import ssl_
 
+from crawler import util
 from crawler.spiders.util import PackageListSpider, normalize_rating, read_int, to_big_int
 import crawler.util
 
@@ -66,6 +69,7 @@ _locale = "en_GB"
 _timezone = 'Europe/London'
 _USERAGENT_SEARCH = f"Android-Finsky/{_version_string} (api=3,versionCode={_version_code},sdk={_sdk},device={_device},hardware={_hardware},product={_product},platformVersionRelease={_platform_v},model={_model},buildId={_build_id},isWideScreen=0,supportedAbis={_supported_abis.replace(',', ';')})"
 _ALLOWED_ERROR_COUNT = 5
+
 
 def parse_details(details):
     """
@@ -175,6 +179,7 @@ class NotLoggedInError(Exception):
     def __str__(self):
         return "must login before performing action"
 
+
 class Account:
     def __init__(self, gsf_id, ast):
         self.gsf_id = gsf_id
@@ -215,7 +220,6 @@ class AuthDb:
         self.conn.commit()
 
 
-
 class SSLContext(ssl.SSLContext):
     def set_alpn_protocols(self, protocols):
         """
@@ -224,24 +228,84 @@ class SSLContext(ssl.SSLContext):
         pass
 
 
+class AuthRenewServer:
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            try:
+                content_len = int(self.headers['content-length'])
+                post_body = self.rfile.read(content_len).decode()
+                qs = parse_qs(post_body)
+
+                proxy = qs.get("proxy")[0]
+                proxy_config = crawler.util.get_proxy_as_dict(proxy)
+            except:
+                proxy_config = None
+
+            try:
+                api = GooglePlayAPI('en_US', 'Europe/Copenhagen', proxies_config=proxy_config)
+                api.login(anonymous=True)
+            except Exception:
+                self.send_error(500)
+                return
+
+            body_raw = {
+                "gsf_id": api.gsfId,
+                "ast": api.authSubToken
+            }
+            body = bytes(json.dumps(body_raw), "utf-8")
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+    def __init__(self):
+        server = socketserver.TCPServer(("", 0), AuthRenewServer.Handler)
+        self.port = server.server_address[1]
+        server.server_close()
+
+    def start(self):
+        with socketserver.TCPServer(("", self.port), AuthRenewServer.Handler) as server:
+            print("serving at port", self.port)
+            server.serve_forever()
+
+
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
     def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
 
+        self.server = AuthRenewServer()
+        # self.server.start()
+        Process(target=self.server.start).start()
+
+        # wait for HTTP server to start
+        time.sleep(3)
+
         self.interval = interval
         self.lang = lang
+
+        self.nr_anonymous_accounts = nr_anonymous_accounts
+        self.open_account_renewals = 0
+        self.max_open_account_renewals = 10
 
         self.auth_db = AuthDb(path=accounts_db_path)
         self.accounts = self.auth_db.get_accounts()
 
-        while len(self.accounts) < nr_anonymous_accounts:
-            account = self._new_account()
-            self.logger.info("created new anonymous account")
-            self.auth_db.create_account(account)
+        while len(self.accounts) < self.nr_anonymous_accounts:
+            url = f"http://localhost:{self.server.port}"
+            try:
+                res = requests.post(url=url)
 
-            self.accounts.append(account)
+                account = Account(res.json()['gsf_id'], res.json()['ast'])
+                self.logger.info("created new anonymous account")
+                self.auth_db.create_account(account)
+
+                self.accounts.append(account)
+            except Exception as e:
+                self.logger.info(f"failed to create a new anonymous account: {e}")
+                raise CloseSpider()
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -252,8 +316,6 @@ class GooglePlaySpider(PackageListSpider):
         nr_anonymous_accounts = params.get("nr_anonymous_accounts")
 
         return cls(crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=interval)
-
-    # Methods for interacting with Google Play API
 
     def _get_headers(self, account, post_content_type=_CONTENT_TYPE_URLENC):
         """get_head
@@ -282,7 +344,19 @@ class GooglePlaySpider(PackageListSpider):
             yield req
 
     def base_requests(self, meta={}):
-        return [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, meta=meta)]
+        res = [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, meta=meta)]
+
+        return res
+
+    def parse_account_create(self, response):
+        gsf_id = response.json()['gsf_id']
+        ast = response.json()['ast']
+        account = Account(gsf_id, ast)
+
+        self.logger.info("created new anonymous account")
+        self.auth_db.create_account(account)
+
+        self.accounts.append(account)
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"
@@ -395,7 +469,16 @@ class GooglePlaySpider(PackageListSpider):
             pkg = m.group(1)
 
             # select account
-            account = choice(self.accounts)
+            if len(self.accounts) == 0:
+                return [response.request]
+
+            try:
+                account = choice(self.accounts)
+            except IndexError:
+                # could not find an account, so put the request back in the queue and wait for accounts to be ready
+                req = response.request
+                req.dont_filter = True
+                return response.request
 
             req = self._craft_details_req(pkg, account)
 
@@ -560,39 +643,24 @@ class GooglePlaySpider(PackageListSpider):
         if status_code == 401:
             self.logger.debug(f"replacing Google account due to 401 response")
 
+            old_account = response.meta['_account']
+            self.auth_db.delete_account(old_account)
+
             try:
-                old_account = response.meta['_account']
-                self.auth_db.delete_account(old_account)
+                self.accounts.remove(old_account)
+            except:
+                pass
 
-                new_account = self._new_account()
-                self.auth_db.create_account(new_account)
+            url = f"http://127.0.0.1:{self.server.port}"
+            proxy = util.PROXY_POOL.get_proxy()
+            if proxy:
+                body = {"proxy": proxy}
+            else:
+                body = None
+            req = scrapy.Request(url=url, body=body, priority=1000, callback=self.parse_create_account)
+            yield req
 
-                try:
-                    self.accounts.remove(old_account)
-                except:
-                    pass
-                self.accounts.append(new_account)
 
-                self.logger.debug(f"successfully created a new account with gsf id: {new_account.gsf_id}")
-            except Exception as e:
-                self.logger.error(f"failed to create new account: {e}")
-                raise CloseSpider("failed to create new account")
-
-    def _new_account(self):
-        proxies = crawler.util.PROXY_POOL.proxies if crawler.util.PROXY_POOL else None
-        if proxies:
-            proxy = np.random.choice(list(proxies.keys()))
-            proxy_config = crawler.util.get_proxy_as_dict(proxy)
-        else:
-            proxy_config = None
-
-        try:
-            api = GooglePlayAPI('en_US', 'Europe/Copenhagen', proxies_config=proxy_config)
-            api.login(anonymous=True)
-        except Exception as e:
-            raise CloseSpider('cannot proceed without a valid account')
-
-        return Account(api.gsfId, api.authSubToken)
 
 def encrypt_password(email, passwd):
     """Encrypt credentials using the google publickey, with the
