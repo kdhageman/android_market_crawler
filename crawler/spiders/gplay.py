@@ -22,6 +22,7 @@ import ssl
 
 from playstoreapi.googleplay import GooglePlayAPI
 from playstoreapi.googleplay_pb2 import ResponseWrapper
+from scrapy import signals
 from scrapy.exceptions import CloseSpider
 
 from crawler import util
@@ -278,7 +279,8 @@ class GooglePlaySpider(PackageListSpider):
 
         self.server = AuthRenewServer()
         # self.server.start()
-        Process(target=self.server.start).start()
+        self.server_process = Process(target=self.server.start)
+        self.server_process.start()
 
         # wait for HTTP server to start
         time.sleep(3)
@@ -314,8 +316,11 @@ class GooglePlaySpider(PackageListSpider):
 
         accounts_db_path = params.get("accounts_db_path")
         nr_anonymous_accounts = params.get("nr_anonymous_accounts")
+        
+        spider = cls(crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=interval)
+        crawler.signals.connect(spider.spider_closed, signals.spider_closed)
 
-        return cls(crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=interval)
+        return spider
 
     def _get_headers(self, account, post_content_type=_CONTENT_TYPE_URLENC):
         """get_head
@@ -660,6 +665,8 @@ class GooglePlaySpider(PackageListSpider):
             req = scrapy.Request(url=url, body=body, priority=1000, callback=self.parse_create_account)
             yield req
 
+    def spider_closed(self, spider):
+        self.server_process.terminate()
 
 
 def encrypt_password(email, passwd):
