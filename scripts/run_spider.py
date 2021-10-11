@@ -274,7 +274,9 @@ def main(config, spidername, logdir):
         time.sleep(3)
 
     process.crawl(spider)
+    print("Starting spider..")
     process.start()  # the script will block here until the crawling is finished
+    print("Finished spider!")
 
     if spider == GooglePlaySpider:
         print("killing server process..")
