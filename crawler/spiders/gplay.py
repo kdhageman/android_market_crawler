@@ -678,7 +678,9 @@ class GooglePlaySpider(PackageListSpider):
         self.logger.info("killing server process..")
         self.server_process.terminate()
         self.logger.info("killed server process!")
-
+        self.logger.info("joining server process..")
+        self.server_process.join()
+        self.logger.info("joined server process!")
 
 def encrypt_password(email, passwd):
     """Encrypt credentials using the google publickey, with the
