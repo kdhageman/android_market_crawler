@@ -111,6 +111,7 @@ def get_settings(config, spidername, logdir):
         raise YamlException("scrapy")
 
     concurrent_requests = scrapy.get('concurrent_requests', 1)
+    concurrent_requests_per_domain = scrapy.get('concurrent_requests_per_domain', 1)
     depth_limit = scrapy.get('depth_limit', 2)
     item_count = scrapy.get('item_count', 10)
     log_level = scrapy.get("log_level", "INFO")
@@ -177,6 +178,7 @@ def get_settings(config, spidername, logdir):
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
         'crawler.middlewares.sentry.SentryMiddleware': 1,
+        'crawler.middlewares.status_code.StatuscodeMiddleware': 2,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'crawler.middlewares.stats.StatsMiddleware': 120,
         'crawler.middlewares.duration.DurationMiddleware': 200,
@@ -186,7 +188,6 @@ def get_settings(config, spidername, logdir):
 
     spider_middlewares = {
         'crawler.middlewares.sentry.SentryMiddleware': 1,
-        'crawler.middlewares.status_code.StatuscodeMiddleware': 2,
         'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 3
     }
 
@@ -208,7 +209,7 @@ def get_settings(config, spidername, logdir):
         USER_AGENTS=user_agents,
         ITEM_PIPELINES=item_pipelines,
         CONCURRENT_REQUESTS=concurrent_requests,
-        CONCURRENT_REQUESTS_PER_DOMAIN=concurrent_requests,
+        CONCURRENT_REQUESTS_PER_DOMAIN=concurrent_requests_per_domain,
         DEPTH_LIMIT=depth_limit,
         CLOSESPIDER_ITEMCOUNT=item_count,
         # AUTOTHROTTLE_ENABLED=True,

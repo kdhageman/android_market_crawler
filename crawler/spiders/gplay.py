@@ -267,8 +267,11 @@ class AuthRenewServer:
 
     def start(self):
         with socketserver.TCPServer(("", self.port), AuthRenewServer.Handler) as server:
-            print("serving at port", self.port)
-            server.serve_forever()
+            print(f"serving anonymous GooglePlay credentials at port: {self.port}")
+            try:
+                server.serve_forever()
+            except Exception as e:
+                print("stopped serving anonymous GooglePlay credentials")
 
 
 class GooglePlaySpider(PackageListSpider):
@@ -644,11 +647,11 @@ class GooglePlaySpider(PackageListSpider):
             time.sleep(t)
             self.crawler.engine.unpause()
 
-    def handle_status(self, response, status_code):
-        if status_code == 401:
+    def process_response(self, request, response, reason):
+        if response.status == 401:
             self.logger.debug(f"replacing Google account due to 401 response")
 
-            old_account = response.meta['_account']
+            old_account = request.meta['_account']
             self.auth_db.delete_account(old_account)
 
             try:
@@ -656,14 +659,21 @@ class GooglePlaySpider(PackageListSpider):
             except:
                 pass
 
+            # account requests
             url = f"http://127.0.0.1:{self.server.port}"
             proxy = util.PROXY_POOL.get_proxy()
             if proxy:
                 body = {"proxy": proxy}
             else:
                 body = None
-            req = scrapy.Request(url=url, body=body, priority=1000, callback=self.parse_create_account)
-            yield req
+            account_req = scrapy.Request(url=url, body=body, priority=1000, callback=self.parse_account_create)
+
+            retry_req = self._retry(request, reason, self)
+
+            return [account_req, retry_req]
+
+
+        return response
 
     def spider_closed(self, spider):
         self.server_process.terminate()
