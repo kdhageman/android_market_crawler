@@ -672,12 +672,12 @@ class GooglePlaySpider(PackageListSpider):
             retry_req = self._retry(request, reason, self)
 
             return [account_req, retry_req]
-
-
         return response
 
     def spider_closed(self, spider):
+        self.logger.info("killing server process..")
         self.server_process.terminate()
+        self.logger.info("killed server process!")
 
 
 def encrypt_password(email, passwd):
