@@ -278,11 +278,12 @@ class SSLContext(ssl.SSLContext):
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
-    def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=1):
+    def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, server_port, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
 
         self.interval = interval
         self.lang = lang
+        self.server_port = server_port
 
         self.nr_anonymous_accounts = nr_anonymous_accounts
         self.open_account_renewals = 0
@@ -292,7 +293,7 @@ class GooglePlaySpider(PackageListSpider):
         self.accounts = self.auth_db.get_accounts()
 
         while len(self.accounts) < self.nr_anonymous_accounts:
-            url = f"http://localhost:{self.server.port}"
+            url = f"http://localhost:{self.server_port}"
             try:
                 res = requests.post(url=url)
 
@@ -312,8 +313,9 @@ class GooglePlaySpider(PackageListSpider):
 
         accounts_db_path = params.get("accounts_db_path")
         nr_anonymous_accounts = params.get("nr_anonymous_accounts")
-        
-        spider = cls(crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=interval)
+        server_port = params.get("server_port")
+
+        spider = cls(crawler, accounts_db_path, nr_anonymous_accounts, server_port, lang='en_US', interval=interval)
 
         return spider
 
@@ -652,7 +654,7 @@ class GooglePlaySpider(PackageListSpider):
                 pass
 
             # account requests
-            url = f"http://127.0.0.1:{self.server.port}"
+            url = f"http://127.0.0.1:{self.server_port}"
             proxy = util.PROXY_POOL.get_proxy()
             if proxy:
                 body = json.dumps({"proxy": proxy})

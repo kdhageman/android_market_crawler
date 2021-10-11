@@ -262,7 +262,6 @@ def main(config, spidername, logdir):
 
     settings = get_settings(config, spidername, logdir)
 
-    process = CrawlerProcess(settings)
     spider = spider_by_name(spidername)
 
     if spider == GooglePlaySpider:
@@ -273,10 +272,11 @@ def main(config, spidername, logdir):
         # wait for HTTP server to start
         time.sleep(3)
 
+        settings['GPLAY_PARAMS']['server_port'] = server.port
+
+    process = CrawlerProcess(settings)
     process.crawl(spider)
-    print("Starting spider..")
     process.start()  # the script will block here until the crawling is finished
-    print("Finished spider!")
 
     if spider == GooglePlaySpider:
         print("killing server process..")
