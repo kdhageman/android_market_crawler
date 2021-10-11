@@ -292,7 +292,9 @@ class GooglePlaySpider(PackageListSpider):
         self.auth_db = AuthDb(path=accounts_db_path)
         self.accounts = self.auth_db.get_accounts()
 
-        while len(self.accounts) < self.nr_anonymous_accounts:
+        accounts_to_create = self.nr_anonymous_accounts - len(self.accounts)
+
+        for i in range(accounts_to_create):
             url = f"http://localhost:{self.server_port}"
             try:
                 res = requests.post(url=url)
@@ -304,7 +306,7 @@ class GooglePlaySpider(PackageListSpider):
                 self.accounts.append(account)
             except Exception as e:
                 self.logger.info(f"failed to create a new anonymous account: {e}")
-                raise CloseSpider()
+                # raise CloseSpider()
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -642,7 +644,7 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.unpause()
 
     def process_response(self, request, response, reason):
-        if response.status == 401:
+        if response.status == 401 and len(self.accounts) < self.nr_anonymous_accounts:
             self.logger.debug(f"replacing Google account due to 401 response")
 
             old_account = request.meta['_account']
