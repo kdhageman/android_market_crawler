@@ -663,10 +663,11 @@ class GooglePlaySpider(PackageListSpider):
             url = f"http://127.0.0.1:{self.server.port}"
             proxy = util.PROXY_POOL.get_proxy()
             if proxy:
-                body = {"proxy": proxy}
+                body = json.dumps({"proxy": proxy})
             else:
                 body = None
-            account_req = scrapy.Request(url=url, body=body, priority=1000, callback=self.parse_account_create)
+            headers = {'Content-Type': 'application/json'}
+            account_req = scrapy.Request(url=url, method="POST", body=body, headers=headers, priority=1000, callback=self.parse_account_create)
 
             retry_req = self._retry(request, reason, self)
 
