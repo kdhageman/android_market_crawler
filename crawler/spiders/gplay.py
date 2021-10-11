@@ -27,7 +27,7 @@ from scrapy.exceptions import CloseSpider
 
 from crawler import util
 from crawler.spiders.util import PackageListSpider, normalize_rating, read_int, to_big_int
-import crawler.util
+from crawler.util import get_proxy_as_dict
 
 _CIPHERS = "ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:ECDH+AESGCM:DH+AESGCM:ECDH+AES:DH+AES:RSA+AESGCM:RSA+AES:!DSS"
 
@@ -71,6 +71,51 @@ _timezone = 'Europe/London'
 _USERAGENT_SEARCH = f"Android-Finsky/{_version_string} (api=3,versionCode={_version_code},sdk={_sdk},device={_device},hardware={_hardware},product={_product},platformVersionRelease={_platform_v},model={_model},buildId={_build_id},isWideScreen=0,supportedAbis={_supported_abis.replace(',', ';')})"
 _ALLOWED_ERROR_COUNT = 5
 
+
+class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            content_len = int(self.headers['content-length'])
+            post_body = self.rfile.read(content_len).decode()
+            qs = parse_qs(post_body)
+
+            proxy = qs.get("proxy")[0]
+            proxy_config = get_proxy_as_dict(proxy)
+        except:
+            proxy_config = None
+
+        try:
+            api = GooglePlayAPI('en_US', 'Europe/Copenhagen', proxies_config=proxy_config)
+            api.login(anonymous=True)
+        except Exception:
+            self.send_error(500)
+            return
+
+        body_raw = {
+            "gsf_id": api.gsfId,
+            "ast": api.authSubToken
+        }
+        body = bytes(json.dumps(body_raw), "utf-8")
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class AuthRenewServer:
+    def __init__(self):
+        server = socketserver.TCPServer(("", 0), Handler)
+        self.port = server.server_address[1]
+        server.server_close()
+
+    def start(self):
+        with socketserver.TCPServer(("", self.port), Handler) as server:
+            print(f"serving anonymous GooglePlay credentials at port: {self.port}")
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt as e:
+                print("Received SIGINT, shutting down gracefully")
 
 def parse_details(details):
     """
@@ -229,64 +274,12 @@ class SSLContext(ssl.SSLContext):
         pass
 
 
-class AuthRenewServer:
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            try:
-                content_len = int(self.headers['content-length'])
-                post_body = self.rfile.read(content_len).decode()
-                qs = parse_qs(post_body)
-
-                proxy = qs.get("proxy")[0]
-                proxy_config = crawler.util.get_proxy_as_dict(proxy)
-            except:
-                proxy_config = None
-
-            try:
-                api = GooglePlayAPI('en_US', 'Europe/Copenhagen', proxies_config=proxy_config)
-                api.login(anonymous=True)
-            except Exception:
-                self.send_error(500)
-                return
-
-            body_raw = {
-                "gsf_id": api.gsfId,
-                "ast": api.authSubToken
-            }
-            body = bytes(json.dumps(body_raw), "utf-8")
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            self.wfile.write(body)
-
-    def __init__(self):
-        server = socketserver.TCPServer(("", 0), AuthRenewServer.Handler)
-        self.port = server.server_address[1]
-        server.server_close()
-
-    def start(self):
-        with socketserver.TCPServer(("", self.port), AuthRenewServer.Handler) as server:
-            print(f"serving anonymous GooglePlay credentials at port: {self.port}")
-            try:
-                server.serve_forever()
-            except Exception as e:
-                print("stopped serving anonymous GooglePlay credentials")
-
 
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
     def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
-
-        self.server = AuthRenewServer()
-        # self.server.start()
-        self.server_process = Process(target=self.server.start)
-        self.server_process.start()
-
-        # wait for HTTP server to start
-        time.sleep(3)
 
         self.interval = interval
         self.lang = lang
@@ -321,7 +314,6 @@ class GooglePlaySpider(PackageListSpider):
         nr_anonymous_accounts = params.get("nr_anonymous_accounts")
         
         spider = cls(crawler, accounts_db_path, nr_anonymous_accounts, lang='en_US', interval=interval)
-        crawler.signals.connect(spider.spider_closed, signals.spider_closed)
 
         return spider
 
@@ -674,13 +666,6 @@ class GooglePlaySpider(PackageListSpider):
             return [account_req, retry_req]
         return response
 
-    def spider_closed(self, spider):
-        self.logger.info("killing server process..")
-        self.server_process.terminate()
-        self.logger.info("killed server process!")
-        self.logger.info("joining server process..")
-        self.server_process.join()
-        self.logger.info("joined server process!")
 
 def encrypt_password(email, passwd):
     """Encrypt credentials using the google publickey, with the

@@ -2,12 +2,13 @@ import argparse
 import logging
 import os
 import re
+import sys
+import time
+from multiprocessing import Process
 
 import sentry_sdk
 import yaml
 from scrapy.crawler import CrawlerProcess
-
-import sys
 
 sys.path.append(os.path.abspath('.'))
 from crawler.pipelines.util import InfluxDBClient
@@ -16,7 +17,7 @@ from crawler.spiders.apkmirror import ApkMirrorSpider
 from crawler.spiders.apkmonk import ApkMonkSpider
 from crawler.spiders.baidu import BaiduSpider
 from crawler.spiders.fdroid import FDroidSpider
-from crawler.spiders.gplay import GooglePlaySpider
+from crawler.spiders.gplay import GooglePlaySpider, AuthRenewServer
 from crawler.spiders.huawei import HuaweiSpider
 from crawler.spiders.mi import MiSpider
 from crawler.spiders.slideme import SlideMeSpider
@@ -260,13 +261,28 @@ def main(config, spidername, logdir):
         sentry_sdk.init(dsn)
 
     settings = get_settings(config, spidername, logdir)
-    process = CrawlerProcess(settings)
 
+    process = CrawlerProcess(settings)
     spider = spider_by_name(spidername)
+
+    if spider == GooglePlaySpider:
+        server = AuthRenewServer()
+        server_process = Process(target=server.start)
+        server_process.start()
+
+        # wait for HTTP server to start
+        time.sleep(3)
 
     process.crawl(spider)
     process.start()  # the script will block here until the crawling is finished
 
+    if spider == GooglePlaySpider:
+        print("killing server process..")
+        server_process.terminate()
+        print("killed server process!")
+        print("joining server process..")
+        server_process.join(timeout=0.1)
+        print("joined server process!")
 
 class ItemMessageFilter(logging.Filter):
     def filter(self, record):
