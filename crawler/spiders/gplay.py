@@ -653,15 +653,14 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.unpause()
 
     def process_response(self, request, response, reason):
-        old_account = request.meta['_account']
-        self.auth_db.delete_account(old_account)
+        if response.status == 401:
+            old_account = request.meta['_account']
+            self.auth_db.delete_account(old_account)
 
-        try:
-            self.accounts.remove(old_account)
-        except:
-            pass
-
-        if response.status == 401 and len(self.accounts) < self.nr_anonymous_accounts:
+            try:
+                self.accounts.remove(old_account)
+            except:
+                pass
             self.logger.debug(f"replacing Google account due to 401 response")
 
             # account requests
