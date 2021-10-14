@@ -217,7 +217,7 @@ def get_settings(config, spidername, logdir):
         CLOSESPIDER_ITEMCOUNT=item_count,
         # AUTOTHROTTLE_ENABLED=True,
         # AUTOTHROTTLE_START_DELAY=0,
-        RETRY_TIMES=1,
+        RETRY_TIMES=0,
         RETRY_HTTP_CODES=[429],  # also retry rate limited requests
         MEDIA_ALLOW_REDIRECTS=True,
         HTTP_PROXIES=proxies,
