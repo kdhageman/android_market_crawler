@@ -105,7 +105,9 @@ def get_settings(config, spidername, logdir):
         raise YamlException("input")
 
     package_files = input.get("package_files", [])
-    package_files_only = input.get("package_files_only", False)
+    retrieve_package_files = input.get("from_package_files", False)
+    retrieve_base_requests = input.get("from_base_requests", False)
+    retrieve_from_db = input.get("from_db", False)
 
     scrapy = config.get("scrapy", None)
     if not scrapy:
@@ -230,7 +232,9 @@ def get_settings(config, spidername, logdir):
         DOWNLOAD_TIMEOUT=120,
         DOWNLOAD_MAXSIZE=0,
         RATELIMIT_PARAMS=ratelimit,
-        PACKAGE_FILES_ONLY=package_files_only,
+        RETRIEVE_PACKAGE_FILES=retrieve_package_files,
+        RETRIEVE_BASE_REQUESTS=retrieve_base_requests,
+        RETRIEVE_FROM_DB=retrieve_from_db,
         PACKAGE_FILES=package_files,
         STATSD_PARAMS=statsd,
         INFLUXDB_CLIENT=influxdb_client,
@@ -239,6 +243,8 @@ def get_settings(config, spidername, logdir):
         DATABASE_PARAMS=database,
         RECURSIVE=recursive
     )
+    proxies = _load_proxies(args.proxies_file)
+
 
     if telnet_user:
         settings['TELNETCONSOLE_USERNAME'] = telnet_user
