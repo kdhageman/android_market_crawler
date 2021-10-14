@@ -16,15 +16,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.hazmat.primitives.serialization import load_der_public_key
-from multiprocessing import Process
 
 import ssl
 
 from playstoreapi.googleplay import GooglePlayAPI
 from playstoreapi.googleplay_pb2 import ResponseWrapper
-from scrapy import signals
-from scrapy.exceptions import CloseSpider
-
 from crawler import util
 from crawler.spiders.util import PackageListSpider, normalize_rating, read_int, to_big_int
 from crawler.util import get_proxy_as_dict
@@ -378,6 +374,7 @@ class GooglePlaySpider(PackageListSpider):
         url = f"https://android.clients.google.com/fdfe/{path}"
         headers = self._get_headers(account)
         meta['_account'] = account
+        meta['download_timeout'] = 5
         return scrapy.Request(url, headers=headers, priority=10, callback=self.parse_api_details, meta=meta)
 
     def _craft_purchase_req(self, pkg_name, version_code, offer_type, account, meta={}):
