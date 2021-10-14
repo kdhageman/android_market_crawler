@@ -278,12 +278,13 @@ class SSLContext(ssl.SSLContext):
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
-    def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, server_port, lang='en_US', interval=1):
+    def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, server_port, apk_enabled, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
 
         self.interval = interval
         self.lang = lang
         self.server_port = server_port
+        self.apk_enabled = apk_enabled
 
         self.nr_anonymous_accounts = nr_anonymous_accounts
         self.open_account_renewals = 0
@@ -317,7 +318,7 @@ class GooglePlaySpider(PackageListSpider):
         nr_anonymous_accounts = params.get("nr_anonymous_accounts")
         server_port = params.get("server_port")
 
-        spider = cls(crawler, accounts_db_path, nr_anonymous_accounts, server_port, lang='en_US', interval=interval)
+        spider = cls(crawler, accounts_db_path, nr_anonymous_accounts, server_port, crawler.settings.get("APK_ENABLED", True), lang='en_US', interval=interval)
 
         return spider
 
@@ -491,6 +492,7 @@ class GooglePlaySpider(PackageListSpider):
                 "developer_address": developer_address,
             }
             req.meta["__pkg_start_time"] = response.meta['__pkg_start_time']
+            self.logger.debug(f"scheduling details request: {req.url}")
             res.append(req)
 
         # only search for apps recursively if enabled
@@ -537,6 +539,13 @@ class GooglePlaySpider(PackageListSpider):
             meta['developer_address'] = developer_address
         pkg_name = meta.get('pkg_name')
         offer_type = meta.get('offer_type', 1)
+
+        if self.apk_enabled:
+            return {
+                "meta": meta,
+                "versions": versions
+            }
+
         for version, dat in versions.items():
             version_code = dat.get("code")
             req = self._craft_purchase_req(pkg_name, version_code, offer_type, account, meta={
@@ -546,7 +555,6 @@ class GooglePlaySpider(PackageListSpider):
                 '__pkg_start_time': response.meta['__pkg_start_time']
             })
             res.append(req)
-
         return res
 
     def parse_api_purchase(self, response):
@@ -644,16 +652,16 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.unpause()
 
     def process_response(self, request, response, reason):
+        old_account = request.meta['_account']
+        self.auth_db.delete_account(old_account)
+
+        try:
+            self.accounts.remove(old_account)
+        except:
+            pass
+
         if response.status == 401 and len(self.accounts) < self.nr_anonymous_accounts:
             self.logger.debug(f"replacing Google account due to 401 response")
-
-            old_account = request.meta['_account']
-            self.auth_db.delete_account(old_account)
-
-            try:
-                self.accounts.remove(old_account)
-            except:
-                pass
 
             # account requests
             url = f"http://127.0.0.1:{self.server_port}"

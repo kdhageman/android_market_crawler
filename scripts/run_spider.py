@@ -225,7 +225,7 @@ def get_settings(config, spidername, logdir):
         DNSCACHE_SIZE=100000,
         TELNETCONSOLE_USERNAME="scrapy",
         TELNETCONSOLE_PASSWORD="scrapy",
-        DUPEFILTER_DEBUG=True,
+        # DUPEFILTER_DEBUG=True,
         PAUSE_INTERVAL=pause_interval,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
@@ -241,7 +241,8 @@ def get_settings(config, spidername, logdir):
         GPLAY_PARAMS=gplay,
         APKMIRROR_PARAMS=apkmirror,
         DATABASE_PARAMS=database,
-        RECURSIVE=recursive
+        RECURSIVE=recursive,
+        APK_ENABLED=apk_enabled,
     )
     proxies = _load_proxies(args.proxies_file)
 
