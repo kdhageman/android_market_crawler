@@ -540,11 +540,11 @@ class GooglePlaySpider(PackageListSpider):
         pkg_name = meta.get('pkg_name')
         offer_type = meta.get('offer_type', 1)
 
-        if self.apk_enabled:
+        if not self.apk_enabled:
             return {
                 "meta": meta,
                 "versions": versions,
-                '_account': meta["_account"]
+                '_account': account
             }
 
         for version, dat in versions.items():
