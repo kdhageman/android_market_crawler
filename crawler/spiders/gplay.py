@@ -543,7 +543,8 @@ class GooglePlaySpider(PackageListSpider):
         if self.apk_enabled:
             return {
                 "meta": meta,
-                "versions": versions
+                "versions": versions,
+                '_account': meta["_account"]
             }
 
         for version, dat in versions.items():
