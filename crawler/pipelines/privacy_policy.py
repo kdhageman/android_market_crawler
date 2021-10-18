@@ -26,11 +26,7 @@ class PrivacyPolicyPipeline(FilesPipeline):
         return fpath
 
     def media_failed(self, failure, request, info):
-        """Handler for failed downloads"""
-        info.spider.logger.debug(f"failed to download from '{request.url}': {failure}")
-        tags = _response_tags(request, info.spider)
-        capture(exception=failure, tags=tags)
-        return super().media_failed(self, failure, request, info)
+        pass
 
     def get_media_requests(self, item, info):
         privacy_policy_url = item['meta'].get('privacy_policy_url')
