@@ -40,7 +40,7 @@ class PrivacyPolicyPipeline(FilesPipeline):
             info.spider.logger.debug("collected more than one privacy policy, using first only")
         elif len(results) == 1:
             success, resultdata = results[0]
-            if success:
+            if success and resultdata:
                 item['meta']['privacy_policy_path'] = resultdata['path']
                 item['meta']['privacy_policy_status'] = 200
             else:
