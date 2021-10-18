@@ -163,7 +163,7 @@ def get_settings(config, spidername, logdir):
 
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
-        'crawler.pipelines.database.PreDownloadVersionPipeline': 111 if apk_enabled else None,
+        'crawler.pipelines.database.PreDownloadVersionPipeline': 111,
         'crawler.pipelines.download_apks.DownloadApksPipeline': 200 if apk_enabled else None,
         'crawler.pipelines.download_icon.DownloadIconPipeline': 210 if icon_enabled else None,
         'crawler.pipelines.influxdb.InfluxdbPipeline': 300,
