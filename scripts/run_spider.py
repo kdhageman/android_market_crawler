@@ -160,7 +160,6 @@ def get_settings(config, spidername, logdir):
 
     log_file = os.path.join(logdir, f"{spidername}.log")
 
-
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
         'crawler.pipelines.database.PreDownloadVersionPipeline': 111,
@@ -246,7 +245,6 @@ def get_settings(config, spidername, logdir):
     )
     proxies = _load_proxies(args.proxies_file)
 
-
     if telnet_user:
         settings['TELNETCONSOLE_USERNAME'] = telnet_user
 
@@ -293,6 +291,7 @@ def main(config, spidername, logdir):
         server_process.join(timeout=0.1)
         print("joined server process!")
 
+
 class ItemMessageFilter(logging.Filter):
     def filter(self, record):
         # The message that logs the item actually has raw % operators in it,
@@ -311,7 +310,8 @@ if __name__ == "__main__":
         ("scrapy.core.downloader.handlers.http11", logging.ERROR),
         ("scrapy.spidermiddlewares.httperror", logging.WARNING),
         ("urllib3.connectionpool", logging.INFO),
-        ("scrapy.downloadermiddlewares.redirect", logging.INFO)
+        ("scrapy.downloadermiddlewares.redirect", logging.INFO),
+        ("scrapy.downloadermiddlewares.retry", logging.FATAL),
     ]:
         logger = logging.getLogger(namespace)
         logger.setLevel(level)
