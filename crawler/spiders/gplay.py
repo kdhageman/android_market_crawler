@@ -11,6 +11,8 @@ import numpy as np
 import requests
 import scrapy
 import sqlite3
+
+import twisted
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -345,7 +347,7 @@ class GooglePlaySpider(PackageListSpider):
             yield req
 
     def base_requests(self, meta={}):
-        res = [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, meta=meta)]
+        res = [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, errback=self.surpress_error, meta=meta)]
 
         return res
 
@@ -375,7 +377,7 @@ class GooglePlaySpider(PackageListSpider):
         headers = self._get_headers(account)
         meta['_account'] = account
         meta['download_timeout'] = 10
-        return scrapy.Request(url, headers=headers, priority=10, callback=self.parse_api_details, meta=meta)
+        return scrapy.Request(url, headers=headers, priority=10, callback=self.parse_api_details, errback=self.surpress_error, meta=meta)
 
     def _craft_purchase_req(self, pkg_name, version_code, offer_type, account, meta={}):
         """
@@ -393,7 +395,7 @@ class GooglePlaySpider(PackageListSpider):
         meta['_account'] = account
         meta['download_timeout'] = 10
         return scrapy.Request(url, method='POST', body=body, headers=headers, priority=20,
-                              callback=self.parse_api_purchase, meta=meta)
+                              callback=self.parse_api_purchase, errback=self.surpress_error, meta=meta)
 
     def _craft_delivery_request(self, pkg_name, version_code, offer_type, dl_token, account, meta={}):
         param_dict = {
@@ -407,7 +409,7 @@ class GooglePlaySpider(PackageListSpider):
         params = urlencode(param_dict)
         url = f"{_URL_DELIVERY}?{params}"
         headers = self._get_headers(account)
-        return scrapy.Request(url, headers=headers, priority=30, callback=self.parse_delivery, meta=meta)
+        return scrapy.Request(url, headers=headers, priority=30, callback=self.parse_delivery, errback=self.surpress_error, meta=meta)
 
     def parse(self, response):
         """
@@ -417,6 +419,9 @@ class GooglePlaySpider(PackageListSpider):
 
         res = []
 
+        meta = response.meta
+        meta['download_timeout'] = 10
+
         # find all links to packages
         packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
 
@@ -424,7 +429,7 @@ class GooglePlaySpider(PackageListSpider):
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
             self.logger.debug(f"scheduling new package: {pkg}")
-            req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page, meta=response.meta)
+            req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         # follow 'See more' buttons on the home page
@@ -432,7 +437,7 @@ class GooglePlaySpider(PackageListSpider):
         for link in see_more_links:
             full_url = response.urljoin(link)
             self.logger.debug(f"scheduling similar apps: {link}")
-            req = scrapy.Request(full_url, callback=self.parse_similar_apps, meta=response.meta)
+            req = scrapy.Request(full_url, callback=self.parse_similar_apps, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         # follow categories on the home page
@@ -440,7 +445,7 @@ class GooglePlaySpider(PackageListSpider):
         for link in category_links:
             full_url = response.urljoin(link)
             self.logger.debug(f"scheduling new category: {link}")
-            req = scrapy.Request(full_url, callback=self.parse, meta=response.meta)
+            req = scrapy.Request(full_url, callback=self.parse, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         return res
@@ -487,13 +492,16 @@ class GooglePlaySpider(PackageListSpider):
             self.logger.debug(f"scheduling details request: {req.url}")
             res.append(req)
 
+        meta = response.meta
+        meta['download_timeout'] = 10
+
         # only search for apps recursively if enabled
         if self.recursive:
             # visit page of each package
             for pkg in packages:
                 full_url = f"https://play.google.com/store/apps/details?id={pkg}"
                 self.logger.debug(f"scheduling new package: {pkg}")
-                req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
+                req = scrapy.Request(full_url, callback=self.parse_pkg_page, errback=self.surpress_error, meta=meta)
                 res.append(req)
 
             # similar apps
@@ -501,7 +509,7 @@ class GooglePlaySpider(PackageListSpider):
             if similar_link:
                 full_url = response.urljoin(similar_link)
                 self.logger.debug(f"scheduling similar apps: {similar_link}")
-                req = scrapy.Request(full_url, callback=self.parse_similar_apps, meta=response.meta)
+                req = scrapy.Request(full_url, callback=self.parse_similar_apps, errback=self.surpress_error, meta=meta)
                 res.append(req)
 
         return res
@@ -625,11 +633,14 @@ class GooglePlaySpider(PackageListSpider):
 
         res = []
 
+        meta = response.meta
+        meta['download_timeout'] = 10
+
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
             self.logger.debug(f"scheduling new package: {pkg}")
-            req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         return res
@@ -645,6 +656,12 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.pause()
             time.sleep(t)
             self.crawler.engine.unpause()
+
+    def surpress_error(self, failure):
+        if failure.check(TimeoutError, twisted.internet.error.TimeoutError):
+            pass
+        else:
+            self.logger.debug(f"error: {failure}")
 
 def encrypt_password(email, passwd):
     """Encrypt credentials using the google publickey, with the
