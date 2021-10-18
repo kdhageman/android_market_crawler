@@ -226,6 +226,7 @@ def get_settings(config, spidername, logdir):
         TELNETCONSOLE_PASSWORD="scrapy",
         # DUPEFILTER_DEBUG=True,
         PAUSE_INTERVAL=pause_interval,
+        RETRY_ENABLED=False,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=120,
