@@ -374,7 +374,7 @@ class GooglePlaySpider(PackageListSpider):
         url = f"https://android.clients.google.com/fdfe/{path}"
         headers = self._get_headers(account)
         meta['_account'] = account
-        meta['download_timeout'] = 5
+        meta['download_timeout'] = 10
         return scrapy.Request(url, headers=headers, priority=10, callback=self.parse_api_details, meta=meta)
 
     def _craft_purchase_req(self, pkg_name, version_code, offer_type, account, meta={}):
@@ -391,7 +391,7 @@ class GooglePlaySpider(PackageListSpider):
         body = f"ot={offer_type}&doc={requests.utils.quote(pkg_name)}&vc={version_code}"
         headers = self._get_headers(account, post_content_type="application/x-www-form-urlencoded; charset=UTF-8")
         meta['_account'] = account
-
+        meta['download_timeout'] = 10
         return scrapy.Request(url, method='POST', body=body, headers=headers, priority=20,
                               callback=self.parse_api_purchase, meta=meta)
 
@@ -403,6 +403,7 @@ class GooglePlaySpider(PackageListSpider):
             "dtok": dl_token
         }
         meta['_account'] = account
+        meta['download_timeout'] = 10
         params = urlencode(param_dict)
         url = f"{_URL_DELIVERY}?{params}"
         headers = self._get_headers(account)
