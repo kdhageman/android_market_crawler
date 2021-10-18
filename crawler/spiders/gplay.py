@@ -430,6 +430,7 @@ class GooglePlaySpider(PackageListSpider):
         see_more_links = response.xpath("//a[text() = 'See more']//@href").getall()
         for link in see_more_links:
             full_url = response.urljoin(link)
+            self.logger.debug(f"scheduling similar apps: {link}")
             req = scrapy.Request(full_url, callback=self.parse_similar_apps, meta=response.meta)
             res.append(req)
 
@@ -472,15 +473,8 @@ class GooglePlaySpider(PackageListSpider):
 
             # select account
             if len(self.accounts) == 0:
-                return [response.request]
-
-            try:
-                account = choice(self.accounts)
-            except IndexError:
-                # could not find an account, so put the request back in the queue and wait for accounts to be ready
-                req = response.request
-                req.dont_filter = True
-                return response.request
+                raise Exception("no available accounts")
+            account = choice(self.accounts)
 
             req = self._craft_details_req(pkg, account)
 
@@ -497,6 +491,7 @@ class GooglePlaySpider(PackageListSpider):
             # visit page of each package
             for pkg in packages:
                 full_url = f"https://play.google.com/store/apps/details?id={pkg}"
+                self.logger.debug(f"scheduling new package: {pkg}")
                 req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
                 res.append(req)
 
@@ -504,6 +499,7 @@ class GooglePlaySpider(PackageListSpider):
             similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
             if similar_link:
                 full_url = response.urljoin(similar_link)
+                self.logger.debug(f"scheduling similar apps: {similar_link}")
                 req = scrapy.Request(full_url, callback=self.parse_similar_apps, meta=response.meta)
                 res.append(req)
 
@@ -648,33 +644,6 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.pause()
             time.sleep(t)
             self.crawler.engine.unpause()
-
-    def process_response(self, request, response, reason):
-        if response.status == 401:
-            old_account = request.meta['_account']
-            self.auth_db.delete_account(old_account)
-
-            try:
-                self.accounts.remove(old_account)
-            except:
-                pass
-            self.logger.debug(f"replacing Google account due to 401 response")
-
-            # account requests
-            url = f"http://127.0.0.1:{self.server_port}"
-            proxy = util.PROXY_POOL.get_proxy()
-            if proxy:
-                body = json.dumps({"proxy": proxy})
-            else:
-                body = None
-            headers = {'Content-Type': 'application/json'}
-            account_req = scrapy.Request(url=url, method="POST", body=body, headers=headers, priority=1000, callback=self.parse_account_create)
-
-            retry_req = self._retry(request, reason, self)
-
-            return [account_req, retry_req]
-        return response
-
 
 def encrypt_password(email, passwd):
     """Encrypt credentials using the google publickey, with the
