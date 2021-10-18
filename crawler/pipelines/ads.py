@@ -45,6 +45,9 @@ class AdsPipeline(FilesPipeline):
             info.spider.logger.debug(f"scheduling (app-)ads.txt from '{url}'")
             yield scrapy.Request(url, meta=item)
 
+    def media_failed(self, failure, request, info):
+        pass
+
     def item_completed(self, results, item, info):
         meta_dir = get_directory(item['meta'], info.spider)
 

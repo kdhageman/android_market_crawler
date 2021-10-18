@@ -41,6 +41,9 @@ class AssetLinksPipeline(FilesPipeline):
                     else:
                         info.spider.logger.debug(f"ignoring assetlink domain '{domain}' because it appears to be invalid")
 
+    def media_failed(self, failure, request, info):
+        pass
+
     def item_completed(self, results, item, info):
         for success, resultdata in results:
             if success:

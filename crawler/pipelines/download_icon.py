@@ -33,6 +33,9 @@ class DownloadIconPipeline(FilesPipeline):
         if icon_url:
             yield scrapy.Request(icon_url, meta={'meta': item['meta']}, priority=100)
 
+    def media_failed(self, failure, request, info):
+        pass
+
     def item_completed(self, results, item, info):
         if results:
             success, resultdata = results[0]
