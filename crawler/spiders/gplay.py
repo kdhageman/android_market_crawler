@@ -305,7 +305,7 @@ class GooglePlaySpider(PackageListSpider):
                 self.accounts.append(account)
             except Exception as e:
                 self.logger.info(f"failed to create a new anonymous account: {e}")
-                # raise CloseSpider()
+                break
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -347,6 +347,7 @@ class GooglePlaySpider(PackageListSpider):
             yield req
 
     def base_requests(self, meta={}):
+        meta['download_timeout'] = 10
         res = [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, errback=self.surpress_error, meta=meta)]
 
         return res
