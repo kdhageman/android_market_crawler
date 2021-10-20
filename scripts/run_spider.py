@@ -227,6 +227,7 @@ def get_settings(config, spidername, logdir):
         # DUPEFILTER_DEBUG=True,
         PAUSE_INTERVAL=pause_interval,
         RETRY_ENABLED=False,
+        COOKIES_ENABLED=True,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=120,
