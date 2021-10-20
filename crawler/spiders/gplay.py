@@ -659,7 +659,7 @@ class GooglePlaySpider(PackageListSpider):
             self.crawler.engine.unpause()
 
     def surpress_error(self, failure):
-        if failure.check(TimeoutError, twisted.internet.error.TimeoutError):
+        if failure.check(TimeoutError, twisted.internet.error.TimeoutError, scrapy.spidermiddlewares.httperror.HttpError):
             pass
         else:
             self.logger.debug(f"error: {failure}")
