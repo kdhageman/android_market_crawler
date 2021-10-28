@@ -44,6 +44,9 @@ optional arguments:
 ```
 Alternatively, you can run all spiders as separate processes by running `./run_all.sh`.
 
+##### Splash  
+To enable Splash, run a Splash instance (recommended using Docker), and set the correct `pystorecrawler` configuration options, before running the tool.   
+
 ##### NOTE
 Right now, the `idna` library used by `Twisted` is too strict in handling internationalized domain names (IDNs), i.e. is too generous in raising errors.
 This is a significant problem for the Play Store, in which the URL of downloading an APK is an invalid IDN, but which is accepted by `cURL` and browsers regardless.

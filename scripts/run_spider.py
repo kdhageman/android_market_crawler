@@ -160,6 +160,10 @@ def get_settings(config, spidername, logdir):
 
     log_file = os.path.join(logdir, f"{spidername}.log")
 
+    splash = scrapy.get("splash", {})
+    splash_enabled = splash.get("enabled", False)
+    splash_url = splash.get("url", None)
+
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
         'crawler.pipelines.database.PreDownloadVersionPipeline': 111,
@@ -187,10 +191,16 @@ def get_settings(config, spidername, logdir):
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
         'crawler.middlewares.ratelimit.RatelimitMiddleware': 543,
     }
+    if splash_enabled:
+        downloader_middlewares['scrapy_splash.SplashCookiesMiddleware'] = 723
+        downloader_middlewares['scrapyjs.SplashMiddleware'] = 725
+        downloader_middlewares['scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware'] = 810
+
 
     spider_middlewares = {
         'crawler.middlewares.sentry.SentryMiddleware': 1,
-        'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 3
+        'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 3,
+        'scrapy_splash.SplashDeduplicateArgsMiddleware': 100
     }
 
     extensions = {
@@ -228,6 +238,7 @@ def get_settings(config, spidername, logdir):
         PAUSE_INTERVAL=pause_interval,
         RETRY_ENABLED=False,
         COOKIES_ENABLED=True,
+        SPLASH_URL=splash_url,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
         DOWNLOAD_TIMEOUT=120,
@@ -245,6 +256,10 @@ def get_settings(config, spidername, logdir):
         RECURSIVE=recursive,
         APK_ENABLED=apk_enabled,
     )
+    if splash_enabled:
+        settings['DUPEFILTER_CLASS'] = 'scrapyjs.SplashAwareDupeFilter'
+        settings['HTTPCACHE_STORAGE'] = 'scrapy_splash.SplashAwareFSCacheStorage'
+
     proxies = _load_proxies(args.proxies_file)
 
     if telnet_user:

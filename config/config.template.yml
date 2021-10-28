@@ -18,6 +18,9 @@ scrapy:
   resumation:
     enabled: true
     jobdir: ./jobdir
+  splash:
+    enabled: false
+    url: https://localhost:8050
 downloads: # can be used to enable (=true) or disable (=false) downloads of various files
   apk: true
   icon: true

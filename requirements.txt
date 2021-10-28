@@ -75,6 +75,8 @@ queuelib==1.6.2
 requests==2.26.0
 scramp==1.4.1
 Scrapy==2.5.0
+scrapyjs==0.2
+scrapy-splash==0.8.0
 Scrapy-UserAgents==0.0.1
 sentry-sdk==0.13.5
 service-identity==21.1.0

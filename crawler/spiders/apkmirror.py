@@ -1,14 +1,20 @@
 import scrapy
+from scrapy.exceptions import CloseSpider
+from scrapy_splash import SplashRequest
+
 from crawler.spiders.util import normalize_rating
 
 dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"
 
-# TODO: deal with ordered requests (https://stackoverflow.com/a/16177544/12096194, https://stackoverflow.com/questions/54138758/scrapy-python-getting-items-from-yield-requests/54140461)
+
 class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
 
     def __init__(self, crawler, start_page=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
+        splash_url = crawler.settings.get("SPLASH_URL", None)
+        if not splash_url:
+            raise CloseSpider("Must provide Splash URL for this spider")
         self.start_page = start_page
 
     @classmethod
@@ -22,7 +28,7 @@ class ApkMirrorSpider(scrapy.Spider):
         for page_nr in range(self.start_page, pages):
             url = f"https://www.apkmirror.com/uploads/page/{page_nr}/"
             self.logger.debug(f"scheduled new pagination page: {url}")
-            yield scrapy.Request(url, callback=self.parse)
+            yield SplashRequest(url, callback=self.parse)
 
     def parse(self, response):
         """
@@ -38,7 +44,7 @@ class ApkMirrorSpider(scrapy.Spider):
         for link in response.css("a.fontBlack::attr(href)").getall():
             self.logger.debug(f"scheduled new package page: {link}")
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            req = scrapy.Request(next_page, callback=self.parse_pkg_page, priority=1)  # add URL to set of URLs to crawl
+            req = SplashRequest(next_page, callback=self.parse_pkg_page, priority=1)  # add URL to set of URLs to crawl
             res.append(req)
 
         return res
@@ -53,12 +59,13 @@ class ApkMirrorSpider(scrapy.Spider):
         """
         res = []
         # download a single variant
-        variant_link = response.css("div.table.variants-table a::attr(href)").get() # get the first variants link, we don't care about the various variants
+        variant_link = response.css(
+            "div.table.variants-table a::attr(href)").get()  # get the first variants link, we don't care about the various variants
         if variant_link:
             full_link = response.urljoin(variant_link)
             # give higher priority to package download pages
             self.logger.debug(f"scheduled new variant page: {variant_link}")
-            req = scrapy.Request(full_link, callback=self.parse_variant_page, priority=2)
+            req = SplashRequest(full_link, callback=self.parse_variant_page, priority=2)
             res.append(req)
 
         # khageman 01-10-2021: disable downloading any versions
@@ -151,7 +158,8 @@ class ApkMirrorSpider(scrapy.Spider):
         }
 
         self.logger.debug(f"scheduled download link: {dl_link}")
-        req = scrapy.Request(dl_link_full, callback=self.download_url_from_button, priority=10, meta=dict(meta=meta, versions=versions))
+        req = SplashRequest(dl_link_full, callback=self.download_url_from_button, priority=10,
+                             meta=dict(meta=meta, versions=versions))
         return req
 
     def download_url_from_button(self, response):
@@ -191,14 +199,14 @@ class ApkMirrorSpider(scrapy.Spider):
         # visit package page for all different versions
         for pkg_link in response.css("#primary h5.appRowTitle a::attr(href)").getall():
             full_link = response.urljoin(pkg_link)
-            req = scrapy.Request(full_link, callback=self.parse_pkg_page)
+            req = SplashRequest(full_link, callback=self.parse_pkg_page)
             res.append(req)
 
         # pagination of versions page
         next_page_link = response.css("a.nextpostslink::attr(href)").get()
         if next_page_link:
             full_link = response.urljoin(next_page_link)
-            req = scrapy.Request(full_link, callback=self.parse_versions_page)
+            req = SplashRequest(full_link, callback=self.parse_versions_page)
             res.append(req)
 
         return res
