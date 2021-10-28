@@ -1,6 +1,5 @@
 import unittest
 
-from crawler.item import Result
 from crawler.pipelines.assetlinks import AssetLinksPipeline, parse_result
 from crawler.util import TestCrawler, HttpClient
 
@@ -10,7 +9,7 @@ class AssetLinksPipelineTest(unittest.TestCase):
         crawler = TestCrawler()
         client = HttpClient(crawler)
         pipeline = AssetLinksPipeline(client)
-        item = Result(
+        item = dict(
             versions={
                 "1.0.0": {
                     "analysis": {

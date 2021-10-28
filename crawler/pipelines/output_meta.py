@@ -1,10 +1,6 @@
 import json
 import os
 
-from sentry_sdk import capture_exception
-
-from crawler.item import Result
-from crawler.store.janusgraph import Store
 from crawler.util import get_directory
 
 FNAME = "meta.json"
@@ -44,21 +40,3 @@ class WriteMetaFilePipeline:
 
         return item
 
-
-class StorePipeline:
-    @classmethod
-    def from_crawler(cls, crawler):
-        return cls(
-            params=crawler.settings.get('JANUS_PARAMS')
-        )
-
-    def __init__(self, params):
-        self.store = Store(**params)
-
-    def process_item(self, item, spider):
-        try:
-            self.store.store_result(item)
-        except Exception as e:
-            capture_exception(e)
-
-        return item

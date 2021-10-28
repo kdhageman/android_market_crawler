@@ -1,7 +1,7 @@
 from urllib.parse import urlparse
 
 from crawler import util
-from crawler.util import init_proxy_pool, NoProxiesError
+from crawler.util import init_proxy_pool, NoProxiesError, _is_valid
 
 
 class HttpProxyMiddleware:
@@ -20,10 +20,11 @@ class HttpProxyMiddleware:
         try:
             host = urlparse(request.url).hostname
             proxy = util.PROXY_POOL.get_proxy()
-            if not proxy:
-                return
-            # do not proxy towards localhost
-            if host not in ["127.0.0.1", "::1", "localhost"]:
-                request.meta['proxy'] = f"http://{proxy}"
+            if _is_valid(proxy) and host not in ["127.0.0.1", "::1", "localhost"]:
+                full_proxy = f"http://{proxy}"
+                request.meta['proxy'] = full_proxy
+                request.meta['download_slot'] = full_proxy
+            else:
+                request.meta['proxy'] = None
         except NoProxiesError:
             pass

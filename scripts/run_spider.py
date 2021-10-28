@@ -2,12 +2,13 @@ import argparse
 import logging
 import os
 import re
+import sys
+import time
+from multiprocessing import Process
 
 import sentry_sdk
 import yaml
 from scrapy.crawler import CrawlerProcess
-
-import sys
 
 sys.path.append(os.path.abspath('.'))
 from crawler.pipelines.util import InfluxDBClient
@@ -16,7 +17,7 @@ from crawler.spiders.apkmirror import ApkMirrorSpider
 from crawler.spiders.apkmonk import ApkMonkSpider
 from crawler.spiders.baidu import BaiduSpider
 from crawler.spiders.fdroid import FDroidSpider
-from crawler.spiders.gplay import GooglePlaySpider
+from crawler.spiders.gplay import GooglePlaySpider, AuthRenewServer
 from crawler.spiders.huawei import HuaweiSpider
 from crawler.spiders.mi import MiSpider
 from crawler.spiders.slideme import SlideMeSpider
@@ -104,16 +105,20 @@ def get_settings(config, spidername, logdir):
         raise YamlException("input")
 
     package_files = input.get("package_files", [])
-    package_files_only = input.get("package_files_only", False)
+    retrieve_package_files = input.get("from_package_files", False)
+    retrieve_base_requests = input.get("from_base_requests", False)
+    retrieve_from_db = input.get("from_db", False)
 
     scrapy = config.get("scrapy", None)
     if not scrapy:
         raise YamlException("scrapy")
 
     concurrent_requests = scrapy.get('concurrent_requests', 1)
+    concurrent_requests_per_domain = scrapy.get('concurrent_requests_per_domain', 1)
     depth_limit = scrapy.get('depth_limit', 2)
     item_count = scrapy.get('item_count', 10)
     log_level = scrapy.get("log_level", "INFO")
+    pause_interval = scrapy.get("pause_interval")
     telnet = scrapy.get("telnet", {})
     telnet_user = telnet.get("username", None)
     telnet_password = telnet.get("password", None)
@@ -147,19 +152,17 @@ def get_settings(config, spidername, logdir):
     if not gplay:
         raise YamlException("googleplay")
 
+    apkmirror = config.get("apkmirror", {})
+
     database = config.get("database", {})
     if not database:
         raise YamlException("database")
-
-    janus = config.get("janusgraph", {})
-    if not janus:
-        raise YamlException("janusgraph")
 
     log_file = os.path.join(logdir, f"{spidername}.log")
 
     item_pipelines = {
         'crawler.pipelines.add_universal_meta.AddUniversalMetaPipeline': 100,
-        'crawler.pipelines.database.PreDownloadVersionPipeline': 111 if apk_enabled else None,
+        'crawler.pipelines.database.PreDownloadVersionPipeline': 111,
         'crawler.pipelines.download_apks.DownloadApksPipeline': 200 if apk_enabled else None,
         'crawler.pipelines.download_icon.DownloadIconPipeline': 210 if icon_enabled else None,
         'crawler.pipelines.influxdb.InfluxdbPipeline': 300,
@@ -170,27 +173,30 @@ def get_settings(config, spidername, logdir):
         'crawler.pipelines.database.PostDownloadPipeline': 900,
         'crawler.pipelines.database.PostDownloadPackagePipeline': 901,
         # 'crawler.pipelines.output_meta.WriteMetaFilePipeline': 1000,
-        'crawler.pipelines.output_meta.StorePipeline': 1001 if janus.get("enabled", False) else None,
         'crawler.pipelines.log.LogPipeline': 1100
     }
 
     downloader_middlewares = {
         'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
         'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
+        'crawler.middlewares.sentry.SentryMiddleware': 1,
+        'crawler.middlewares.status_code.StatuscodeMiddleware': 2,
         'crawler.middlewares.proxy.HttpProxyMiddleware': 100,
         'crawler.middlewares.stats.StatsMiddleware': 120,
         'crawler.middlewares.duration.DurationMiddleware': 200,
         'scrapy_useragents.downloadermiddlewares.useragents.UserAgentsMiddleware': 500,
-        'crawler.middlewares.ratelimit.RatelimitMiddleware': 543
+        'crawler.middlewares.ratelimit.RatelimitMiddleware': 543,
     }
 
     spider_middlewares = {
         'crawler.middlewares.sentry.SentryMiddleware': 1,
-        'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 2
+        'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': 3
     }
 
     extensions = {
-        'crawler.extensions.stats.InfluxdbLogs': 100
+        'crawler.extensions.stats.InfluxdbLogs': 100,
+        'crawler.extensions.stats.DumpStatsExtension': 101,
+        'crawler.extensions.stats.MonitorDownloadsExtension': 102
     }
 
     user_agents = _load_user_agents(args.user_agents_file)
@@ -205,30 +211,41 @@ def get_settings(config, spidername, logdir):
         USER_AGENTS=user_agents,
         ITEM_PIPELINES=item_pipelines,
         CONCURRENT_REQUESTS=concurrent_requests,
-        CONCURRENT_REQUESTS_PER_DOMAIN=concurrent_requests,
+        CONCURRENT_REQUESTS_PER_DOMAIN=concurrent_requests_per_domain,
         DEPTH_LIMIT=depth_limit,
         CLOSESPIDER_ITEMCOUNT=item_count,
         # AUTOTHROTTLE_ENABLED=True,
         # AUTOTHROTTLE_START_DELAY=0,
-        RETRY_TIMES=1,
+        RETRY_TIMES=0,
         RETRY_HTTP_CODES=[429],  # also retry rate limited requests
         MEDIA_ALLOW_REDIRECTS=True,
         HTTP_PROXIES=proxies,
         DOWNLOAD_WARNSIZE=0,
+        DNSCACHE_SIZE=100000,
+        TELNETCONSOLE_USERNAME="scrapy",
+        TELNETCONSOLE_PASSWORD="scrapy",
+        # DUPEFILTER_DEBUG=True,
+        PAUSE_INTERVAL=pause_interval,
+        RETRY_ENABLED=False,
+        COOKIES_ENABLED=True,
         # custom settings
         CRAWL_ROOTDIR=rootdir,
-        DOWNLOAD_TIMEOUT=60,
+        DOWNLOAD_TIMEOUT=120,
         DOWNLOAD_MAXSIZE=0,
         RATELIMIT_PARAMS=ratelimit,
-        PACKAGE_FILES_ONLY=package_files_only,
+        RETRIEVE_PACKAGE_FILES=retrieve_package_files,
+        RETRIEVE_BASE_REQUESTS=retrieve_base_requests,
+        RETRIEVE_FROM_DB=retrieve_from_db,
         PACKAGE_FILES=package_files,
         STATSD_PARAMS=statsd,
         INFLUXDB_CLIENT=influxdb_client,
         GPLAY_PARAMS=gplay,
+        APKMIRROR_PARAMS=apkmirror,
         DATABASE_PARAMS=database,
-        JANUS_PARAMS=janus,
-        RECURSIVE=recursive
+        RECURSIVE=recursive,
+        APK_ENABLED=apk_enabled,
     )
+    proxies = _load_proxies(args.proxies_file)
 
     if telnet_user:
         settings['TELNETCONSOLE_USERNAME'] = telnet_user
@@ -251,12 +268,30 @@ def main(config, spidername, logdir):
         sentry_sdk.init(dsn)
 
     settings = get_settings(config, spidername, logdir)
-    process = CrawlerProcess(settings)
 
     spider = spider_by_name(spidername)
 
+    if spider == GooglePlaySpider:
+        server = AuthRenewServer()
+        server_process = Process(target=server.start)
+        server_process.start()
+
+        # wait for HTTP server to start
+        time.sleep(3)
+
+        settings['GPLAY_PARAMS']['server_port'] = server.port
+
+    process = CrawlerProcess(settings)
     process.crawl(spider)
     process.start()  # the script will block here until the crawling is finished
+
+    if spider == GooglePlaySpider:
+        print("killing server process..")
+        server_process.terminate()
+        print("killed server process!")
+        print("joining server process..")
+        server_process.join(timeout=0.1)
+        print("joined server process!")
 
 
 class ItemMessageFilter(logging.Filter):
@@ -277,7 +312,8 @@ if __name__ == "__main__":
         ("scrapy.core.downloader.handlers.http11", logging.ERROR),
         ("scrapy.spidermiddlewares.httperror", logging.WARNING),
         ("urllib3.connectionpool", logging.INFO),
-        ("scrapy.downloadermiddlewares.redirect", logging.INFO)
+        ("scrapy.downloadermiddlewares.redirect", logging.INFO),
+        ("scrapy.downloadermiddlewares.retry", logging.FATAL),
     ]:
         logger = logging.getLogger(namespace)
         logger.setLevel(level)

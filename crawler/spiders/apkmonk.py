@@ -2,7 +2,6 @@ import json
 
 import scrapy
 
-from crawler.item import Result
 from crawler.spiders.util import version_name, PackageListSpider
 
 url_pattern = "/download-app/(.*)/(.*)/"
@@ -41,7 +40,9 @@ class ApkMonkSpider(PackageListSpider):
         res = []
         for category_url in response.css("a.waves-effect::attr(href)").getall():
             if category_url:
-                req = response.follow(category_url, callback=self.parse_category)
+                self.logger.debug(f"scheduled new category link: {category_url}")
+                full_url = response.urljoin(category_url)
+                req = scrapy.Request(full_url, callback=self.parse_category)
                 res.append(req)
 
         return res
@@ -54,12 +55,16 @@ class ApkMonkSpider(PackageListSpider):
         # go to package pages
         for pkg in response.css("a::attr(href)").re("/app(?:/id)?/(.+)/"):
             pkg_url = f"/app/id/{pkg}/"
-            req = response.follow(pkg_url, callback=self.parse_pkg_page, priority=20)
+            self.logger.debug(f"scheduled new package link: {pkg_url}")
+            full_url = response.urljoin(pkg_url)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, priority=20)
             res.append(req)
 
         # pagination
         for category_url in response.css("div.selection a::attr(href)").getall():
-            req = response.follow(category_url, callback=self.parse_category)
+            self.logger.debug(f"scheduled new category link: {category_url}")
+            full_url = response.urljoin(category_url)
+            req = scrapy.Request(full_url, callback=self.parse_category)
             res.append(req)
 
         return res
@@ -105,6 +110,10 @@ class ApkMonkSpider(PackageListSpider):
                 versions.append(version)
                 remaining.append((full_url, version, date))
 
+        if len(remaining) > 1:
+            self.logger.debug(f"Out of %d versions, only collect the latest", len(remaining))
+            remaining = remaining[:1]
+
         if remaining:
             next_version = remaining.pop()
             data = dict(
@@ -128,7 +137,7 @@ class ApkMonkSpider(PackageListSpider):
 
         if len(data['remaining']) == 0:
             # this is the last download link to be returned
-            return Result(meta=data['meta'], versions=data['versions'])
+            return dict(meta=data['meta'], versions=data['versions'])
 
         next_version = data['remaining'].pop()
         data['cur'] = next_version

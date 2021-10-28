@@ -1,6 +1,5 @@
 import struct
 from datetime import datetime
-
 import scrapy
 
 from crawler.pipelines.database import _engine_from_params
@@ -18,7 +17,9 @@ class PackageListSpider(scrapy.Spider):
         self.recursive = self.crawler.settings.get("RECURSIVE", False)
 
     def start_requests(self):
-        self.package_files_only = self.settings.get("PACKAGE_FILES_ONLY", False)
+        self.retrieve_package_files = self.settings.get("RETRIEVE_PACKAGE_FILES", False)
+        self.retrieve_base_requests = self.settings.get("RETRIEVE_BASE_REQUESTS", False)
+        self.retrieve_from_db = self.settings.get("RETRIEVE_FROM_DB", False)
 
         meta = {
             'dont_redirect': True,
@@ -26,7 +27,8 @@ class PackageListSpider(scrapy.Spider):
         }
 
         # re-crawl packages from database
-        if not self.package_files_only:
+        if self.retrieve_from_db:
+            self.logger.debug("retrieving from db")
             params = self.settings.get("DATABASE_PARAMS")
             engine, _ = _engine_from_params(params)
 
@@ -42,22 +44,31 @@ class PackageListSpider(scrapy.Spider):
             for row in rows:
                 url = self.url_by_package(row.pkg_name.strip())
                 yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+        else:
+            self.logger.debug("NOT retrieving from db")
 
         # read from package files
-        pkg_files = self.settings.get("PACKAGE_FILES", [])
-        for pkg_file in pkg_files:
+        if self.retrieve_package_files:
+            self.logger.debug("retrieving from package files")
+            pkg_files = self.settings.get("PACKAGE_FILES", [])
+            for pkg_file in pkg_files:
 
-            with open(pkg_file, 'r') as f:
-                line = f.readline()
-                while line:
-                    url = self.url_by_package(line.strip())
-                    yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+                with open(pkg_file, 'r') as f:
                     line = f.readline()
+                    while line:
+                        url = self.url_by_package(line.strip())
+                        yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
+                        line = f.readline()
+        else:
+            self.logger.debug("NOT retrieving from package files")
 
         # crawl the store as usual
-        if not self.package_files_only:
+        if self.retrieve_base_requests:
+            self.logger.debug("retrieving from base requests")
             for req in self.base_requests(meta=meta):
                 yield req
+        else:
+            self.logger.debug("NOT retrieving from base requests")
 
     def base_requests(self, meta={}):
         raise NotImplementedError()

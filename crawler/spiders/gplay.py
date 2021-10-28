@@ -1,12 +1,18 @@
+import json
 import re
+import socketserver
 import time
 from base64 import b64decode, urlsafe_b64encode
-from urllib.parse import urlencode
+from http.server import BaseHTTPRequestHandler
+from random import choice
+from urllib.parse import urlencode, parse_qs
 
 import numpy as np
 import requests
 import scrapy
 import sqlite3
+
+import twisted
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -15,11 +21,11 @@ from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 import ssl
 
-from urllib3.poolmanager import PoolManager
-from urllib3.util import ssl_
-
+from playstoreapi.googleplay import GooglePlayAPI
+from playstoreapi.googleplay_pb2 import ResponseWrapper
+from crawler import util
 from crawler.spiders.util import PackageListSpider, normalize_rating, read_int, to_big_int
-from protobuf.proto.googleplay_pb2 import ResponseWrapper
+from crawler.util import get_proxy_as_dict
 
 _CIPHERS = "ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:ECDH+AESGCM:DH+AESGCM:ECDH+AES:DH+AES:RSA+AESGCM:RSA+AES:!DSS"
 
@@ -61,7 +67,53 @@ _gsf_version = "203315024"
 _locale = "en_GB"
 _timezone = 'Europe/London'
 _USERAGENT_SEARCH = f"Android-Finsky/{_version_string} (api=3,versionCode={_version_code},sdk={_sdk},device={_device},hardware={_hardware},product={_product},platformVersionRelease={_platform_v},model={_model},buildId={_build_id},isWideScreen=0,supportedAbis={_supported_abis.replace(',', ';')})"
+_ALLOWED_ERROR_COUNT = 5
 
+
+class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            content_len = int(self.headers['content-length'])
+            post_body = self.rfile.read(content_len).decode()
+            qs = parse_qs(post_body)
+
+            proxy = qs.get("proxy")[0]
+            proxy_config = get_proxy_as_dict(proxy)
+        except:
+            proxy_config = None
+
+        try:
+            api = GooglePlayAPI('en_US', 'Europe/Copenhagen', proxies_config=proxy_config)
+            api.login(anonymous=True)
+        except Exception:
+            self.send_error(500)
+            return
+
+        body_raw = {
+            "gsf_id": api.gsfId,
+            "ast": api.authSubToken
+        }
+        body = bytes(json.dumps(body_raw), "utf-8")
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class AuthRenewServer:
+    def __init__(self):
+        server = socketserver.TCPServer(("", 0), Handler)
+        self.port = server.server_address[1]
+        server.server_close()
+
+    def start(self):
+        with socketserver.TCPServer(("", self.port), Handler) as server:
+            print(f"serving anonymous GooglePlay credentials at port: {self.port}")
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt as e:
+                print("Received SIGINT, shutting down gracefully")
 
 def parse_details(details):
     """
@@ -69,9 +121,9 @@ def parse_details(details):
     Args:
         details: dict
     """
-    docv2 = details.docV2
+    docv2 = details.item
     url = docv2.shareUrl
-    pkg_name = docv2.docid
+    pkg_name = docv2.id
     app_name = docv2.title
     creator = docv2.creator
     description = docv2.descriptionHtml
@@ -84,11 +136,11 @@ def parse_details(details):
     developer_name = ad.developerName
     developer_email = ad.developerEmail
     developer_website = ad.developerWebsite
-    downloads = ad.numDownloads
+    downloads = ad.downloadCount
 
     ann = docv2.annotations
     privacy_policy_url = ann.privacyPolicyUrl
-    contains_ads = "contains ads" in ann.badgeForDoc
+    contains_ads = ad.installNotes == "Contains ads"
 
     offer = docv2.offer
 
@@ -122,7 +174,7 @@ def parse_details(details):
 
     version_code = ad.versionCode
     version_string = ad.versionString
-    version_date = ad.uploadDate
+    version_date = ad.infoUpdatedOn
 
     if version_string == '':
         versions = {}
@@ -172,30 +224,42 @@ class NotLoggedInError(Exception):
         return "must login before performing action"
 
 
+class Account:
+    def __init__(self, gsf_id, ast):
+        self.gsf_id = gsf_id
+        self.ast = ast
+
+
 class AuthDb:
     def __init__(self, path):
         self.conn = sqlite3.connect(path)
         cur = self.conn.cursor()
-        cur.execute("CREATE TABLE IF NOT EXISTS logins (email TEXT, ast TEXT)")
+        cur.execute("CREATE TABLE IF NOT EXISTS logins (gsfid INT, ast TEXT)")
 
-    def get_ast(self, email):
+    def get_accounts(self):
         cur = self.conn.cursor()
-        qry = f"SELECT ast FROM logins WHERE email = :email"
-        cur.execute(qry, {"email": email})
-        row = cur.fetchone()
-        if not row:
-            return None
-        return row[0]
+        qry = f"SELECT * FROM logins"
+        cur.execute(qry)
 
-    def create_ast(self, email, ast):
+        accounts = []
+        for res in cur.fetchall():
+            account = Account(res[0], res[1])
+            accounts.append(account)
+
+        return accounts
+
+    def create_account(self, account):
+        cur = self.conn.cursor()
+        qry = "INSERT INTO logins VALUES (:gsfid, :ast)"
+        cur.execute(qry, {"gsfid": account.gsf_id, "ast": account.ast})
+
+        self.conn.commit()
+
+    def delete_account(self, account):
         cur = self.conn.cursor()
         # remove all
-        qry = "DELETE FROM logins WHERE email = :email"
-        cur.execute(qry, {"email": email})
-
-        # insert new
-        qry = "INSERT INTO logins VALUES (:email, :ast)"
-        cur.execute(qry, {"email": email, "ast": ast})
+        qry = "DELETE FROM logins WHERE gsfid = (:gsfid)"
+        cur.execute(qry, {"gsfid": account.gsf_id})
 
         self.conn.commit()
 
@@ -208,107 +272,58 @@ class SSLContext(ssl.SSLContext):
         pass
 
 
-class AuthHTTPAdapter(requests.adapters.HTTPAdapter):
-    def init_poolmanager(self, *args, **kwargs):
-        """
-        Secure settings from ssl.create_default_context(), but without
-        ssl.OP_NO_TICKET which causes Google to return 403 Bad
-        Authentication.
-        """
-        context = SSLContext()
-        context.set_ciphers(_CIPHERS)
-        context.verify_mode = ssl.CERT_REQUIRED
-        context.options &= ~ssl_.OP_NO_TICKET
-        self.poolmanager = PoolManager(*args, ssl_context=context, **kwargs)
-
 
 class GooglePlaySpider(PackageListSpider):
     name = "googleplay_spider"
 
-    def __init__(self, crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=1):
+    def __init__(self, crawler, accounts_db_path, nr_anonymous_accounts, server_port, apk_enabled, lang='en_US', interval=1):
         super().__init__(crawler=crawler, settings=crawler.settings)
-        self.session = requests.session()
-        self.session.mount('https://', AuthHTTPAdapter())
 
-        if type(android_id) == int:
-            self.android_id = android_id
-        else:
-            # from hex representation to integer
-            self.android_id = int(android_id, 16)
         self.interval = interval
         self.lang = lang
-        self.auth_sub_tokens = self.get_auth_sub_tokens(accounts_db_path, accounts)
+        self.server_port = server_port
+        self.apk_enabled = apk_enabled
 
-        if len(self.auth_sub_tokens) == 0:
-            raise NotLoggedInError
+        self.nr_anonymous_accounts = nr_anonymous_accounts
+        self.open_account_renewals = 0
+        self.max_open_account_renewals = 10
+
+        self.auth_db = AuthDb(path=accounts_db_path)
+        self.accounts = self.auth_db.get_accounts()
+
+        accounts_to_create = self.nr_anonymous_accounts - len(self.accounts)
+
+        for i in range(accounts_to_create):
+            url = f"http://localhost:{self.server_port}"
+            try:
+                res = requests.post(url=url)
+
+                account = Account(res.json()['gsf_id'], res.json()['ast'])
+                self.logger.info("created new anonymous account")
+                self.auth_db.create_account(account)
+
+                self.accounts.append(account)
+            except Exception as e:
+                self.logger.info(f"failed to create a new anonymous account: {e}")
+                break
 
     @classmethod
     def from_crawler(cls, crawler):
         params = crawler.settings.get("GPLAY_PARAMS")
         interval = params.get("interval", 0.25)
 
-        android_id = params.get("android_id")
         accounts_db_path = params.get("accounts_db_path")
-        accounts = params.get("accounts")
+        nr_anonymous_accounts = params.get("nr_anonymous_accounts")
+        server_port = params.get("server_port")
 
-        return cls(crawler, android_id, accounts_db_path, accounts, lang='en_US', interval=interval)
+        spider = cls(crawler, accounts_db_path, nr_anonymous_accounts, server_port, crawler.settings.get("APK_ENABLED", True), lang='en_US', interval=interval)
 
-    # Methods for interacting with Google Play API
+        return spider
 
-    def get_auth_sub_tokens(self, db_path, accounts):
-        """
-        Returns: the sub auth tokens for a given set of accounts.
-        Fetches the sub auth tokens from a local sqlite3 database
-        """
-        self.logger.debug("getting auth sub tokens")
-
-        auth_db = AuthDb(db_path)
-
-        res = []
-        for account in accounts:
-            email = account['email']
-            password = account['password']
-
-            ast = auth_db.get_ast(email)
-            if not ast:
-                try:
-                    ast = self.login(email, password)
-                    auth_db.create_ast(email, ast)
-                except (CredsError, AuthFailedError) as e:
-                    self.logger.warn(f"failed to login Google Play user '{email}': {e}")
-                    continue
-            res.append(ast)
-        self.logger.debug(f"logged in {len(res)} / {len(accounts)} accounts")
-        return res
-
-    def login(self, email=None, password=None):
-        """
-        Logs the user in using their email address and password
-        """
-        if not (email and password):
-            raise CredsError
-        encrypted_password = encrypt_password(email, password).decode('utf-8')
-        params = get_login_params(email, encrypted_password)
-        params['service'] = 'ac2dm'
-        params['add_account'] = '1'
-        params['callerPkg'] = 'com.google.android.gms'
-        headers = get_auth_headers()
-        headers['app'] = 'com.google.android.gsm'
-        resp = self.session.post(_URL_LOGIN, data=params)
-
-        if resp.status_code == 403:
-            err_splitted = {n.split("=")[0]:"=".join(n.split("=")[1:]) for n in resp.text.split("\n")}
-            if err_splitted['Error'] == "NeedsBrowser":
-                raise AuthFailedError(f"To access your account, you must sign in on the web. Follow this link: https://accounts.google.com/b/0/DisplayUnlockCaptcha")
-
-        return None
-
-    def _get_headers(self, post_content_type=_CONTENT_TYPE_URLENC):
+    def _get_headers(self, account, post_content_type=_CONTENT_TYPE_URLENC):
         """get_head
         Return a dictionary of headers used for various requests
         """
-        ast = np.random.choice(self.auth_sub_tokens)
-
         res = {"Accept-Language": _locale.replace('_', '-'),
                "X-DFE-Encoded-Targets": _DFE_TARGETS,
                "User-Agent": _USERAGENT_SEARCH,
@@ -317,9 +332,9 @@ class GooglePlaySpider(PackageListSpider):
                "X-DFE-Network-Type": "4",
                "X-DFE-Content-Filters": "",
                "X-DFE-Request-Params": "timeoutMs=4000",
-               "Authorization": f"Bearer {ast}",
+               "Authorization": f"Bearer {account.ast}",
                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-               "X-DFE-Device-Id": f"{self.android_id:x}",
+               "X-DFE-Device-Id": f"{account.gsf_id:x}",
                "Content-Type": post_content_type,
                }
 
@@ -332,12 +347,25 @@ class GooglePlaySpider(PackageListSpider):
             yield req
 
     def base_requests(self, meta={}):
-        return [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, meta=meta)]
+        meta['download_timeout'] = 10
+        res = [scrapy.Request(_APP_LISTING_PAGE, callback=self.parse, errback=self.surpress_error, meta=meta)]
+
+        return res
+
+    def parse_account_create(self, response):
+        gsf_id = response.json()['gsf_id']
+        ast = response.json()['ast']
+        account = Account(gsf_id, ast)
+
+        self.logger.info("created new anonymous account")
+        self.auth_db.create_account(account)
+
+        self.accounts.append(account)
 
     def url_by_package(self, pkg):
         return f"https://play.google.com/store/apps/details?id={pkg}"
 
-    def _craft_details_req(self, pkg_name, meta=None):
+    def _craft_details_req(self, pkg_name, account, meta={}):
         """
         Returns a scrapy.Request for the given pkg that fetches its details from the Google Play API
         Args:
@@ -347,10 +375,12 @@ class GooglePlaySpider(PackageListSpider):
         """
         path = f"details?doc={requests.utils.quote(pkg_name)}"
         url = f"https://android.clients.google.com/fdfe/{path}"
-        headers = self._get_headers()
-        return scrapy.Request(url, headers=headers, priority=10, callback=self.parse_api_details, meta=meta)
+        headers = self._get_headers(account)
+        meta['_account'] = account
+        meta['download_timeout'] = 10
+        return scrapy.Request(url, headers=headers, priority=10, callback=self.parse_api_details, errback=self.surpress_error, meta=meta)
 
-    def _craft_purchase_req(self, pkg_name, version_code, offer_type, meta=None):
+    def _craft_purchase_req(self, pkg_name, version_code, offer_type, account, meta={}):
         """
         Returns a scrapy.Request for the given pkg that purchases the package
         Args:
@@ -362,22 +392,25 @@ class GooglePlaySpider(PackageListSpider):
         """
         url = f"https://android.clients.google.com/fdfe/purchase"
         body = f"ot={offer_type}&doc={requests.utils.quote(pkg_name)}&vc={version_code}"
-        headers = self._get_headers(post_content_type="application/x-www-form-urlencoded; charset=UTF-8")
-
+        headers = self._get_headers(account, post_content_type="application/x-www-form-urlencoded; charset=UTF-8")
+        meta['_account'] = account
+        meta['download_timeout'] = 10
         return scrapy.Request(url, method='POST', body=body, headers=headers, priority=20,
-                              callback=self.parse_api_purchase, meta=meta)
+                              callback=self.parse_api_purchase, errback=self.surpress_error, meta=meta)
 
-    def _craft_delivery_request(self, pkg_name, version_code, offer_type, dl_token, meta=None):
+    def _craft_delivery_request(self, pkg_name, version_code, offer_type, dl_token, account, meta={}):
         param_dict = {
             "ot": offer_type,
             "doc": pkg_name,
             "vc": version_code,
             "dtok": dl_token
         }
+        meta['_account'] = account
+        meta['download_timeout'] = 10
         params = urlencode(param_dict)
         url = f"{_URL_DELIVERY}?{params}"
-        headers = self._get_headers()
-        return scrapy.Request(url, headers=headers, priority=30, callback=self.parse_delivery, meta=meta)
+        headers = self._get_headers(account)
+        return scrapy.Request(url, headers=headers, priority=30, callback=self.parse_delivery, errback=self.surpress_error, meta=meta)
 
     def parse(self, response):
         """
@@ -387,27 +420,33 @@ class GooglePlaySpider(PackageListSpider):
 
         res = []
 
+        meta = response.meta
+        meta['download_timeout'] = 10
+
         # find all links to packages
         packages = np.unique(response.css("a::attr(href)").re("/store/apps/details\?id=(.*)"))
 
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page)
+            self.logger.debug(f"scheduling new package: {pkg}")
+            req = scrapy.Request(full_url, priority=1, callback=self.parse_pkg_page, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         # follow 'See more' buttons on the home page
         see_more_links = response.xpath("//a[text() = 'See more']//@href").getall()
         for link in see_more_links:
             full_url = response.urljoin(link)
-            req = scrapy.Request(full_url, callback=self.parse_similar_apps)
+            self.logger.debug(f"scheduling similar apps: {link}")
+            req = scrapy.Request(full_url, callback=self.parse_similar_apps, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         # follow categories on the home page
         category_links = response.css("#action-dropdown-children-Categories a::attr(href)").getall()
         for link in category_links:
             full_url = response.urljoin(link)
-            req = scrapy.Request(full_url, callback=self.parse)
+            self.logger.debug(f"scheduling new category: {link}")
+            req = scrapy.Request(full_url, callback=self.parse, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         return res
@@ -438,27 +477,40 @@ class GooglePlaySpider(PackageListSpider):
         m = re.search(pkg_pattern, response.url)
         if m:
             pkg = m.group(1)
-            req = self._craft_details_req(pkg)
+
+            # select account
+            if len(self.accounts) == 0:
+                raise Exception("no available accounts")
+            account = choice(self.accounts)
+
+            req = self._craft_details_req(pkg, account)
+
             req.meta['meta'] = {
                 "icon_url": icon_url,
                 "developer_address": developer_address,
             }
             req.meta["__pkg_start_time"] = response.meta['__pkg_start_time']
+            self.logger.debug(f"scheduling details request: {req.url}")
             res.append(req)
+
+        meta = response.meta
+        meta['download_timeout'] = 10
 
         # only search for apps recursively if enabled
         if self.recursive:
             # visit page of each package
             for pkg in packages:
                 full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-                req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
+                self.logger.debug(f"scheduling new package: {pkg}")
+                req = scrapy.Request(full_url, callback=self.parse_pkg_page, errback=self.surpress_error, meta=meta)
                 res.append(req)
 
             # similar apps
             similar_link = response.xpath("//a[contains(@aria-label, 'Similar')]//@href").get()
             if similar_link:
                 full_url = response.urljoin(similar_link)
-                req = scrapy.Request(full_url, callback=self.parse_similar_apps, meta=response.meta)
+                self.logger.debug(f"scheduling similar apps: {similar_link}")
+                req = scrapy.Request(full_url, callback=self.parse_similar_apps, errback=self.surpress_error, meta=meta)
                 res.append(req)
 
         return res
@@ -469,6 +521,8 @@ class GooglePlaySpider(PackageListSpider):
         Example URL: https://android.clients.google.com/fdfe/details?doc=com.whatsapp"
         """
         res = []
+
+        account = response.meta['_account']
 
         if response.status != 200:
             err_msg = ResponseWrapper.FromString(response.content).commands.displayErrorMessage
@@ -486,19 +540,25 @@ class GooglePlaySpider(PackageListSpider):
         developer_address = response.meta.get('meta', {}).get('developer_address', None)
         if developer_address:
             meta['developer_address'] = developer_address
-
         pkg_name = meta.get('pkg_name')
         offer_type = meta.get('offer_type', 1)
+
+        if not self.apk_enabled:
+            return {
+                "meta": meta,
+                "versions": versions,
+                '_account': account
+            }
+
         for version, dat in versions.items():
             version_code = dat.get("code")
-            req = self._craft_purchase_req(pkg_name, version_code, offer_type, meta={
+            req = self._craft_purchase_req(pkg_name, version_code, offer_type, account, meta={
                 'version': version,
                 "meta": meta,
                 "versions": versions,
                 '__pkg_start_time': response.meta['__pkg_start_time']
             })
             res.append(req)
-
         return res
 
     def parse_api_purchase(self, response):
@@ -507,6 +567,8 @@ class GooglePlaySpider(PackageListSpider):
         Example URL: https://android.clients.google.com/fdfe/purchase?ot=1&doc=com.whatsapp&vc=1
         """
         res = []
+
+        account = response.meta['_account']
 
         if response.status != 200:
             err_msg = ResponseWrapper.FromString(response.content).commands.displayErrorMessage
@@ -520,7 +582,7 @@ class GooglePlaySpider(PackageListSpider):
         for version, version_dict in response.meta['versions'].items():
             version_code = version_dict['code']
 
-            req = self._craft_delivery_request(pkg_name, version_code, offer_type, dl_token, meta={
+            req = self._craft_delivery_request(pkg_name, version_code, offer_type, dl_token, account, meta={
                 'version': version,
                 "meta": response.meta['meta'],
                 "versions": response.meta['versions'],
@@ -539,7 +601,9 @@ class GooglePlaySpider(PackageListSpider):
             str(dl_auth_cookie.name): str(dl_auth_cookie.value)
         }
 
-        headers = self._get_headers()
+        account = response.meta['_account']
+        headers = self._get_headers(account)
+
         version = response.meta['version']
         meta = response.meta['meta']
         versions = response.meta['versions']
@@ -557,7 +621,6 @@ class GooglePlaySpider(PackageListSpider):
             'versions': versions,
         }
 
-
     def parse_similar_apps(self, response):
         """
         Parses a page of similar apps
@@ -571,10 +634,14 @@ class GooglePlaySpider(PackageListSpider):
 
         res = []
 
+        meta = response.meta
+        meta['download_timeout'] = 10
+
         # visit page of each package
         for pkg in packages:
             full_url = f"https://play.google.com/store/apps/details?id={pkg}"
-            req = scrapy.Request(full_url, callback=self.parse_pkg_page, meta=response.meta)
+            self.logger.debug(f"scheduling new package: {pkg}")
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, errback=self.surpress_error, meta=meta)
             res.append(req)
 
         return res
@@ -591,6 +658,11 @@ class GooglePlaySpider(PackageListSpider):
             time.sleep(t)
             self.crawler.engine.unpause()
 
+    def surpress_error(self, failure):
+        if failure.check(TimeoutError, twisted.internet.error.TimeoutError, scrapy.spidermiddlewares.httperror.HttpError):
+            pass
+        else:
+            self.logger.debug(f"error: {failure}")
 
 def encrypt_password(email, passwd):
     """Encrypt credentials using the google publickey, with the

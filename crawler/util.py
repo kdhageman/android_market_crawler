@@ -25,12 +25,25 @@ def init_proxy_pool(crawler, proxies):
         PROXY_POOL = BackoffProxyPool(crawler, proxies)
 
 
+def _is_valid(proxy):
+    """
+    Test if the proxy fulfills the format:
+    """
+    if not proxy:
+        return False
+    pattern = "\d{1,3}\.\d{1,3}\.\d{1,3}.\d{1,3}:\d+"
+    return re.match(pattern, proxy)
+
+
 class BackoffProxyPool:
     def __init__(self, crawler, proxies):
         self.crawler = crawler
         self.proxies = {}
         for proxy in proxies:
-            self.proxies[proxy] = None
+            if _is_valid(proxy):
+                self.proxies[proxy] = None
+            else:
+                crawler.spider.logger.debug(f"dropping invalid proxy: {proxy}")
 
         self.use_proxies = len(proxies) > 0
         self.non_proxy_until = datetime.now()
@@ -100,17 +113,7 @@ class BackoffProxyPool:
             return Exception("should never happen!")
 
     def get_proxy_as_dict(self):
-        """
-        Returns a proxy dictionary to be used by 'request' or 'treq' library
-        """
-        proxy = self.get_proxy()
-        if not proxy:
-            return {}
-        full_url = f"http://{proxy}"
-        return {
-            "http": full_url,
-            "https": full_url
-        }
+        return get_proxy_as_dict(self.get_proxy())
 
     def backoff(self, proxy, **kwargs):
         """
@@ -129,6 +132,19 @@ class BackoffProxyPool:
             self.proxies[proxy] = until
 
 
+def get_proxy_as_dict(proxy):
+    """
+    Returns a proxy dictionary to be used by 'request' or 'treq' library
+    """
+    if not proxy:
+        return {}
+    full_url = f"http://{proxy}"
+    return {
+        "http": full_url,
+        "https": full_url
+    }
+
+
 def get_identifier(meta):
     """
     Returns the identifier of a package given its meta information.
@@ -139,12 +155,13 @@ def get_identifier(meta):
     Returns:
         str: identifier of package
     """
-    if 'pkg_name' in meta:
-        return meta['pkg_name']
-    if 'id' in meta:
-        return meta['id']
-    else:
-        raise Exception('cannot find identifier for app')
+    pkg_name = meta.get("pkg_name", None)
+    identifier = meta.get("id", None)
+    if pkg_name:
+        return pkg_name
+    if identifier:
+        return identifier
+    raise Exception('cannot find identifier for app')
 
 
 def market_from_spider(spider):

@@ -1,7 +1,5 @@
 from scrapy import signals
 from twisted.internet import task
-
-from crawler.item import Result
 from crawler.util import market_from_spider
 
 
@@ -36,27 +34,33 @@ class InfluxdbPipeline:
         for t in self.tasks:
             if t.running:
                 t.stop()
+        self.influxdb_client.close()
 
     def process_item(self, item, spider):
         market = market_from_spider(spider)
-        if isinstance(item, Result):
-            apk_count = len([0 for d in item['versions'].values() if 'file_path' in d])
-            apk_sizes = sum([d.get('file_size', 0) for d in item['versions'].values()])
-            version_count = len(item['versions'])
 
-            point = {
-                "measurement": "items",
-                "tags": {
-                    "market": market
-                },
-                "fields": {
-                    "count": 1,
-                    "apks": apk_count,
-                    "apk_sizes": apk_sizes,
-                    "versions": version_count
-                }
+        apk_successes = len([v for v in item['versions'].values() if v.get('file_success', 0) == 1])
+        apk_failures = len([v for v in item['versions'].values() if v.get('file_success', 0) == 0])
+        apk_skipped = len([v for v in item['versions'].values() if v.get('file_success', 0) == -1])
+
+        apk_sizes = sum([d.get('file_size', 0) for d in item['versions'].values()])
+        version_count = len(item['versions'])
+
+        point = {
+            "measurement": "items",
+            "tags": {
+                "market": market
+            },
+            "fields": {
+                "count": 1,
+                "apk_successes": apk_successes,
+                "apk_failures": apk_failures,
+                "apk_skipped": apk_skipped,
+                "apk_sizes": apk_sizes,
+                "versions": version_count
             }
-            self.influxdb_client.add_point(point)
+        }
+        self.influxdb_client.add_point(point)
 
         return item
 

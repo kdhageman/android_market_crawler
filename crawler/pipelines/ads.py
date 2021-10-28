@@ -1,86 +1,82 @@
 import os
+import shutil
+import tempfile
 from urllib.parse import urlparse
 
+import scrapy
 from publicsuffixlist import PublicSuffixList
-from sentry_sdk import capture_exception
-from twisted.internet import defer
+from scrapy.pipelines.files import FilesPipeline
 
-from crawler import util
-from crawler.item import Result
-from crawler.util import get_directory, HttpClient, RequestException, response_has_content_type, ContentTypeError, \
-    sha256
+from crawler.middlewares.sentry import capture
+from crawler.util import get_directory, sha256
 
 CONTENT_TYPE = "text/plain;charset=utf-8"
 
 
-class AdsPipeline:
-    @classmethod
-    def from_crawler(cls, crawler):
-        client = HttpClient(crawler)
-        return cls(
-            client=client,
-            outdir=crawler.settings.get('CRAWL_ROOTDIR')
-        )
-
-    def __init__(self, client, outdir):
-        self.client = client
-        self.outdir = outdir
+class AdsPipeline(FilesPipeline):
+    def __init__(self, settings):
+        self.tmpdir = tempfile.mkdtemp()
+        super().__init__(self.tmpdir, settings=settings)
+        self.root_dir = settings.get('CRAWL_ROOTDIR', "/tmp/crawl")
         self.psl = PublicSuffixList()
 
-    @defer.inlineCallbacks
-    def process_item(self, item, spider):
-        """
-        Fetches the /app-ads.txt and /ads.txt from the developer website of a given package
-        Example URL:
-        - http://whisperarts.com/app-ads.txt (successful)
-        - https://example.org/app-ads.txt (404 not found)
-        """
+    def close_spider(self, spider):
+        # delete temporary directory when closing spider
+        shutil.rmtree(self.tmpdir)
 
+    @classmethod
+    def from_settings(cls, settings):
+        return cls(
+            settings=settings
+        )
+
+    def get_media_requests(self, item, info):
         developer_website = item.get("meta", {}).get("developer_website", "")
         if not developer_website:
-            return item
+            return
         parsed_url = urlparse(developer_website)
         root_domain = self.psl.privatesuffix(parsed_url.hostname)
         if not root_domain:
-            return item
+            return
+        paths = ["/app-ads.txt", "/ads.txt"]
+        for path in paths:
+            url = parsed_url._replace(netloc=root_domain, path=path).geturl()
+            item['download_timeout'] = 3
+            info.spider.logger.debug(f"scheduling (app-)ads.txt from '{url}'")
+            yield scrapy.Request(url, meta=item)
 
-        # retrieve both app-ads.txt and ads.txt
-        for key, status_key, path, fname_prefix in [
-            ("app_ads_path", "app_ads_status", "/app-ads.txt", "app_ads"),
-            ("ads_path", "ads_status", "/ads.txt", "ads")
-        ]:
-            parsed_url = parsed_url._replace(netloc=root_domain, path=path)
+    def media_failed(self, failure, request, info):
+        pass
 
-            ads_txt_url = parsed_url.geturl()
-            headers = {
-                "Content-Type": CONTENT_TYPE
-            }
+    def item_completed(self, results, item, info):
+        meta_dir = get_directory(item['meta'], info.spider)
 
-            try:
-                resp = yield self.client.get(ads_txt_url, timeout=5, headers=headers, proxies=util.PROXY_POOL.get_proxy_as_dict())
-                item['meta'][status_key] = resp.code
-                if resp.code >= 400:
-                    raise RequestException
-                if not response_has_content_type(resp, "text/plain"):
-                    raise ContentTypeError
+        for success, resultdata in results:
+            if success:
+                try:
+                    path = urlparse(resultdata['url']).path
+                    if path == '/app-ads.txt':
+                        fname_prefix = 'app_ads'
+                        key = 'app_ads_path'
+                    elif path == '/ads.txt':
+                        fname_prefix = 'ads'
+                        key = 'ads_path'
+                    else:
+                        continue
 
-                meta_dir = get_directory(item['meta'], spider)
+                    tmp_filepath = os.path.join(self.tmpdir, resultdata['path'])
+                    with open(tmp_filepath, 'r') as f:
+                        content = f.read()
+                    digest = sha256(bytes(content, 'utf-8'))
 
-                content = yield resp.content()
-                digest = sha256(content)
+                    output_fname = f"{fname_prefix}.{digest}.txt"
+                    output_fpath = os.path.join(self.root_dir, meta_dir, output_fname)
 
-                fname = f"{fname_prefix}.{digest}.txt"
-                fpath = os.path.join(self.outdir, meta_dir, fname)
+                    with open(output_fpath, "wb") as f:
+                        f.write(bytes(content, 'utf-8'))
 
-                os.makedirs(os.path.dirname(fpath), exist_ok=True)  # ensure directories exist
-
-                with open(fpath, "wb") as f:
-                    f.write(content)
-
-                item['meta'][key] = fpath
-            except ContentTypeError:
-                pass
-            except Exception as e:
-                capture_exception(e)
-
-        defer.returnValue(item)
+                    os.remove(tmp_filepath)
+                    item['meta'][key] = output_fpath
+                except Exception as e:
+                    capture(exception=e)
+        return item

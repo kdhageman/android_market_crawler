@@ -4,7 +4,6 @@ from datetime import datetime
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
-from crawler.item import Result
 from crawler.util import get_directory, sha256
 
 
@@ -33,6 +32,9 @@ class DownloadIconPipeline(FilesPipeline):
         icon_url = item['meta'].get('icon_url', None)
         if icon_url:
             yield scrapy.Request(icon_url, meta={'meta': item['meta']}, priority=100)
+
+    def media_failed(self, failure, request, info):
+        pass
 
     def item_completed(self, results, item, info):
         if results:

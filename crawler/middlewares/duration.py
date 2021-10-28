@@ -8,10 +8,7 @@ def report_endtime(request, spider, exception=None):
         return
     end_time = datetime.now()
     passed = end_time - start_time
-    if exception:
-        spider.logger.debug(f"Took {passed} to process {request.url}, but resulted in an exception:\n\n{exception}")
-    else:
-        spider.logger.debug(f"Took {passed} to process {request.url}")
+    spider.logger.debug(f"Took {passed} to process {request.url}")
 
 
 class DurationMiddleware:

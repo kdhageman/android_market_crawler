@@ -5,8 +5,8 @@ import tempfile
 import unittest
 
 from pytest_httpserver import HTTPServer
+from twisted.internet.defer import inlineCallbacks
 
-from crawler.item import Result
 from crawler.pipelines.download_apks import DownloadApksPipeline
 from crawler.util import TestSpider
 
@@ -15,8 +15,15 @@ class TestDownloadPipeline(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
 
+    @inlineCallbacks
     def test_process_item(self):
-        p = DownloadApksPipeline(self.tmpdir)
+        settings = {
+            'CRAWL_ROOTDIR': self.tmpdir
+        }
+        p = DownloadApksPipeline(settings)
+
+        spider = TestSpider()
+        p.open_spider(spider)
 
         # process item
         with HTTPServer() as server:
@@ -25,27 +32,22 @@ class TestDownloadPipeline(unittest.TestCase):
 
             version = "1.0.0"
             pkg_name = "com.example.test"
-
             meta = dict(
                 version=version,
                 pkg_name=pkg_name
             )
-
             versions = {
                 version: {
                     "timestamp": 0,
                     "download_url": server.url_for("/test")
                 }
             }
-
-            item = Result(
+            item = dict(
                 meta=meta,
                 versions=versions
             )
 
-            spider = TestSpider()
-
-            p.process_item(item, spider)
+            _ = yield p.process_item(item, spider)
 
         # check for written file
         fname = f"{version}.apk"
@@ -55,6 +57,7 @@ class TestDownloadPipeline(unittest.TestCase):
         with open(fpath, 'r') as f:
             content = f.read()
             self.assertEqual(json.loads(content), data)
+        print("Test done!")
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)

@@ -1,7 +1,6 @@
 import scrapy
 import re
 
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating, PackageListSpider
 
 pkg_pattern = "http://app\.mi\.com/details\?id=(.*)"
@@ -98,7 +97,7 @@ class MiSpider(PackageListSpider):
             download_url=full_url
         )
 
-        res = [Result(
+        res = [dict(
             meta=meta,
             versions=versions
         )]

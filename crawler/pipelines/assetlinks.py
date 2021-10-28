@@ -1,65 +1,70 @@
 import json
-from json import JSONDecodeError
+import os
+import shutil
+import tempfile
+from urllib.parse import urlparse
 
-from sentry_sdk import capture_exception
-from twisted.internet import defer
-
-from crawler import util
-from crawler.item import Result
-from crawler.util import HttpClient, RequestException, response_has_content_type
+import scrapy
+from scrapy.pipelines.files import FilesPipeline
 
 
-class AssetLinksPipeline:
+class AssetLinksPipeline(FilesPipeline):
     """
     Download /.well-known/assetlink.json
     """
 
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, settings):
+        self.tmpdir = tempfile.mkdtemp()
+        super().__init__(self.tmpdir, settings=settings)
+
         self.seen = {}
 
+    def close_spider(self, spider):
+        # delete temporary directory when closing spider
+        shutil.rmtree(self.tmpdir)
+
     @classmethod
-    def from_crawler(cls, crawler):
-        client = HttpClient(crawler)
-        return cls(client)
+    def from_settings(cls, settings):
+        return cls(
+            settings=settings
+        )
 
-    @defer.inlineCallbacks
-    def process_item(self, item, spider):
-        """
-        Fetches the assetlink.json from the domains extracted from the Manifest.xml from the .apk.
-        Example URL:
-        - https://money.yandex.ru/.well-known/assetlinks.json (successful)
-        - https://example.org/.well-known/assetlinks.json (404 not found)
-        - https://{domain}/.well-known/assetlinks.json (wrong response type) # TODO: find an example link that returns the wrong response type
-        """
-
+    def get_media_requests(self, item, info):
         for version, dat in item['versions'].items():
             for domain in dat.get("analysis", {}).get("assetlink_domains", {}):
-                status = 0
-                try:
-                    al = self.seen[domain]
-                except KeyError:
-                    try:
+                if domain not in self.seen:
+                    if len(domain.split(".")) > 1:
                         url = f"https://{domain}/.well-known/assetlinks.json"
-                        resp = yield self.client.get(url, timeout=5, proxies=util.PROXY_POOL.get_proxy_as_dict())
-                        status = resp.code
-                        if status >= 400:
-                            raise RequestException
+                        item['download_timeout'] = 3
+                        info.spider.logger.debug(f"scheduling asset links from '{url}'")
+                        yield scrapy.Request(url, meta=item)
+                    else:
+                        info.spider.logger.debug(f"ignoring assetlink domain '{domain}' because it appears to be invalid")
 
-                        if not response_has_content_type(resp, "application/json"):
-                            continue
-                        txt = yield resp.text()
-                        al = parse_result(txt)
-                        self.seen[domain] = al
-                    except JSONDecodeError:
-                        continue
-                    except Exception as e:
-                        capture_exception(e)
-                        continue
+    def media_failed(self, failure, request, info):
+        pass
+
+    def item_completed(self, results, item, info):
+        for success, resultdata in results:
+            if success:
+                try:
+                    domain = urlparse(resultdata['url']).hostname
+                    fpath = os.path.join(self.tmpdir, resultdata['path'])
+                    with open(fpath, 'r') as f:
+                        file_content = f.read()
+                        self.seen[domain] = parse_result(file_content)
+                    os.remove(fpath)
+                except Exception as e:
+                    info.spider.logger.warn(f"failed to extract assetlinks from file: {e}")
+
+        for version, dat in item['versions'].items():
+            for domain in dat.get("analysis", {}).get("assetlink_domains", {}).keys():
+                al = self.seen.get(domain, None)
                 dat['analysis']['assetlink_domains'][domain] = al
-                dat['analysis']['assetlink_status'][domain] = status
+                if al:
+                    dat['analysis']['assetlink_status'][domain] = 200
             item['versions'][version] = dat
-        defer.returnValue(item)
+        return item
 
 
 def parse_result(raw):

@@ -2,7 +2,6 @@ import re
 
 import scrapy
 
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 identifier_pattern = "http:\/\/www\.9game\.com\/(.*)\.html.*"
@@ -71,7 +70,7 @@ class NineGameSpider(scrapy.Spider):
             )
         )
 
-        res.append(Result(
+        res.append(dict(
             meta=meta,
             versions=versions
         ))

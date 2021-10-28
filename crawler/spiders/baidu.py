@@ -2,7 +2,6 @@ import re
 
 import scrapy
 
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 version_pattern = '版本: (.*)'
@@ -13,8 +12,13 @@ class BaiduSpider(scrapy.Spider):
     name = "baidu_spider"
 
     def start_requests(self):
-        yield scrapy.Request('https://shouji.baidu.com/', self.parse)
-        yield scrapy.Request('https://shouji.baidu.com/rank/top/', self.parse_top_page)
+        url = "https://shouji.baidu.com/"
+        self.logger.debug(f"scheduling new starting URL: {url}")
+        yield scrapy.Request(url, self.parse)
+
+        url = 'https://shouji.baidu.com/rank/top/'
+        self.logger.debug(f"scheduling new starting URL: {url}")
+        yield scrapy.Request(url, self.parse_top_page)
 
     def parse(self, response):
         """
@@ -25,7 +29,10 @@ class BaiduSpider(scrapy.Spider):
             response: scrapy.Response
         """
         for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
-            yield response.follow(pkg_link, callback=self.parse_pkg_page, priority=2)
+            self.logger.debug(f"scheduling new app URL: {pkg_link}")
+            full_url = response.urljoin(pkg_link)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, priority=2)
+            yield req
 
     def parse_top_page(self, response):
         """
@@ -34,14 +41,24 @@ class BaiduSpider(scrapy.Spider):
         Args:
             response: scrapy.Response
         """
+        res = []
+
         # visit all apps
         for pkg_link in response.css("div.sec-app a.app-box::attr(href)").getall():
-            yield response.follow(pkg_link, callback=self.parse_pkg_page, priority=2)
+            self.logger.debug(f"scheduling new app URL: {pkg_link}")
+            full_url = response.urljoin(pkg_link)
+            req = scrapy.Request(full_url, callback=self.parse_pkg_page, priority=2)
+            res.append(req)
 
         # follow pagination
         next_page = response.css("li.next a::attr(href)").get()
         if next_page:
-            yield response.follow(next_page, self.parse_top_page)
+            self.logger.debug(f"scheduling new top page: {next_page}")
+            full_url = response.urljoin(next_page)
+            req = scrapy.Request(full_url, callback=self.parse_top_page)
+            res.append(req)
+
+        return req
 
     def parse_pkg_page(self, response):
         """
@@ -60,9 +77,9 @@ class BaiduSpider(scrapy.Spider):
         if not meta['app_name']:
             # we found a non-existing app page
             return
-        meta['app_description'] = "\n".join(
-            yui3.css("div.section-container.introduction div.brief-long p::text").getall())
+        meta['app_description'] = "\n".join(yui3.css("div.section-container.introduction div.brief-long p::text").getall())
 
+        # increment internal identifier by one
         m = re.search(id_pattern, response.url)
         if m:
             type = m.group(1)
@@ -71,6 +88,8 @@ class BaiduSpider(scrapy.Spider):
             pkg_url = f"https://shouji.baidu.com/{type}/{id+1}.html"
             req = scrapy.Request(pkg_url, callback=self.parse_pkg_page, priority=1)
             res.append(req)
+        else:
+            self.logger.debug(f"failed to identify the identifier for '{response.request.url}'")
 
         meta['downloads'] = response.css("span.download-num::text").re("下载次数: (.*)")[0]
 
@@ -92,7 +111,10 @@ class BaiduSpider(scrapy.Spider):
                 download_url=dl_link
             )
 
-        res.append(Result(meta=meta,versions=versions))
+        res.append(dict(
+            meta=meta,
+            versions=versions
+        ))
 
         # apps you might like
         for pkg_link in response.css("div.sec-favourite a.app-box::attr(href)").getall():

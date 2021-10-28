@@ -4,8 +4,6 @@ import numpy as np
 from androguard.core.bytecodes.apk import APK
 from sentry_sdk import capture_exception
 
-from crawler.item import Result
-
 _namespaces = {
     'android': 'http://schemas.android.com/apk/res/android'
 }
@@ -25,6 +23,7 @@ def except_default(default_val):
 
         return func
     return wrapped
+
 
 class AnalyzeApkPipeline:
     def process_item(self, item, spider):

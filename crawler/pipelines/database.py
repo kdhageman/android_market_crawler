@@ -1,11 +1,8 @@
 import json
 import os
 from datetime import datetime
-
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
-
-from crawler.item import Result
 
 _version_table = "versions"
 
@@ -186,16 +183,21 @@ class PreDownloadVersionPipeline(DatabasePipeline):
             # if version exists, skip downloading it
             existing_sha, existing_meta = self.version_exists(pkg_name, identifier, version, market)
             if existing_sha:
-                spider.logger.info(f"seen version '{version}' of '{pkg_name if pkg_name else identifier}' before")
+                spider.logger.info(f"seen APK of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
                 path = self.path_by_sha(existing_sha)
                 dat['skip'] = True  # marks that downloading is being skipped in other pipelines
                 dat['file_sha256'] = existing_sha
                 dat['file_path'] = path
+            else:
+                spider.logger.debug(f"unseen APK of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
             if existing_meta:
+                spider.logger.info(f"seen analysis of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
                 existing_analysis = existing_meta['versions'].get(version, {}).get('analysis', None)
                 if existing_analysis:
                     dat['analysis'] = existing_analysis
                 meta['pkg_name'] = existing_meta['meta'].get('pkg_name', None)
+            else:
+                spider.logger.debug(f"unseen analysis of version '{version}' of '{pkg_name if pkg_name else identifier}' before")
             versions[version] = dat
 
         item['versions'] = versions

@@ -1,7 +1,4 @@
 import scrapy
-import re
-
-from crawler.item import Result
 from crawler.spiders.util import normalize_rating
 
 dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"
@@ -10,8 +7,22 @@ dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"
 class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
 
+    def __init__(self, crawler, start_page=1):
+        super().__init__(crawler=crawler, settings=crawler.settings)
+        self.start_page = start_page
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        apkmirror_params = crawler.settings.get("APKMIRROR_PARAMS", {})
+        start_page = apkmirror_params.get('start_page', 1)
+        return cls(crawler, start_page)
+
     def start_requests(self):
-        yield scrapy.Request('https://www.apkmirror.com/', callback=self.parse)
+        pages = 8813  # can be changed manually
+        for page_nr in range(self.start_page, pages):
+            url = f"https://www.apkmirror.com/uploads/page/{page_nr}/"
+            self.logger.debug(f"scheduled new pagination page: {url}")
+            yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         """
@@ -25,15 +36,9 @@ class ApkMirrorSpider(scrapy.Spider):
         res = []
         # links to packages
         for link in response.css("a.fontBlack::attr(href)").getall():
+            self.logger.debug(f"scheduled new package page: {link}")
             next_page = response.urljoin(link)  # build absolute URL based on relative link
-            req = scrapy.Request(next_page, callback=self.parse_pkg_page)  # add URL to set of URLs to crawl
-            res.append(req)
-
-        # follow pagination
-        a_to_next = response.css("a.nextpostslink::attr(href)").get()
-        if a_to_next:
-            next_page = response.urljoin(a_to_next)
-            req = scrapy.Request(next_page, callback=self.parse)  # add URL to set of URLs to crawl
+            req = scrapy.Request(next_page, callback=self.parse_pkg_page, priority=1)  # add URL to set of URLs to crawl
             res.append(req)
 
         return res
@@ -52,27 +57,30 @@ class ApkMirrorSpider(scrapy.Spider):
         if variant_link:
             full_link = response.urljoin(variant_link)
             # give higher priority to package download pages
-            req = scrapy.Request(full_link, callback=self.parse_download_page, priority=1)
+            self.logger.debug(f"scheduled new variant page: {variant_link}")
+            req = scrapy.Request(full_link, callback=self.parse_variant_page, priority=2)
             res.append(req)
 
-        list_of_other_versions = response.xpath("//div[@class='listWidget' and .//div[@class='widgetHeader' and (contains(text(), 'All Releases ') or contains(text(), 'All versions '))]]")
+        # khageman 01-10-2021: disable downloading any versions
 
-        # find all version links, list with 'All Versions ' or 'All Releases ' header
-        for version_link in list_of_other_versions.xpath(".//div[@class='appRow']//a[@class='fontBlack']//@href").getall():
-            full_link = response.urljoin(version_link)
-            req = scrapy.Request(full_link, callback=self.parse_versions_page)
-            res.append(req)
-
-        # find 'more versions' link
-        versions_page = list_of_other_versions.xpath(".//div[contains(@class, 'center')]//@href").get()
-        if versions_page:
-            full_link = response.urljoin(versions_page)
-            req = scrapy.Request(full_link, callback=self.parse_versions_page)
-            res.append(req)
+        # list_of_other_versions = response.xpath("//div[@class='listWidget' and .//div[@class='widgetHeader' and (contains(text(), 'All Releases ') or contains(text(), 'All versions '))]]")
+        #
+        # # find all version links, list with 'All Versions ' or 'All Releases ' header
+        # for version_link in list_of_other_versions.xpath(".//div[@class='appRow']//a[@class='fontBlack']//@href").getall():
+        #     full_link = response.urljoin(version_link)
+        #     req = scrapy.Request(full_link, callback=self.parse_versions_page)
+        #     res.append(req)
+        #
+        # # find 'more versions' link
+        # versions_page = list_of_other_versions.xpath(".//div[contains(@class, 'center')]//@href").get()
+        # if versions_page:
+        #     full_link = response.urljoin(versions_page)
+        #     req = scrapy.Request(full_link, callback=self.parse_versions_page)
+        #     res.append(req)
 
         return res
 
-    def parse_download_page(self, response):
+    def parse_variant_page(self, response):
         """
         Parses the page with an app's download link
         Example URL: https://www.apkmirror.com/apk/bgnmobi/dns-changer-no-root-3g-wifi/dns-changer-no-root-3g-wifi-1136r-release/dns-changer-no-root-3g-wifi-1136r-android-apk-download/
@@ -85,10 +93,25 @@ class ApkMirrorSpider(scrapy.Spider):
             url=response.url
         )
 
-        header = response.css("div.site-header-contents")
+        breadcrumbs = response.css("div.breadcrumbs > a.withoutripple::text").getall()
+        try:
+            developer_name = breadcrumbs[0]
+        except:
+            developer_name = "undefined"
 
-        meta['developer_name'] = header.css("h3 a::text").get()
-        meta['app_name'] = header.css("h1::text").get()
+        try:
+            app_name = breadcrumbs[1]
+        except:
+            app_name = "undefined"
+
+        try:
+            version = breadcrumbs[2]
+        except:
+            version = "undefined"
+
+        meta['developer_name'] = developer_name
+        meta['app_name'] = app_name
+
         meta['app_description'] = "\n".join(response.css("#description.tab-pane div.notes *::text").getall()).strip()
 
         appspecs = response.css("#file div.appspec-row div.appspec-value")
@@ -115,37 +138,26 @@ class ApkMirrorSpider(scrapy.Spider):
         icon_url_rel = response.css("div.siteTitleBar img::attr(src)").get()
         meta['icon_url'] = response.urljoin(icon_url_rel)
 
-        # find download link
-        versions = dict()
         date = appspecs[-1].css("span::text").get()
-        m = appspecs[0].css("::text")[0].re("Version: (.*)")
-        version = m[0] if m else "undefined"
+
+        # find download link
         dl_link = response.css("a.downloadButton::attr(href)").get()
         dl_link_full = response.urljoin(dl_link)
 
-        versions[version] = dict(
-            timestamp=date,
-            download_url=dl_link_full
-        )
+        versions = {
+            version: {
+                "timestamp": date,
+            }
+        }
 
-        res = []
-
-        if re.search(dl_link_pattern, dl_link):
-            # in case this regex matches, the actual download link has been found
-            # otherwise, we must visit another nested download page first, before yielding the Meta response
-            res.append(Result(
-                meta=meta,
-                versions=versions
-            ))
-        else:
-            req = response.follow(dl_link, callback=self.download_url_from_button, meta=dict(meta=meta, versions=versions))
-            res.append(req)
-
-        return res
+        self.logger.debug(f"scheduled download link: {dl_link}")
+        req = scrapy.Request(dl_link_full, callback=self.download_url_from_button, priority=10, meta=dict(meta=meta, versions=versions))
+        return req
 
     def download_url_from_button(self, response):
         """
         Obtains the true download URL from the button on the page
+        Example URL: https://www.apkmirror.com/apk/ee/my-ee/my-ee-4-58-0-release/my-ee-4-58-0-android-apk-download/download/
         Args:
             response:
 
@@ -155,14 +167,14 @@ class ApkMirrorSpider(scrapy.Spider):
         meta = response.meta['meta']
         versions = response.meta['versions']
 
-        dl_url = response.xpath("//a[@rel = 'nofollow']/@href").get()
-        for version, d in versions.items():
-            if d['download_url'] == response.url:
-                d['download_url'] = response.urljoin(dl_url)
-                versions[version] = d
-                break
+        dl_path = response.css("a[rel='nofollow'][data-google-vignette=false]::attr('href')").get()
+        dl_url = response.urljoin(dl_path)
 
-        return Result(
+        for version in versions.keys():
+            versions[version]['download_url'] = dl_url
+            break
+
+        return dict(
             meta=meta,
             versions=versions
         )

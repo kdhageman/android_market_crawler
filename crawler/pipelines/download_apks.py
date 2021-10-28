@@ -2,7 +2,7 @@ import os
 import scrapy
 from scrapy.pipelines.files import FilesPipeline
 
-from crawler.item import Result
+from crawler.middlewares.sentry import capture, _response_tags
 
 try:
     from cStringIO import StringIO as BytesIO
@@ -33,7 +33,7 @@ class DownloadApksPipeline(FilesPipeline):
             settings=settings
         )
 
-    def file_path(self, request, response=None, info=None):
+    def file_path(self, request, response=None, info=None, *, item=None):
         item = request.meta
         dir = get_directory(item['meta'], info.spider)
         version = item['version']
@@ -55,6 +55,13 @@ class DownloadApksPipeline(FilesPipeline):
                 info.spider.logger.debug(f"scheduling download for '{identifier}' from '{download_url}'")
                 yield scrapy.Request(download_url, headers=headers, cookies=cookies, meta={'meta': item['meta'], 'version': version}, priority=100)
 
+    def media_failed(self, failure, request, info):
+        """Handler for failed downloads"""
+        info.spider.logger.debug(f"failed to download from '{request.url}': {failure}")
+        tags = _response_tags(request, info.spider)
+        capture(exception=failure, tags=tags)
+        return super().media_failed(self, failure, request, info)
+
     def item_completed(self, results, item, info):
         identifier = get_identifier(item['meta'])
 
@@ -73,19 +80,21 @@ class DownloadApksPipeline(FilesPipeline):
 
             if success:  # True if download successful
                 src_path = os.path.join(self.root_dir, resultdata['path'])
-                with open(src_path, 'rb') as f:
-                    digest = sha256(f)
+                if os.path.exists(src_path):
+                    with open(src_path, 'rb') as f:
+                        digest = sha256(f)
 
-                # move file to the correct location, based on its hash
-                dst_path = os.path.join(self.dst_dir, f"{digest}.apk")
-                os.rename(src_path, dst_path)
+                    # move file to the correct location, based on its hash
+                    dst_path = os.path.join(self.dst_dir, f"{digest}.apk")
+                    os.rename(src_path, dst_path)
 
-                values['file_path'] = dst_path
-                values['file_md5'] = resultdata['checksum']
-                values['file_size'] = os.path.getsize(dst_path)
-                values['file_sha256'] = digest
-            else:
-                info.spider.logger.debug(f"failed to download APK for '{identifier}'")
+                    values['file_path'] = dst_path
+                    values['file_md5'] = resultdata['checksum']
+                    values['file_size'] = os.path.getsize(dst_path)
+                    values['file_sha256'] = digest
+                else:
+                    # download successful, but the file does not exist
+                    info.spider.logger.debug(f"failed to store downloaded APK for '{identifier}' to '{src_path}'")
             item['versions'][version] = values
 
         return item
