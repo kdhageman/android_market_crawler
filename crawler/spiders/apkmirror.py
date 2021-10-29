@@ -6,6 +6,16 @@ from crawler.spiders.util import normalize_rating
 
 dl_link_pattern = "\/wp-content\/themes\/APKMirror\/download\.php\?id=(.*)"
 
+script = """
+function main(splash, args)
+    assert(splash:go(splash.args.url))
+    while not splash:select('.paged') do
+        splash:wait(0.1)
+    end
+    return {html=splash:html()}
+end
+"""
+
 
 class ApkMirrorSpider(scrapy.Spider):
     name = "apkmirror_spider"
@@ -29,7 +39,8 @@ class ApkMirrorSpider(scrapy.Spider):
             url = f"https://www.apkmirror.com/uploads/page/{page_nr}/"
             self.logger.debug(f"scheduled new pagination page: {url}")
             yield SplashRequest(url, callback=self.parse, args={
-                'wait': 1,
+                'lua_source': script,
+                'wait': 5,
             })
 
     def parse(self, response):
