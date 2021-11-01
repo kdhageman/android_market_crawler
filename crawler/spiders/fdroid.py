@@ -100,26 +100,19 @@ class FDroidSpider(PackageListSpider):
         versions = dict()
 
         # get website
-        # TODO: this is ugly, improve!
-        developer_website = None
-        links = response.css("ul.package-links > .package-link > a")
-        for link in links:
-            text = link.css("a::text").get()
-            if text == 'Website':
-                developer_website = link.css("a::attr('href')").get().strip()
-        meta['developer_website'] = developer_website
+        meta['developer_website'] = response.xpath("//a[contains(.//text(), 'Website')]/@href").get()
 
         # get developer name + email address
         developer_name = None
         developer_email = None
-        developer_el = response.css("ul.package-links > div.package-link")
+        developer_el = response.xpath("//li[contains(.//text(), 'Author')]")
         if developer_el:
-            matched_emails = developer_el.css("a::attr('href')").re("mailto:(.*)\?")
-            if matched_emails:
-                developer_email = matched_emails[0].strip()
-            developer_texts = developer_el.css("::text").getall()
-            if len(developer_texts) == 3:
-                developer_name = developer_texts[1].strip()
+            developer_emails = developer_el.xpath(".//@href").re("mailto:(.*)\?")
+            if len(developer_emails) > 0:
+                developer_email = developer_emails[0]
+            developer_el_texts = developer_el.css("::text")
+            if len(developer_el_texts) == 3:
+                developer_name = developer_el.css("::text")[1].get().strip()
         meta['developer_email'] = developer_email
         if developer_email != developer_name:
             meta['developer_name'] = developer_name
