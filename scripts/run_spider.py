@@ -301,12 +301,8 @@ def main(config, spidername, logdir):
     process.start()  # the script will block here until the crawling is finished
 
     if spider == GooglePlaySpider:
-        print("killing server process..")
         server_process.terminate()
-        print("killed server process!")
-        print("joining server process..")
         server_process.join(timeout=0.1)
-        print("joined server process!")
 
 
 class ItemMessageFilter(logging.Filter):

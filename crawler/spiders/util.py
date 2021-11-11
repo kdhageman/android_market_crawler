@@ -52,11 +52,13 @@ class PackageListSpider(scrapy.Spider):
             self.logger.debug("retrieving from package files")
             pkg_files = self.settings.get("PACKAGE_FILES", [])
             for pkg_file in pkg_files:
-
+                self.logger.debug(f"fetching packages from '{pkg_file}'")
                 with open(pkg_file, 'r') as f:
                     line = f.readline()
                     while line:
-                        url = self.url_by_package(line.strip())
+                        pkg = line.strip()
+                        self.logger.debug(f"- '{pkg}'")
+                        url = self.url_by_package(pkg)
                         yield scrapy.Request(url, priority=-1, callback=self.parse_pkg_page, meta=meta)
                         line = f.readline()
         else:
