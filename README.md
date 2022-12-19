@@ -1,4 +1,4 @@
-# PyStoreCrawler
+# Android market crawler 
 A crawler that retrieves Android application meta-data and APK files from a selection of markets.
 Based on the Scrapy framework.
 
@@ -7,6 +7,7 @@ Requirements:
 - Python 3.6+ (tested with 3.7.3)
 
 ##### Configuration
+Due to constant updates to individual markets, we do not provide guarantees that the tool is working properly at all times.
 As of now, the login functionality for the Google Playstore is not properly implemented.
 As such, you must rely on another tool, such as [this](https://gitlab.com/marzzzello/playstoreapi) to obtain an authentication sub token.
 
@@ -42,10 +43,14 @@ optional arguments:
                         Path to file of proxy addresses
   
 ```
-Alternatively, you can run all spiders as separate processes by running `./run_all.sh`.
+Alternatively, you can run all spiders as separate processes by running `./scripts/run_all.sh`.
+
+##### Monitoring
+The crawler support [InfluxDB](https://www.influxdata.com/) and [Sentry](https://sentry.io/welcome/) for monitoring the progress and error reporting respectively.
+See the example configuration for the required information
 
 ##### Splash  
-To enable Splash, run a Splash instance (recommended using Docker), and set the correct `pystorecrawler` configuration options, before running the tool.   
+To enable [Splash](https://github.com/scrapinghub/splash), run a Splash instance (recommended using Docker), and set the correct `android_market_crawler` configuration options, before running the tool.   
 
 ##### NOTE
 Right now, the `idna` library used by `Twisted` is too strict in handling internationalized domain names (IDNs), i.e. is too generous in raising errors.
